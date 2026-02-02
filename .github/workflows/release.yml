@@ -1,0 +1,152 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - os: linux
+            arch: arm64
+            runner: ubuntu-latest
+            goos: linux
+            goarch: arm64
+          - os: darwin
+            arch: amd64
+            runner: macos-latest
+            goos: darwin
+            goarch: amd64
+          - os: darwin
+            arch: arm64
+            runner: macos-latest
+            goos: darwin
+            goarch: arm64
+          - os: windows
+            arch: amd64
+            runner: windows-latest
+            goos: windows
+            goarch: amd64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          EXT=""
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            EXT=".exe"
+          fi
+          go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o hecate-tui${EXT} ./cmd/hecate-tui
+        shell: bash
+
+      - name: Create archive (Unix)
+        if: matrix.os != 'windows'
+        run: |
+          tar -czf hecate-tui-${{ matrix.os }}-${{ matrix.arch }}.tar.gz hecate-tui
+
+      - name: Create archive (Windows)
+        if: matrix.os == 'windows'
+        run: |
+          7z a hecate-tui-${{ matrix.os }}-${{ matrix.arch }}.zip hecate-tui.exe
+
+      - name: Upload artifact (Unix)
+        if: matrix.os != 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hecate-tui-${{ matrix.os }}-${{ matrix.arch }}
+          path: hecate-tui-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+
+      - name: Upload artifact (Windows)
+        if: matrix.os == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hecate-tui-${{ matrix.os }}-${{ matrix.arch }}
+          path: hecate-tui-${{ matrix.os }}-${{ matrix.arch }}.zip
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: ls -R artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/**/*.tar.gz
+            artifacts/**/*.zip
+          body: |
+            ## hecate-tui ${{ github.ref_name }}
+
+            Terminal UI for monitoring Macula Hecate daemon.
+
+            ### Installation
+
+            **Linux (amd64):**
+            ```bash
+            curl -L https://github.com/macula-io/macula-hecate-tui/releases/download/${{ github.ref_name }}/hecate-tui-linux-amd64.tar.gz | tar xz
+            sudo mv hecate-tui /usr/local/bin/
+            ```
+
+            **macOS (arm64):**
+            ```bash
+            curl -L https://github.com/macula-io/macula-hecate-tui/releases/download/${{ github.ref_name }}/hecate-tui-darwin-arm64.tar.gz | tar xz
+            sudo mv hecate-tui /usr/local/bin/
+            ```
+
+            **Windows:**
+            Download `hecate-tui-windows-amd64.zip` and extract to your PATH.
+
+            ### Usage
+
+            ```bash
+            # Connect to hecate daemon on localhost:4444
+            hecate-tui
+
+            # Connect to different host
+            HECATE_URL=http://192.168.1.100:4444 hecate-tui
+            ```
+
+            ### Documentation
+
+            - [README](https://github.com/macula-io/macula-hecate-tui/blob/main/README.md)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
