@@ -14,56 +14,72 @@
 
 ---
 
-## Context
+## Priority
 
-The TUI is evolving from a monitoring tool into **Hecate Studio** — a full development environment for building Macula services.
+**Minimal TUI for pairing flow.** Full Studio UX comes later.
 
-**Read the plan:** `plans/PLAN_HECATE_STUDIO_UX.md`
-
-This defines seven views:
-1. Social — Local/Remote services, agents
-2. Discover — AI-assisted gap analysis
-3. Architect — Cartwheel scaffolding
-4. Implement — Guided coding
-5. Deploy — Pre-flight and mesh deployment
-6. Coach — Agent training, doctrine enforcement
-7. Identity — Profile, pairing, daemon status, settings
+The pairing UX lives here. Daemon provides the API, TUI provides the experience.
 
 ---
 
 ## Active Tasks
 
-### HIGH: Review PLAN_HECATE_STUDIO_UX.md
+### HIGH: Minimal Pairing UI
 
-Read the plan carefully. Understand the vision.
+Before the full Studio vision, we need basic pairing to work.
+
+**Pairing Flow:**
+1. TUI starts, calls `GET /api/identity` on daemon
+2. If unpaired → show pairing screen
+3. Call `POST /api/pairing/start` → get session_id, code, URL
+4. Display QR code (URL encoded) and confirmation code
+5. Poll `GET /api/pairing/status` every 2 seconds
+6. On success → show "Paired!" and transition to main view
+7. On timeout/cancel → show error, offer retry
+
+**Minimal UI needed:**
+- Identity/status check on startup
+- Pairing screen with QR and code display
+- Polling indicator
+- Success/error states
 
 Report in RESPONSES.md:
-- Questions or clarifications needed
-- Technical concerns
-- Suggested changes
+- Can current TUI display QR codes? (terminal QR library?)
+- What daemon API endpoints exist vs needed?
+- Proposed implementation approach
 
-### MEDIUM: Assess Current State
+### MEDIUM: Identity View (Basic)
 
-Compare current TUI implementation against the plan.
+After pairing works, flesh out Identity view:
+- Agent MRI and profile
+- Pairing status (which realm, when)
+- Daemon status (running, version, uptime)
+- Re-pair / unpair actions
 
-What exists? What's missing? What needs refactoring?
+### LOW: Review Studio UX Plan
 
-Create a gap analysis in RESPONSES.md.
+Read `plans/PLAN_HECATE_STUDIO_UX.md` for the full vision.
 
-### LOW: Propose Phase 1 Implementation
+This is where we're headed, but pairing comes first.
 
-Based on the plan's Phase 1 (Foundation):
-- Navigation framework (7 tabs)
-- Identity view (daemon status, basic profile)
-- Social view — Local services list and detail
+---
 
-Propose specific implementation steps.
+## Dependency Note
+
+**Pairing requires daemon API.** The TUI calls the daemon at :4444.
+
+Coordinate with `hecate-daemon/.hecate/QUEUE.md` for the API side.
+
+**Realm must also be ready.** The pairing flow calls realm endpoints:
+- `POST /api/v1/pairing/sessions` (create)
+- `GET /api/v1/pairing/sessions/:id` (poll)
+- Web UI at `/pair/:session_id` (user confirms)
 
 ---
 
 ## Completed Tasks
 
-*(none yet for Studio vision)*
+*(Pairing is first priority)*
 
 ---
 
