@@ -375,6 +375,96 @@ Each view maintains its own state. Navigation preserves state within session.
 
 ---
 
+## Coach Architecture: Rules-First, AI-Optional
+
+### Key Distinction
+
+**Macula Agents/Services are NOT AI-powered.** They are traditional business process services — deterministic, testable, reliable. Weather forecasting, data aggregation, payment processing, whatever. No LLM in the runtime.
+
+**LLMs are development tools**, not runtime dependencies. We use AI to:
+- Generate code scaffolding
+- Write documentation
+- Create SVG diagrams
+- Explain architecture concepts
+
+The services themselves are pure business logic.
+
+### Coach Implementation
+
+The Coach enforces Cartwheel doctrine. Most of this is **rule-based, not AI-powered**:
+
+| Function | Implementation | LLM Required |
+|----------|----------------|--------------|
+| Detect violations | Pattern matching on paths/content | No |
+| Identify `services/`, `helpers/`, `utils/` | Regex on directory names | No |
+| Catch central supervisors | AST analysis or naming patterns | No |
+| Generate correction message | Templated responses | No |
+| Cartwheel scaffolding | Code templates with variable substitution | No |
+| Explain "why is this wrong?" | Small local model OR curated FAQ | Optional |
+| Dynamic code generation | Larger model helps | Optional |
+| Documentation generation | Model-assisted | Optional |
+
+### Rules Engine (Core)
+
+The Coach core is a rules engine:
+
+```
+Rule: horizontal_directory
+Match: path contains /services/ OR /helpers/ OR /utils/ OR /handlers/
+Action: alert "Horizontal directory detected. Each {type} belongs to its domain."
+
+Rule: central_supervisor
+Match: filename matches *_listeners_sup.erl OR *_handlers_sup.erl
+Action: alert "Central supervisor detected. Each domain supervises its own."
+
+Rule: crud_event
+Match: event name contains _created OR _updated OR _deleted
+Action: alert "CRUD event detected. Use business-meaningful event names."
+```
+
+No LLM needed. Pure pattern matching.
+
+### Optional AI Integration
+
+For users who want AI-enhanced guidance:
+
+**Supported providers (user brings their own):**
+- Ollama (local, free)
+- Anthropic API (Claude)
+- OpenAI API (GPT)
+- Any OpenAI-compatible endpoint
+
+**Use cases:**
+- Richer explanations of violations
+- Code generation beyond templates
+- Documentation drafting
+- Architecture Q&A
+
+**Configuration:**
+```
+~/.hecate/config.toml
+
+[coach]
+mode = "rules"  # or "ai-enhanced"
+
+[coach.ai]
+provider = "ollama"  # or "anthropic", "openai"
+model = "llama3:8b"
+endpoint = "http://localhost:11434"
+# api_key = "..." (for cloud providers)
+```
+
+### Summary
+
+- **Services on the mesh**: Pure business logic, no AI
+- **Development tooling**: AI-assisted, AI-optional
+- **Coach core**: Rules engine, works offline, no dependencies
+- **Coach enhanced**: Bring your own model for richer experience
+
+The daemon stays lean. The AI is a plugin, not a requirement.
+
+---
+
 *This document defines the UX vision. Implementation details live in code.*
 
 🔥🗝️🔥
