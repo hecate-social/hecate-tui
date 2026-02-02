@@ -411,25 +411,169 @@ The services themselves are pure business logic.
 
 Code generation is THE value proposition of Hecate Studio. This requires model configuration.
 
-### Rules Engine (Core)
+### Rules Engine Implementation (Go)
 
-The Coach core is a rules engine:
+The Coach is implemented in Go using filesystem watching and pattern matching.
 
+**Dependencies:**
+- `github.com/fsnotify/fsnotify` — filesystem watcher
+
+**Core types:**
+
+```go
+type Rule struct {
+    ID       string
+    Name     string
+    Pattern  Pattern      // interface
+    Severity Severity     // Info, Warning, Error
+    Message  string       // template with {{.Path}}, {{.Filename}}
+}
+
+type Pattern interface {
+    Match(path string, content []byte) bool
+}
+
+type PathPattern struct {
+    Regex *regexp.Regexp
+}
+
+type ContentPattern struct {
+    Regex     *regexp.Regexp
+    FileTypes []string  // e.g., [".erl", ".ex"]
+}
 ```
-Rule: horizontal_directory
-Match: path contains /services/ OR /helpers/ OR /utils/ OR /handlers/
-Action: alert "Horizontal directory detected. Each {type} belongs to its domain."
 
-Rule: central_supervisor
-Match: filename matches *_listeners_sup.erl OR *_handlers_sup.erl
-Action: alert "Central supervisor detected. Each domain supervises its own."
+**Built-in Cartwheel rules:**
 
-Rule: crud_event
-Match: event name contains _created OR _updated OR _deleted
-Action: alert "CRUD event detected. Use business-meaningful event names."
+```go
+var CartwheelRules = []Rule{
+    {
+        ID:       "horizontal-services",
+        Pattern:  PathPattern{Regex: regexp.MustCompile(`/services/`)},
+        Severity: Error,
+        Message:  "Horizontal directory 'services/' detected at {{.Path}}. Each service belongs to its domain.",
+    },
+    {
+        ID:       "horizontal-helpers",
+        Pattern:  PathPattern{Regex: regexp.MustCompile(`/helpers/`)},
+        Severity: Error,
+        Message:  "Horizontal directory 'helpers/' detected. Move to the domain that owns it.",
+    },
+    {
+        ID:       "horizontal-utils",
+        Pattern:  PathPattern{Regex: regexp.MustCompile(`/utils/`)},
+        Severity: Error,
+        Message:  "Horizontal directory 'utils/' detected. Make it a library app or put it in the feature.",
+    },
+    {
+        ID:       "central-supervisor",
+        Pattern:  PathPattern{Regex: regexp.MustCompile(`_(listeners|handlers|workers)_sup\.erl$`)},
+        Severity: Error,
+        Message:  "Central supervisor '{{.Filename}}' detected. Each domain supervises its own.",
+    },
+    {
+        ID:       "crud-event",
+        Pattern:  ContentPattern{
+            Regex:     regexp.MustCompile(`_(created|updated|deleted)_v\d+`),
+            FileTypes: []string{".erl"},
+        },
+        Severity: Warning,
+        Message:  "CRUD event name detected. Use business-meaningful names.",
+    },
+    {
+        ID:       "god-module",
+        Pattern:  PathPattern{Regex: regexp.MustCompile(`_manager\.erl$`)},
+        Severity: Warning,
+        Message:  "Possible god module '*_manager'. Does one domain own this?",
+    },
+}
 ```
 
-No LLM needed. Pure pattern matching.
+**Coach engine:**
+
+```go
+type Coach struct {
+    watcher  *fsnotify.Watcher
+    rules    []Rule
+    alerts   chan Alert
+    project  string
+}
+
+func (c *Coach) Watch(projectDir string) error {
+    // Add recursive watch on project directory
+    // For each fsnotify.Create or fsnotify.Write event:
+    //   - Read file content (for content rules)
+    //   - Evaluate all rules against path and content
+    //   - Emit Alert to channel if any rule matches
+}
+
+func (c *Coach) Evaluate(event fsnotify.Event) {
+    path := event.Name
+    content, _ := os.ReadFile(path)
+    
+    for _, rule := range c.rules {
+        if rule.Pattern.Match(path, content) {
+            c.alerts <- Alert{
+                Rule:     rule,
+                Path:     path,
+                Filename: filepath.Base(path),
+                Time:     time.Now(),
+            }
+        }
+    }
+}
+```
+
+**TUI integration:**
+
+```go
+// Coach runs as background goroutine
+func (m Model) Init() tea.Cmd {
+    go m.coach.Watch(m.projectDir)
+    return pollAlerts(m.coach)
+}
+
+// Poll alerts channel
+func pollAlerts(coach *Coach) tea.Cmd {
+    return func() tea.Msg {
+        alert := <-coach.alerts
+        return AlertMsg{Alert: alert}
+    }
+}
+
+// Update handles alerts
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+    switch msg := msg.(type) {
+    case AlertMsg:
+        m.alerts = append(m.alerts, msg.Alert)
+        return m, pollAlerts(m.coach)  // continue polling
+    }
+    return m, nil
+}
+```
+
+**User-defined rules (config):**
+
+```toml
+# ~/.hecate/coach.toml
+
+[[rules]]
+id = "no-nested-case"
+type = "content"
+regex = "case.*of[\\s\\S]*case.*of"
+file_types = [".erl"]
+severity = "warning"
+message = "Nested case statements detected. Consider pattern matching on function heads."
+
+[[rules]]
+id = "custom-horizontal"
+type = "path"
+regex = "/shared/"
+severity = "error"
+message = "Directory 'shared/' is horizontal. Put code in the owning domain."
+```
+
+No LLM needed. Pure Go, pattern matching, works offline.
 
 ### Model Configuration (Required for Studio)
 
