@@ -116,20 +116,23 @@ jobs:
           body: |
             ## hecate-tui ${{ github.ref_name }}
 
-            Terminal UI for monitoring Macula Hecate daemon.
+            Terminal UI for monitoring Hecate daemon.
 
             ### Installation
 
-            **Linux (amd64):**
+            **Recommended: Use the installer**
             ```bash
-            curl -L https://github.com/macula-io/macula-hecate-tui/releases/download/${{ github.ref_name }}/hecate-tui-linux-amd64.tar.gz | tar xz
-            sudo mv hecate-tui /usr/local/bin/
+            curl -fsSL https://raw.githubusercontent.com/hecate-social/hecate-node/main/install.sh | bash
             ```
 
-            **macOS (arm64):**
+            **Manual - Linux (amd64):**
             ```bash
-            curl -L https://github.com/macula-io/macula-hecate-tui/releases/download/${{ github.ref_name }}/hecate-tui-darwin-arm64.tar.gz | tar xz
-            sudo mv hecate-tui /usr/local/bin/
+            curl -fsSL https://github.com/hecate-social/hecate-tui/releases/download/${{ github.ref_name }}/hecate-tui-linux-amd64.tar.gz | tar xz -C ~/.local/bin
+            ```
+
+            **Manual - macOS (arm64):**
+            ```bash
+            curl -fsSL https://github.com/hecate-social/hecate-tui/releases/download/${{ github.ref_name }}/hecate-tui-darwin-arm64.tar.gz | tar xz -C ~/.local/bin
             ```
 
             **Windows:**
@@ -147,6 +150,6 @@ jobs:
 
             ### Documentation
 
-            - [README](https://github.com/macula-io/macula-hecate-tui/blob/main/README.md)
+            - [README](https://github.com/hecate-social/hecate-tui/blob/main/README.md)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
