@@ -389,9 +389,9 @@ Each view maintains its own state. Navigation preserves state within session.
 
 The services themselves are pure business logic.
 
-### Coach Implementation
+### Two Concerns, Two Approaches
 
-The Coach enforces Cartwheel doctrine. Most of this is **rule-based, not AI-powered**:
+**1. Doctrine Enforcement (Coach)** — Rules-based, no LLM:
 
 | Function | Implementation | LLM Required |
 |----------|----------------|--------------|
@@ -399,10 +399,17 @@ The Coach enforces Cartwheel doctrine. Most of this is **rule-based, not AI-powe
 | Identify `services/`, `helpers/`, `utils/` | Regex on directory names | No |
 | Catch central supervisors | AST analysis or naming patterns | No |
 | Generate correction message | Templated responses | No |
-| Cartwheel scaffolding | Code templates with variable substitution | No |
-| Explain "why is this wrong?" | Small local model OR curated FAQ | Optional |
-| Dynamic code generation | Larger model helps | Optional |
-| Documentation generation | Model-assisted | Optional |
+
+**2. Code Generation (Architect/Implement)** — LLM required, core feature:
+
+| Function | Implementation | LLM Required |
+|----------|----------------|--------------|
+| Cartwheel code scaffolding | Model generates slice code | **Yes** |
+| Documentation generation | Model writes docs | **Yes** |
+| Architecture guidance | Model explains concepts | **Yes** |
+| SVG diagram generation | Model creates visuals | **Yes** |
+
+Code generation is THE value proposition of Hecate Studio. This requires model configuration.
 
 ### Rules Engine (Core)
 
@@ -424,44 +431,52 @@ Action: alert "CRUD event detected. Use business-meaningful event names."
 
 No LLM needed. Pure pattern matching.
 
-### Optional AI Integration
+### Model Configuration (Required for Studio)
 
-For users who want AI-enhanced guidance:
+Code generation is a core feature. Users must configure a model provider:
 
-**Supported providers (user brings their own):**
-- Ollama (local, free)
+**Supported providers:**
+- Ollama (local, free, recommended for privacy)
 - Anthropic API (Claude)
 - OpenAI API (GPT)
 - Any OpenAI-compatible endpoint
-
-**Use cases:**
-- Richer explanations of violations
-- Code generation beyond templates
-- Documentation drafting
-- Architecture Q&A
 
 **Configuration:**
 ```
 ~/.hecate/config.toml
 
-[coach]
-mode = "rules"  # or "ai-enhanced"
-
-[coach.ai]
+[studio]
 provider = "ollama"  # or "anthropic", "openai"
-model = "llama3:8b"
-endpoint = "http://localhost:11434"
+model = "llama3:8b"  # or "claude-3-sonnet", "gpt-4", etc.
+endpoint = "http://localhost:11434"  # for Ollama
 # api_key = "..." (for cloud providers)
 ```
 
+**First-run experience:**
+If no model configured, Studio prompts user to set up:
+1. Detect if Ollama is running locally
+2. Offer to configure Ollama (easiest path)
+3. Or enter API key for cloud provider
+
+### Model Requirements
+
+| Task | Minimum Model | Recommended |
+|------|---------------|-------------|
+| Code scaffolding | Llama 3 8B | Llama 3 70B, Claude Sonnet |
+| Documentation | Llama 3 8B | Any capable model |
+| Architecture Q&A | Llama 3 8B | Larger context helps |
+| SVG generation | Llama 3 8B | Claude preferred |
+
+Local 8B models work. Larger models produce better results.
+
 ### Summary
 
-- **Services on the mesh**: Pure business logic, no AI
-- **Development tooling**: AI-assisted, AI-optional
-- **Coach core**: Rules engine, works offline, no dependencies
-- **Coach enhanced**: Bring your own model for richer experience
+- **Macula Services**: Pure business logic, no AI runtime
+- **Doctrine enforcement (Coach)**: Rules engine, no LLM needed
+- **Code generation (Studio)**: LLM required, user configures provider
+- **Daemon**: Stays lean, no bundled model
 
-The daemon stays lean. The AI is a plugin, not a requirement.
+The Studio is an AI-powered development tool. The services it produces are not.
 
 ---
 
