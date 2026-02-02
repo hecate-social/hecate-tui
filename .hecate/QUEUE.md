@@ -60,7 +60,46 @@ After pairing works, flesh out Identity view:
 
 Read `plans/PLAN_HECATE_STUDIO_UX.md` for the full vision.
 
-This is where we're headed, but pairing comes first.
+Pay special attention to the new section: **Coach Architecture: Rules-First, AI-Optional**
+
+---
+
+## Architecture Decisions (READ THIS)
+
+The plan was updated with critical architectural decisions:
+
+**1. Macula Services are NOT AI-powered**
+
+Services on the mesh are pure business logic. Deterministic. Testable. No LLM runtime.
+
+**2. Two distinct concerns in the TUI:**
+
+| Concern | Implementation | LLM Required |
+|---------|----------------|--------------|
+| **Coach** (doctrine enforcement) | Rules engine, pattern matching | No |
+| **Studio** (code generation) | LLM generates Cartwheel code | **Yes** |
+
+**3. Coach is rules-based:**
+- Detect `services/`, `helpers/`, `utils/` → regex on paths
+- Catch central supervisors → naming patterns
+- Generate corrections → templates
+
+No LLM needed for doctrine enforcement.
+
+**4. Studio requires LLM:**
+- Code scaffolding
+- Documentation generation
+- Architecture guidance
+- SVG diagram generation
+
+User must configure a model provider (Ollama, Anthropic, OpenAI).
+
+**5. First-run experience:**
+- If no model configured, prompt user to set up
+- Detect local Ollama, offer easy path
+- Or enter cloud API key
+
+Read the full section in `plans/PLAN_HECATE_STUDIO_UX.md`.
 
 ---
 
