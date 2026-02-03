@@ -154,6 +154,67 @@ func (c *Client) ListProcedures() ([]Procedure, error) {
 	return []Procedure{}, nil
 }
 
+// PairingStatus represents the pairing status response
+type PairingStatus struct {
+	Status     string `json:"status"`     // "idle", "waiting", "paired", "error"
+	Code       string `json:"code"`       // Pairing code to enter on realm
+	ExpiresAt  string `json:"expires_at"` // When the pairing session expires
+	RealmURL   string `json:"realm_url"`  // URL to complete pairing
+	Message    string `json:"message"`    // Status message
+}
+
+// StartPairing initiates a pairing session
+func (c *Client) StartPairing() (*PairingStatus, error) {
+	resp, err := c.post("/api/pairing/start", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.Ok {
+		return nil, fmt.Errorf("start pairing failed: %s", resp.Error)
+	}
+
+	var status PairingStatus
+	if err := json.Unmarshal(resp.Result, &status); err != nil {
+		return nil, fmt.Errorf("failed to parse pairing response: %w", err)
+	}
+
+	return &status, nil
+}
+
+// GetPairingStatus returns the current pairing status
+func (c *Client) GetPairingStatus() (*PairingStatus, error) {
+	resp, err := c.get("/api/pairing/status")
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.Ok {
+		return nil, fmt.Errorf("get pairing status failed: %s", resp.Error)
+	}
+
+	var status PairingStatus
+	if err := json.Unmarshal(resp.Result, &status); err != nil {
+		return nil, fmt.Errorf("failed to parse pairing status: %w", err)
+	}
+
+	return &status, nil
+}
+
+// CancelPairing cancels an active pairing session
+func (c *Client) CancelPairing() error {
+	resp, err := c.post("/api/pairing/cancel", nil)
+	if err != nil {
+		return err
+	}
+
+	if !resp.Ok {
+		return fmt.Errorf("cancel pairing failed: %s", resp.Error)
+	}
+
+	return nil
+}
+
 // ListSubscriptions returns active subscriptions
 func (c *Client) ListSubscriptions() ([]Subscription, error) {
 	resp, err := c.get("/subscriptions")

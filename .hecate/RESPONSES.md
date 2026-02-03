@@ -139,6 +139,65 @@ ollama run llama3.2
 
 ---
 
+## 2026-02-03 COMPLETE [tui]: Phase 1.4-1.5 Me & Pair Views
+
+### Summary
+
+Enhanced Me view with settings panel and Pair view with actual pairing flow.
+
+### Me View Enhancements
+
+1. **Settings Panel** (`s` key)
+   - Toggle-able settings (Theme, Auto-refresh, Notifications, Debug Mode)
+   - Keyboard navigation (↑↓, Enter to toggle, Esc to close)
+   - Setting descriptions on selection
+
+2. **Profile Card**
+   - ASCII avatar art
+   - MRI, realm, pairing status display
+   - Stats: capabilities, subscriptions, daemon status
+
+3. **ViewMode State Machine**
+   - Profile mode (default)
+   - Settings mode (press 's')
+
+### Pair View Enhancements
+
+1. **Pairing Flow States**
+   - Idle: Instructions and CTA
+   - Starting: Spinner while initiating
+   - Waiting: Code display + polling for confirmation
+   - Paired: Success with identity info
+   - Error: Error message with retry
+
+2. **Code Display**
+   - Double-border box with code
+   - Step-by-step instructions
+   - Cancel option (Esc/c)
+
+3. **API Integration**
+   - `StartPairing()` - POST /api/pairing/start
+   - `GetPairingStatus()` - GET /api/pairing/status
+   - `CancelPairing()` - POST /api/pairing/cancel
+   - Automatic 2-second polling during waiting state
+
+### Files Changed
+
+```
+internal/views/me/
+├── me.go           # Enhanced with settings + profile card
+└── styles.go       # NEW
+
+internal/views/pair/
+├── pair.go         # Complete pairing flow
+└── styles.go       # NEW
+
+internal/client/
+└── client.go       # Added pairing methods
+```
+
+---
+
 ## 2026-02-03 COMPLETE [tui]: Phase 1.2-1.3 Browse & Monitor Views
 
 ### Summary
