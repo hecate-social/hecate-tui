@@ -139,6 +139,69 @@ ollama run llama3.2
 
 ---
 
+## 2026-02-04 COMPLETE [tui]: Phase 3 - Tool Integration
+
+### Summary
+
+Implemented tool detection, config management, launcher, and built-in quick editor.
+
+### Files Created
+
+**Tools Package** (`internal/tools/`):
+- `detector.go` - Detects installed tools (editors, terminals, VCS, build tools, containers, LLM)
+- `config.go` - Loads/saves `~/.hecate/config.toml` user preferences
+- `launcher.go` - `tea.ExecProcess` wrappers to launch external tools
+
+**Editor Package** (`internal/editor/`):
+- `editor.go` - Bubble Tea textarea-based quick editor
+- `syntax.go` - Basic syntax highlighting (Go, Rust, Python, JS/TS, Elixir, Erlang, etc.)
+- `styles.go` - Editor styling (title bar, line numbers, status bar)
+
+### Tool Categories Detected
+
+| Category | Tools |
+|----------|-------|
+| Editors | nvim, vim, code, hx, emacs, nano |
+| Terminals | kitty, alacritty, wezterm |
+| VCS | git, gh, lazygit |
+| Build | go, rustc, node, python3, elixir, erl |
+| Containers | docker, podman, kubectl |
+| LLM | ollama, claude |
+
+### Config Structure
+
+```toml
+[editor]
+preferred = "nvim"
+args = []
+
+[daemon]
+url = "http://localhost:4444"
+timeout = 30
+
+[ui]
+theme = "dark"
+animations = true
+compact_mode = false
+
+[tools.paths]
+# Override tool paths if needed
+```
+
+### Editor Features
+
+- Syntax highlighting for 10+ languages
+- Modified indicator `[+]`
+- Line/column position display
+- Ctrl+S save, Ctrl+Q quit
+- Language detection by file extension
+
+### Build
+
+`go vet` clean, build successful
+
+---
+
 ## 2026-02-04 COMPLETE [tui]: Phase 2 - Projects Shell
 
 ### Summary
