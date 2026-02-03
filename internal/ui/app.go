@@ -9,46 +9,36 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/hecate-social/hecate-tui/internal/client"
 	"github.com/hecate-social/hecate-tui/internal/ui/styles"
+	"github.com/hecate-social/hecate-tui/internal/views"
+	"github.com/hecate-social/hecate-tui/internal/views/browse"
 	"github.com/hecate-social/hecate-tui/internal/views/chat"
+	"github.com/hecate-social/hecate-tui/internal/views/me"
+	"github.com/hecate-social/hecate-tui/internal/views/monitor"
+	"github.com/hecate-social/hecate-tui/internal/views/pair"
+	"github.com/hecate-social/hecate-tui/internal/views/projects"
 )
-
-// Tab represents a navigation tab
-type Tab int
-
-const (
-	TabStatus Tab = iota
-	TabChat
-	TabMesh
-	TabCapabilities
-	TabRPC
-	TabLogs
-)
-
-func (t Tab) String() string {
-	return [...]string{"Status", "Chat", "Mesh", "Capabilities", "RPC", "Logs"}[t]
-}
 
 // App is the main TUI application model
 type App struct {
 	client    *client.Client
 	width     int
 	height    int
-	activeTab Tab
-	tabs      []Tab
-
-	// Data
-	health       *client.Health
-	identity     *client.Identity
-	capabilities []client.Capability
-	procedures   []client.Procedure
+	activeTab views.Tab
+	tabs      []views.Tab
 
 	// Views
-	chatView chat.Model
+	chatView     chat.Model
+	browseView   browse.Model
+	projectsView projects.Model
+	monitorView  monitor.Model
+	pairView     pair.Model
+	meView       me.Model
+
+	// Health for header status
+	health *client.Health
 
 	// UI state
-	loading bool
 	spinner spinner.Model
-	err     error
 }
 
 // NewApp creates a new TUI application
@@ -60,34 +50,30 @@ func NewApp(hecateURL string) *App {
 	c := client.New(hecateURL)
 
 	return &App{
-		client:    c,
-		activeTab: TabStatus,
-		tabs:      []Tab{TabStatus, TabChat, TabMesh, TabCapabilities, TabRPC, TabLogs},
-		chatView:  chat.New(c),
-		spinner:   s,
-		loading:   true,
+		client:       c,
+		activeTab:    views.TabChat,
+		tabs:         views.AllTabs(),
+		chatView:     chat.New(c),
+		browseView:   browse.New(c),
+		projectsView: projects.New(),
+		monitorView:  monitor.New(c),
+		pairView:     pair.New(c),
+		meView:       me.New(c),
+		spinner:      s,
 	}
 }
 
 // Messages
 type healthMsg struct {
-	health   *client.Health
-	identity *client.Identity
-	err      error
-}
-
-type capabilitiesMsg struct {
-	capabilities []client.Capability
-	err          error
-}
-
-type proceduresMsg struct {
-	procedures []client.Procedure
-	err        error
+	health *client.Health
+	err    error
 }
 
 // Init initializes the application
 func (a *App) Init() tea.Cmd {
+	// Focus the initial view
+	a.chatView.Focus()
+
 	return tea.Batch(
 		a.spinner.Tick,
 		a.fetchHealth,
@@ -101,72 +87,58 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// Global quit
-		if msg.String() == "q" && a.activeTab != TabChat {
-			return a, tea.Quit
-		}
+		// Global quit (except in chat which handles its own keys)
 		if msg.String() == "ctrl+c" {
 			return a, tea.Quit
 		}
 
-		// Tab navigation (only when not in chat or chat allows it)
-		if a.activeTab != TabChat {
+		// Only handle global keys when not in an input-focused view
+		if a.activeTab != views.TabChat {
+			if msg.String() == "q" {
+				return a, tea.Quit
+			}
+
+			// Number key navigation
 			switch msg.String() {
-			case "tab":
-				a.activeTab = Tab((int(a.activeTab) + 1) % len(a.tabs))
-				a.onTabChange()
-				return a, a.fetchDataForTab()
-			case "shift+tab":
-				a.activeTab = Tab((int(a.activeTab) - 1 + len(a.tabs)) % len(a.tabs))
-				a.onTabChange()
-				return a, a.fetchDataForTab()
-			case "r":
-				a.loading = true
-				return a, a.fetchDataForTab()
 			case "1":
-				a.activeTab = TabStatus
-				a.onTabChange()
-				return a, a.fetchHealth
+				return a, a.switchTab(views.TabChat)
 			case "2":
-				a.activeTab = TabChat
-				a.onTabChange()
-				return a, nil
+				return a, a.switchTab(views.TabBrowse)
 			case "3":
-				a.activeTab = TabMesh
-				a.onTabChange()
-				return a, nil
+				return a, a.switchTab(views.TabProjects)
 			case "4":
-				a.activeTab = TabCapabilities
-				a.onTabChange()
-				return a, a.fetchCapabilities
+				return a, a.switchTab(views.TabMonitor)
 			case "5":
-				a.activeTab = TabRPC
-				a.onTabChange()
-				return a, a.fetchProcedures
+				return a, a.switchTab(views.TabPair)
 			case "6":
-				a.activeTab = TabLogs
-				a.onTabChange()
-				return a, nil
-			case "c":
-				// Quick key to jump to chat
-				a.activeTab = TabChat
-				a.onTabChange()
-				return a, nil
+				return a, a.switchTab(views.TabMe)
+			case "tab":
+				nextTab := views.Tab((int(a.activeTab) + 1) % len(a.tabs))
+				return a, a.switchTab(nextTab)
+			case "shift+tab":
+				prevTab := views.Tab((int(a.activeTab) - 1 + len(a.tabs)) % len(a.tabs))
+				return a, a.switchTab(prevTab)
 			}
 		} else {
-			// In chat view, allow escape to leave chat
-			if msg.String() == "esc" {
-				a.activeTab = TabStatus
-				a.chatView.Blur()
-				return a, nil
+			// In chat view, Esc goes back to monitor
+			if msg.String() == "esc" && !a.chatView.IsStreaming() {
+				return a, a.switchTab(views.TabMonitor)
 			}
 		}
 
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
 		a.height = msg.Height
-		// Update chat view size
-		a.chatView.SetSize(msg.Width, msg.Height-6) // Account for header/tabs/footer
+		viewHeight := msg.Height - 6 // Header + tabs + footer
+		a.chatView.SetSize(msg.Width, viewHeight)
+		a.browseView.SetSize(msg.Width, viewHeight)
+		a.projectsView.SetSize(msg.Width, viewHeight)
+		a.monitorView.SetSize(msg.Width, viewHeight)
+		a.pairView.SetSize(msg.Width, viewHeight)
+		a.meView.SetSize(msg.Width, viewHeight)
+
+	case healthMsg:
+		a.health = msg.health
 	}
 
 	// Always update spinner
@@ -176,41 +148,79 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	}
 
-	// Handle data messages
-	switch msg := msg.(type) {
-	case healthMsg:
-		a.loading = false
-		a.health = msg.health
-		a.identity = msg.identity
-		a.err = msg.err
-
-	case capabilitiesMsg:
-		a.loading = false
-		a.capabilities = msg.capabilities
-		a.err = msg.err
-
-	case proceduresMsg:
-		a.loading = false
-		a.procedures = msg.procedures
-		a.err = msg.err
-	}
-
-	// Update chat view if active
-	if a.activeTab == TabChat {
-		var cmd tea.Cmd
+	// Update active view
+	var cmd tea.Cmd
+	switch a.activeTab {
+	case views.TabChat:
 		a.chatView, cmd = a.chatView.Update(msg)
-		cmds = append(cmds, cmd)
+	case views.TabBrowse:
+		var m tea.Model
+		m, cmd = a.browseView.Update(msg)
+		a.browseView = m.(browse.Model)
+	case views.TabProjects:
+		var m tea.Model
+		m, cmd = a.projectsView.Update(msg)
+		a.projectsView = m.(projects.Model)
+	case views.TabMonitor:
+		var m tea.Model
+		m, cmd = a.monitorView.Update(msg)
+		a.monitorView = m.(monitor.Model)
+	case views.TabPair:
+		var m tea.Model
+		m, cmd = a.pairView.Update(msg)
+		a.pairView = m.(pair.Model)
+	case views.TabMe:
+		var m tea.Model
+		m, cmd = a.meView.Update(msg)
+		a.meView = m.(me.Model)
 	}
+	cmds = append(cmds, cmd)
 
 	return a, tea.Batch(cmds...)
 }
 
-func (a *App) onTabChange() {
-	if a.activeTab == TabChat {
-		a.chatView.Focus()
-	} else {
+func (a *App) switchTab(tab views.Tab) tea.Cmd {
+	// Blur current view
+	switch a.activeTab {
+	case views.TabChat:
 		a.chatView.Blur()
+	case views.TabBrowse:
+		a.browseView.Blur()
+	case views.TabProjects:
+		a.projectsView.Blur()
+	case views.TabMonitor:
+		a.monitorView.Blur()
+	case views.TabPair:
+		a.pairView.Blur()
+	case views.TabMe:
+		a.meView.Blur()
 	}
+
+	a.activeTab = tab
+
+	// Focus new view and return init command
+	switch tab {
+	case views.TabChat:
+		a.chatView.Focus()
+		return a.chatView.Init()
+	case views.TabBrowse:
+		a.browseView.Focus()
+		return a.browseView.Init()
+	case views.TabProjects:
+		a.projectsView.Focus()
+		return a.projectsView.Init()
+	case views.TabMonitor:
+		a.monitorView.Focus()
+		return a.monitorView.Init()
+	case views.TabPair:
+		a.pairView.Focus()
+		return a.pairView.Init()
+	case views.TabMe:
+		a.meView.Focus()
+		return a.meView.Init()
+	}
+
+	return nil
 }
 
 // View renders the UI
@@ -230,13 +240,7 @@ func (a *App) View() string {
 	b.WriteString("\n\n")
 
 	// Content
-	if a.loading {
-		b.WriteString(a.spinner.View() + " Loading...")
-	} else if a.err != nil {
-		b.WriteString(styles.StatusError.Render("Error: " + a.err.Error()))
-	} else {
-		b.WriteString(a.renderContent())
-	}
+	b.WriteString(a.renderContent())
 
 	// Footer
 	b.WriteString("\n\n")
@@ -251,17 +255,20 @@ func (a *App) renderHeader() string {
 	if a.health != nil {
 		status = styles.StatusIndicator(a.health.Status) + " " + a.health.Status
 	} else {
-		status = styles.StatusIndicator("unknown") + " unknown"
+		status = styles.StatusIndicator("unknown") + " connecting..."
 	}
 
-	header := lipgloss.JoinHorizontal(
+	spacer := a.width - lipgloss.Width(logo) - lipgloss.Width(status) - 4
+	if spacer < 1 {
+		spacer = 1
+	}
+
+	return lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		logo,
-		strings.Repeat(" ", a.width-lipgloss.Width(logo)-lipgloss.Width(status)-4),
+		strings.Repeat(" ", spacer),
 		status,
 	)
-
-	return header
 }
 
 func (a *App) renderTabs() string {
@@ -279,197 +286,50 @@ func (a *App) renderTabs() string {
 
 func (a *App) renderContent() string {
 	switch a.activeTab {
-	case TabStatus:
-		return a.renderStatusView()
-	case TabChat:
+	case views.TabChat:
 		return a.chatView.View()
-	case TabMesh:
-		return a.renderMeshView()
-	case TabCapabilities:
-		return a.renderCapabilitiesView()
-	case TabRPC:
-		return a.renderRPCView()
-	case TabLogs:
-		return a.renderLogsView()
+	case views.TabBrowse:
+		return a.browseView.View()
+	case views.TabProjects:
+		return a.projectsView.View()
+	case views.TabMonitor:
+		return a.monitorView.View()
+	case views.TabPair:
+		return a.pairView.View()
+	case views.TabMe:
+		return a.meView.View()
 	default:
 		return "Unknown view"
 	}
 }
 
-func (a *App) renderStatusView() string {
-	if a.health == nil {
-		return "No health data available"
-	}
-
-	var rows []string
-
-	// Health info
-	rows = append(rows, styles.TitleStyle.Render("Daemon Status"))
-
-	rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Left,
-		styles.LabelStyle.Render("Status:"),
-		styles.StatusIndicator(a.health.Status)+" "+a.health.Status,
-	))
-
-	rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Left,
-		styles.LabelStyle.Render("Version:"),
-		styles.ValueStyle.Render(a.health.Version),
-	))
-
-	rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Left,
-		styles.LabelStyle.Render("Uptime:"),
-		styles.ValueStyle.Render(formatUptime(a.health.UptimeSeconds)),
-	))
-
-	// Identity info
-	if a.identity != nil {
-		rows = append(rows, "")
-		rows = append(rows, styles.TitleStyle.Render("Identity"))
-
-		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Left,
-			styles.LabelStyle.Render("MRI:"),
-			styles.ValueStyle.Render(a.identity.Identity),
-		))
-
-		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Left,
-			styles.LabelStyle.Render("Created:"),
-			styles.ValueStyle.Render(a.identity.CreatedAt),
-		))
-	}
-
-	return styles.BoxStyle.Width(a.width - 4).Render(strings.Join(rows, "\n"))
-}
-
-func (a *App) renderMeshView() string {
-	return styles.BoxStyle.Width(a.width - 4).Render(
-		styles.TitleStyle.Render("Mesh Topology") + "\n\n" +
-			styles.SubtitleStyle.Render("Coming soon..."),
-	)
-}
-
-func (a *App) renderCapabilitiesView() string {
-	var rows []string
-	rows = append(rows, styles.TitleStyle.Render("Discovered Capabilities"))
-
-	if len(a.capabilities) == 0 {
-		rows = append(rows, styles.SubtitleStyle.Render("No capabilities discovered"))
-	} else {
-		for _, cap := range a.capabilities {
-			rows = append(rows, "")
-			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Left,
-				styles.LabelStyle.Render("MRI:"),
-				styles.ValueStyle.Render(cap.MRI),
-			))
-			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Left,
-				styles.LabelStyle.Render("Agent:"),
-				styles.ValueStyle.Render(cap.AgentIdentity),
-			))
-			if cap.Description != "" {
-				rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Left,
-					styles.LabelStyle.Render("Description:"),
-					styles.ValueStyle.Render(cap.Description),
-				))
-			}
-			if len(cap.Tags) > 0 {
-				rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Left,
-					styles.LabelStyle.Render("Tags:"),
-					styles.ValueStyle.Render(strings.Join(cap.Tags, ", ")),
-				))
-			}
-		}
-	}
-
-	return styles.BoxStyle.Width(a.width - 4).Render(strings.Join(rows, "\n"))
-}
-
-func (a *App) renderRPCView() string {
-	var rows []string
-	rows = append(rows, styles.TitleStyle.Render("Registered Procedures"))
-
-	if len(a.procedures) == 0 {
-		rows = append(rows, styles.SubtitleStyle.Render("No procedures registered"))
-	} else {
-		for _, proc := range a.procedures {
-			rows = append(rows, "")
-			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Left,
-				styles.LabelStyle.Render("Name:"),
-				styles.ValueStyle.Render(proc.Name),
-			))
-			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Left,
-				styles.LabelStyle.Render("MRI:"),
-				styles.ValueStyle.Render(proc.MRI),
-			))
-			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Left,
-				styles.LabelStyle.Render("Endpoint:"),
-				styles.ValueStyle.Render(proc.Endpoint),
-			))
-		}
-	}
-
-	return styles.BoxStyle.Width(a.width - 4).Render(strings.Join(rows, "\n"))
-}
-
-func (a *App) renderLogsView() string {
-	return styles.BoxStyle.Width(a.width - 4).Render(
-		styles.TitleStyle.Render("Daemon Logs") + "\n\n" +
-			styles.SubtitleStyle.Render("Coming soon..."),
-	)
-}
-
 func (a *App) renderFooter() string {
-	if a.activeTab == TabChat {
-		return styles.HelpStyle.Render("Enter: send • Tab: model • Ctrl+L: clear • Esc: back • ↑↓: scroll")
+	var help string
+	switch a.activeTab {
+	case views.TabChat:
+		help = a.chatView.ShortHelp()
+	case views.TabBrowse:
+		help = a.browseView.ShortHelp()
+	case views.TabProjects:
+		help = a.projectsView.ShortHelp()
+	case views.TabMonitor:
+		help = a.monitorView.ShortHelp()
+	case views.TabPair:
+		help = a.pairView.ShortHelp()
+	case views.TabMe:
+		help = a.meView.ShortHelp()
 	}
-	return styles.HelpStyle.Render("Tab/1-6: switch view • c: chat • r: refresh • q: quit")
+
+	globalHelp := "1-6: tabs • q: quit"
+	if a.activeTab == views.TabChat {
+		globalHelp = "Esc: back • ctrl+c: quit"
+	}
+
+	return styles.HelpStyle.Render(help + " │ " + globalHelp)
 }
 
 // Commands
 func (a *App) fetchHealth() tea.Msg {
-	health, err := a.client.GetHealth()
-	if err != nil {
-		return healthMsg{err: err}
-	}
-
-	identity, _ := a.client.GetIdentity()
-
-	return healthMsg{health: health, identity: identity}
-}
-
-func (a *App) fetchCapabilities() tea.Msg {
-	caps, err := a.client.DiscoverCapabilities("", "", 100)
-	return capabilitiesMsg{capabilities: caps, err: err}
-}
-
-func (a *App) fetchProcedures() tea.Msg {
-	procs, err := a.client.ListProcedures()
-	return proceduresMsg{procedures: procs, err: err}
-}
-
-func (a *App) fetchDataForTab() tea.Cmd {
-	switch a.activeTab {
-	case TabStatus:
-		return a.fetchHealth
-	case TabChat:
-		return a.chatView.Init()
-	case TabCapabilities:
-		return a.fetchCapabilities
-	case TabRPC:
-		return a.fetchProcedures
-	default:
-		return nil
-	}
-}
-
-func formatUptime(seconds int) string {
-	days := seconds / 86400
-	hours := (seconds % 86400) / 3600
-	minutes := (seconds % 3600) / 60
-
-	if days > 0 {
-		return fmt.Sprintf("%dd %dh %dm", days, hours, minutes)
-	}
-	if hours > 0 {
-		return fmt.Sprintf("%dh %dm", hours, minutes)
-	}
-	return fmt.Sprintf("%dm", minutes)
+	health, _ := a.client.GetHealth()
+	return healthMsg{health: health}
 }

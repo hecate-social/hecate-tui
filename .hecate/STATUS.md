@@ -6,7 +6,7 @@
 
 ## Current Task
 
-**COMPLETE: Chat View + LLM Client (Phase 1)**
+**COMPLETE: Phase 1.1 Navigation Refactor**
 
 ## Last Active
 
@@ -15,6 +15,41 @@
 ---
 
 ## Session Log
+
+### 2026-02-03 Session (Navigation Refactor)
+
+**Status:** Complete
+
+**Completed:**
+- Created `internal/views/views.go` — View interface + Tab enum
+- Created `internal/views/browse/browse.go` — Capability discovery list
+- Created `internal/views/projects/projects.go` — Projects placeholder (phases preview)
+- Created `internal/views/monitor/monitor.go` — Daemon health/status view
+- Created `internal/views/pair/pair.go` — Pairing flow view
+- Created `internal/views/me/me.go` — Identity/profile view
+- Updated `internal/views/chat/chat.go` — Added Name(), ShortHelp(), IsStreaming()
+- Rewrote `internal/ui/app.go` — New 6-tab navigation with View interface
+
+**New Tab Order:**
+```
+[1]Chat [2]Browse [3]Projects [4]Monitor [5]Pair [6]Me
+```
+
+**View Interface:**
+```go
+type View interface {
+    tea.Model
+    Name() string
+    ShortHelp() string
+    SetSize(width, height int)
+    Focus()
+    Blur()
+}
+```
+
+**Build:** Successful, go vet clean
+
+---
 
 ### 2026-02-03 Session (Chat View Implementation)
 

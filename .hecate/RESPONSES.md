@@ -138,3 +138,69 @@ ollama run llama3.2
 *Chat view implementation complete.* 🗝️
 
 ---
+
+## 2026-02-03 COMPLETE [tui]: Phase 1.1 Navigation Refactor
+
+### Summary
+
+Refactored TUI navigation from 6 placeholder tabs to the Developer Studio structure.
+
+### New Tab Order
+
+```
+[1]Chat [2]Browse [3]Projects [4]Monitor [5]Pair [6]Me
+```
+
+### Files Created
+
+```
+internal/views/
+├── views.go           # View interface + Tab enum
+├── browse/
+│   └── browse.go      # Capability discovery list with selection
+├── projects/
+│   └── projects.go    # Placeholder with phase preview
+├── monitor/
+│   └── monitor.go     # Daemon health, identity, mesh status
+├── pair/
+│   └── pair.go        # Pairing flow (paired/unpaired states)
+└── me/
+    └── me.go          # Identity profile and stats
+```
+
+### View Interface
+
+All views now implement:
+
+```go
+type View interface {
+    tea.Model
+    Name() string       // Tab label
+    ShortHelp() string  // Status bar hint
+    SetSize(width, height int)
+    Focus()
+    Blur()
+}
+```
+
+### Features by View
+
+| View | Features |
+|------|----------|
+| **Chat** | LLM streaming, model selector (existing) |
+| **Browse** | Capability list with ↑↓ selection, local/remote indicator |
+| **Projects** | Phase preview (AnD/AnP/InT/DoO), coming soon |
+| **Monitor** | Daemon status, identity, mesh connection |
+| **Pair** | Paired/unpaired states, pairing instructions |
+| **Me** | Identity profile, realm, stats |
+
+### Navigation
+
+- `1-6` — Direct tab access
+- `Tab/Shift+Tab` — Cycle tabs
+- `Esc` (in Chat) — Return to Monitor
+- `q` — Quit (except in Chat)
+
+*Phase 1.1 complete. Ready for Phase 1.2-1.5.* 🗝️
+
+---

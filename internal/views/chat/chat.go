@@ -543,3 +543,21 @@ func (m *Model) Blur() {
 	m.focused = false
 	m.input.Blur()
 }
+
+// Name returns the tab label
+func (m Model) Name() string {
+	return "Chat"
+}
+
+// ShortHelp returns help text for the status bar
+func (m Model) ShortHelp() string {
+	if m.streaming {
+		return "Esc: cancel streaming"
+	}
+	return "Enter: send • Tab: model • Ctrl+L: clear • ↑↓: scroll"
+}
+
+// IsStreaming returns whether the chat is currently streaming a response
+func (m Model) IsStreaming() bool {
+	return m.streaming
+}
