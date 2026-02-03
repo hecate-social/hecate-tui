@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Date:** 2026-02-03
-**Status:** Draft
+**Status:** Approved
 
 ---
 
@@ -877,14 +877,163 @@ Skills files are:
 
 ## Project Detection
 
-A directory is recognized as a "Hecate Project" if it contains:
+### Detection Logic
 
-1. `HECATE.md` — Project-specific AI instructions (preferred)
-2. `.hecate/` directory — Hecate workspace files
-3. `rebar.config` / `mix.exs` / `go.mod` — Language-specific markers
-4. `.git/` — Any git repository (fallback)
+A directory is recognized as a project using this priority:
 
-**Priority:** HECATE.md > .hecate/ > language marker > git
+| Priority | Signal | Meaning |
+|----------|--------|---------|
+| 1 | `HECATE.md` | Explicit Hecate project with AI instructions |
+| 2 | `.hecate/` | Has Hecate workspace (config, memory) |
+| 3 | `rebar.config` / `mix.exs` / `go.mod` / `Cargo.toml` / `package.json` | Language project |
+| 4 | `.git/` | Any git repository (fallback) |
+
+### Philosophy: Low Friction, Rich Enhancement
+
+**Any git repo is a project.** No explicit opt-in required. Users can browse and work with any repository.
+
+**`HECATE.md` unlocks richer AI context.** When present, the AI loads project-specific instructions, patterns, and constraints.
+
+### Auto-Create `.hecate/` on First Use
+
+When a user opens a project in Studio for the first time:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Initialize Hecate Workspace?                                         │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  This project doesn't have a Hecate workspace yet.                   │
+│                                                                      │
+│  Creating .hecate/ will enable:                                      │
+│    • Project-specific settings                                       │
+│    • Conversation memory                                             │
+│    • AnD/AnP phase state                                             │
+│                                                                      │
+│  Also create HECATE.md for AI context?                               │
+│    [x] Yes, create HECATE.md with template                           │
+│                                                                      │
+│              [Create]  [Skip for now]  [Never ask]                   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Workspace Structure
+
+```
+project/
+├── HECATE.md              # AI instructions (optional but recommended)
+├── .hecate/
+│   ├── config.toml        # Project-specific settings
+│   ├── memory/            # Conversation history per phase
+│   │   ├── and.md         # AnD phase notes
+│   │   ├── anp.md         # AnP phase notes
+│   │   └── int.md         # InT phase notes
+│   ├── state/
+│   │   ├── events.json    # Discovered domain events (AnD)
+│   │   ├── slices.json    # Designed slices (AnP)
+│   │   └── kanban.json    # Task board state
+│   └── .gitignore         # Ignore memory, keep config
+└── ...
+```
+
+### HECATE.md Template
+
+When user opts to create `HECATE.md`:
+
+```markdown
+# Project Name
+
+Brief description of what this project does.
+
+## Architecture
+
+Key patterns and conventions used in this project.
+
+## Commands
+
+Common commands for building, testing, deploying.
+
+## Guidelines
+
+Do's and don'ts for AI assistance in this project.
+
+## Context
+
+Any additional context the AI should know.
+```
+
+### Detection Implementation
+
+```go
+type Project struct {
+    Path         string
+    Name         string
+    Type         ProjectType  // Hecate, Language, Git
+    HasHecateMD  bool
+    HasWorkspace bool
+    Language     string       // erlang, elixir, go, rust, etc.
+}
+
+type ProjectType int
+
+const (
+    ProjectTypeGit ProjectType = iota
+    ProjectTypeLanguage
+    ProjectTypeHecate
+)
+
+func detectProject(dir string) (*Project, error) {
+    p := &Project{Path: dir, Name: filepath.Base(dir)}
+    
+    // Check for HECATE.md (highest priority)
+    if fileExists(filepath.Join(dir, "HECATE.md")) {
+        p.Type = ProjectTypeHecate
+        p.HasHecateMD = true
+    }
+    
+    // Check for .hecate/ workspace
+    if dirExists(filepath.Join(dir, ".hecate")) {
+        p.HasWorkspace = true
+        if p.Type != ProjectTypeHecate {
+            p.Type = ProjectTypeHecate
+        }
+    }
+    
+    // Check for language markers
+    if p.Type != ProjectTypeHecate {
+        if lang := detectLanguage(dir); lang != "" {
+            p.Type = ProjectTypeLanguage
+            p.Language = lang
+        }
+    }
+    
+    // Fallback to git
+    if p.Type == 0 && dirExists(filepath.Join(dir, ".git")) {
+        p.Type = ProjectTypeGit
+    }
+    
+    return p, nil
+}
+
+func detectLanguage(dir string) string {
+    markers := map[string]string{
+        "rebar.config":  "erlang",
+        "mix.exs":       "elixir",
+        "go.mod":        "go",
+        "Cargo.toml":    "rust",
+        "package.json":  "javascript",
+        "pyproject.toml": "python",
+        "Makefile":      "make",
+    }
+    for file, lang := range markers {
+        if fileExists(filepath.Join(dir, file)) {
+            return lang
+        }
+    }
+    return ""
+}
+```
 
 ---
 
@@ -1006,15 +1155,28 @@ internal/views/
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-1. **Sidecar installation** — Should `hecate-node/install.sh` offer to install lazygit/k9s/etc.? Or detect and suggest?
+1. **Sidecar installation** ✅
+   - Workstation role shows interactive checklist of suggested tools
+   - User selects which to install (opinionated TUI users choose their own)
+   - TUI Settings allows changing tools later
+   - Config stored in `~/.hecate/config.toml`
 
-2. **Neovim integration** — Launch externally, or attempt to embed?
+2. **Neovim integration** ✅
+   - **Full Edit:** Launch externally, `:q` returns to TUI
+   - **Quick Edit:** Built-in lightweight editor for small changes
+   - Keybindings: `[e]` full edit, `[q]` quick edit
 
-3. **Skills files** — Draft structure for AnD/AnP/InT/DoO_SKILLS.md?
+3. **Skills files** ✅
+   - Each is a separate project (AnD, AnP, InT, DoO)
+   - Will be developed with dedicated planning
+   - Quality of AI assistance depends on these
 
-4. **Project detection** — Preference order for identifying Hecate projects?
+4. **Project detection** ✅
+   - Any git repo is a project (low friction)
+   - `HECATE.md` unlocks richer AI context
+   - Auto-create `.hecate/` on first Studio use (with confirmation)
 
 ---
 
