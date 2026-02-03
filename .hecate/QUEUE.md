@@ -31,6 +31,43 @@ This is the **[tui]** channel. Tag all RESPONSES.md entries:
 - [x] Basic navigation (tabs)
 - [x] Daemon client
 - [x] Endpoint mismatch fix
+- [x] Phase 1.1 Navigation refactor — `bae9309`
+- [x] Phase 1.2-1.3 Browse & Monitor — `c555ca6`
+- [x] Phase 1.4-1.5 Me & Pair — `14b3100`
+
+---
+
+## 🎨 NEW: Chat Welcome Avatar
+
+**Update chat view welcome screen with Hecate ASCII avatar.**
+
+Source: `hecate-social/hecate-artwork/banners/CHAT_AVATAR.md`
+
+Use the **Threshold Guardian** (Option 5):
+
+```go
+const hecateAvatar = `
+    ╭─╮           ╭─╮
+    │█│   ▄███▄   │█│
+    │▓│  █▒◉▒◉▒█  │▓│
+    ╰┬╯  █▒╰─╯▒█  ╰┬╯
+     │  █▒▒▒▒▒▒▒█  │
+     │  █▒╭───╮▒█  │
+     │  █▒│ ⚷ │▒█  │
+     │  █▒╰─┬─╯▒█  │
+    ╭┴╮  ▀█▄│▄█▀  ╭┴╮
+    ╚═╝     │     ╚═╝
+       
+       🔥  🗝️  🔥`
+```
+
+**Style with Lip Gloss:**
+- Avatar/hood: Purple `#7C3AED`
+- Eyes: Amber `#F59E0B`  
+- Torches: Orange gradient
+- Key: Gold `#FCD34D`
+
+Replace the current simple welcome box in `internal/views/chat/chat.go`.
 
 ---
 
