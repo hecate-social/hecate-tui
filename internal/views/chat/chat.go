@@ -387,7 +387,7 @@ func (m *Model) updateStreamingMessage() {
 
 func (m Model) renderMessages() string {
 	if len(m.messages) == 0 {
-		welcome := WelcomeStyle.Render(WelcomeArt())
+		welcome := WelcomeArt() // Already colored
 		return lipgloss.Place(
 			m.viewport.Width,
 			m.viewport.Height,
