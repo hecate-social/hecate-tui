@@ -139,6 +139,46 @@ ollama run llama3.2
 
 ---
 
+## 2026-02-04 COMPLETE [tui]: Phase 2 - Projects Shell
+
+### Summary
+
+Implemented project detection, workspace management, and phase navigation.
+
+### Files Created
+
+**Project Detection Package** (`internal/projects/`):
+- `project.go` - Project and Phase types, PhaseInfo metadata
+- `detector.go` - Git/HECATE.md detection, recursive scanning
+- `workspace.go` - .hecate/ directory management (init, read files)
+
+**Projects View** (`internal/views/projects/`):
+- `styles.go` - Dedicated project view styling
+- `phases.go` - AnD/AnP/InT/DoO tab bar component
+- `projects.go` - Enhanced with project list + phase navigation
+
+**Phase Placeholder Views**:
+- `and/and.go` - Analysis & Discovery (Coming Soon)
+- `anp/anp.go` - Architecture & Planning (Coming Soon)
+- `int/int.go` - Implementation & Testing (Coming Soon)
+- `doo/doo.go` - Deployment & Operations (Coming Soon)
+
+### Features
+
+- Auto-detects current directory as project (git or HECATE.md)
+- Shows project type icon (Git/Hecate/Both)
+- Displays git branch if available
+- Phase tab bar with ←→ navigation
+- Workspace indicator (● active / ○ missing)
+- Press `i` to initialize .hecate/ workspace
+- Each phase shows planned features
+
+### Build
+
+`go vet` clean, build successful
+
+---
+
 ## 2026-02-04 COMPLETE [tui]: Chat Welcome Avatar (Final)
 
 ### Summary
