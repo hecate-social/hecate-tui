@@ -139,6 +139,32 @@ ollama run llama3.2
 
 ---
 
+## 2026-02-04 COMPLETE [tui]: Chat Welcome Avatar (Final)
+
+### Summary
+
+Implemented colored Threshold Guardian avatar for chat welcome screen.
+
+### Colors Applied
+
+| Element | Color | Hex |
+|---------|-------|-----|
+| Hood/Frame | Purple | #7C3AED |
+| Torches | Orange | #F97316 |
+| Eyes | Amber | #F59E0B |
+| Key | Gold | #FCD34D |
+| Body | Purple Light | #A78BFA |
+
+### Implementation
+
+Built avatar line-by-line with lipgloss inline styling in `WelcomeArt()`. Each part rendered with its own color style, then concatenated.
+
+### Commit
+
+`19f4e78` - feat(chat): Add colored Threshold Guardian welcome avatar
+
+---
+
 ## 2026-02-03 COMPLETE [tui]: Chat Welcome Avatar
 
 ### Summary
