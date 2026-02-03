@@ -4,258 +4,331 @@
 
 ---
 
-## 📍 CHANNEL TAGGING (NEW RULE — READ THIS)
+## 📍 CHANNEL TAGGING (MANDATORY)
 
-**Effective immediately:** All RESPONSES.md entries MUST include channel tags.
-
-This is the **[tui]** channel. When writing to RESPONSES.md:
-- Prefix your title: `## 2026-02-03 COMPLETE [tui]: Task Name`
-- Cross-references: `Related: Depends on [daemon] endpoint`
-
-**All channels:**
-- `[tui]` — hecate-tui (this repo)
-- `[daemon]` — hecate-daemon
-- `[node]` — hecate-node
-- `[realm]` — hecate-realm
-- `[macula-realm]` — macula-io/macula-realm
-
-**Why:** I monitor multiple repos. Without tags, context is lost. Be explicit.
+This is the **[tui]** channel. Tag all RESPONSES.md entries:
+- `## 2026-02-03 COMPLETE [tui]: Task Name`
+- Cross-refs: `Related: [daemon] endpoint`
 
 ---
 
-## ⚠️ MANDATORY: Re-read CLAUDE.md NOW
+## 📖 READ FIRST
 
-**Before doing anything else this session:**
+1. `cat ~/work/github.com/CLAUDE.md` — Re-read every session
+2. `plans/PLAN_DEVELOPER_STUDIO.md` — **The master plan (APPROVED)**
 
-```bash
-cat ~/work/github.com/CLAUDE.md
+---
+
+## 🎯 Current Focus: Build the TUI
+
+**Skills files come later.** Build the structure first, refine AI guidance iteratively.
+
+---
+
+## ✅ Completed
+
+- [x] Chat View (local LLM) — `b8da1b7`
+- [x] Basic navigation (tabs)
+- [x] Daemon client
+- [x] Endpoint mismatch fix
+
+---
+
+## 🔴 Phase 1: Foundation (NOW)
+
+### 1.1 Navigation Refactor
+
+Current tabs are placeholder. Refactor to match plan:
+
+```
+[1]Chat [2]Browse [3]Projects [4]Monitor [5]Pair [6]Me
 ```
 
-New rules have been added. Pay special attention to:
-- **"NEVER DELETE FEATURES"** section
-- Read the whole file before editing
-- Extend, don't replace
-
-**Acknowledge in RESPONSES.md that you've read it.**
-
----
-
-## Protocol
-
-| File | Your Access |
-|------|-------------|
-| `QUEUE.md` | **READ-ONLY** |
-| `RESPONSES.md` | Write here |
-| `STATUS.md` | Update here |
-
----
-
-## 🔴 HIGH: Chat View + LLM Client
-
-**TOP PRIORITY. The TUI becomes a window into intelligence.**
-
-Read `plans/PLAN_CHAT_VIEW.md` for the full design.
-
-**Phase 1: Local Chat Only**
-
-Create these files:
-
+**Files:**
 ```
 internal/
-├── client/
-│   └── llm.go             # LLM methods on existing client
-├── llm/
-│   ├── types.go           # Message, Model, ChatRequest, etc.
-│   └── stream.go          # SSE stream parser
+├── app/
+│   └── app.go             # Main model, tab switching
 └── views/
-    └── chat/
-        ├── chat.go        # Main Bubble Tea model
-        ├── messages.go    # Message list component
-        ├── input.go       # Input textarea
-        └── styles.go      # Lip Gloss styles
+    ├── chat/              # ✅ EXISTS
+    ├── browse/            # NEW
+    ├── projects/          # NEW
+    ├── monitor/           # NEW
+    ├── pair/              # NEW (refactor from existing)
+    └── me/                # NEW
 ```
 
-**Implement:**
-1. `internal/llm/types.go` — Message, Model, ChatRequest, ChatResponse
-2. `internal/llm/stream.go` — SSE parser for streaming responses
-3. `internal/client/llm.go` — `ListModels()`, `ChatStream()`
-4. `internal/views/chat/` — Bubble Tea chat view
-   - Model selector (Tab to cycle)
-   - Message history viewport
-   - Input textarea
-   - Streaming response display
+Each view is a Bubble Tea model implementing:
+```go
+type View interface {
+    Init() tea.Cmd
+    Update(tea.Msg) (tea.Model, tea.Cmd)
+    View() string
+    Name() string      // Tab label
+    ShortHelp() string // Status bar hint
+}
+```
 
-**Key bindings:**
-- `Enter` — send message
-- `Tab` — cycle models  
-- `Ctrl+C` / `Esc` — exit chat view
-- `↑/↓` — scroll history
+---
 
-**Depends on:** Daemon `GET /api/llm/models` and `POST /api/llm/chat` endpoints.
+### 1.2 Browse View (Basic)
 
-The daemon is building the backend: `hecate-daemon/.hecate/QUEUE.md`
+Show capabilities from daemon. Start simple.
 
-**Test flow:**
+**Endpoints:**
+- `POST /capabilities/discover` — list capabilities
+
+**UI:**
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Browse                                                    [2]       │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Capabilities on mesh:                                               │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │ ● serve_llm/llama3.2        local     llm, chat              │   │
+│  │   serve_llm/qwen2.5-coder   local     llm, code              │   │
+│  │   weather.forecast          remote    weather, api           │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  [Enter] View details  [/] Search  [r] Refresh                      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Files:**
+```
+internal/views/browse/
+├── browse.go          # Main model
+├── capabilities.go    # Capability list component
+└── styles.go
+```
+
+---
+
+### 1.3 Monitor View (Basic)
+
+Daemon health and status.
+
+**Endpoints:**
+- `GET /health`
+- `GET /identity`
+
+**UI:**
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Monitor                                                   [4]       │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Daemon Status:                                                      │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │ Status:    ● Running                                         │   │
+│  │ Version:   0.1.1                                              │   │
+│  │ Uptime:    2h 34m                                             │   │
+│  │ Port:      4444                                               │   │
+│  │ Identity:  mri:agent:io.macula/hecate-dev                     │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  Mesh Connection:                                                    │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │ Status:    ● Connected                                        │   │
+│  │ Bootstrap: boot.macula.io:443                                 │   │
+│  │ Peers:     3                                                  │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Files:**
+```
+internal/views/monitor/
+├── monitor.go
+├── daemon.go
+└── styles.go
+```
+
+---
+
+### 1.4 Me View (Basic)
+
+Identity and basic settings.
+
+**UI:**
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Me                                                        [6]       │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Identity:                                                           │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │ MRI:       mri:agent:io.macula/hecate-dev                     │   │
+│  │ Realm:     io.macula                                          │   │
+│  │ Paired:    ✅ Yes (since 2026-02-03)                          │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  [p] Re-pair  [s] Settings                                          │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Files:**
+```
+internal/views/me/
+├── me.go
+├── profile.go
+└── styles.go
+```
+
+---
+
+### 1.5 Pair View (Refactor)
+
+Move existing pairing logic into proper view structure.
+
+**Files:**
+```
+internal/views/pair/
+├── pair.go
+├── qr.go
+└── styles.go
+```
+
+---
+
+## 🟡 Phase 2: Projects Shell
+
+After Phase 1, build the Projects view structure.
+
+### 2.1 Project Detection
+
+```
+internal/projects/
+├── detector.go        # Find projects (git, HECATE.md, etc.)
+├── project.go         # Project type/state
+└── workspace.go       # .hecate/ management
+```
+
+### 2.2 Projects View Shell
+
+```
+internal/views/projects/
+├── projects.go        # Project list + selection
+├── phases.go          # AnD/AnP/InT/DoO tab bar
+└── styles.go
+```
+
+### 2.3 Phase Placeholder Views
+
+Empty shells that say "Coming soon" — structure first:
+
+```
+internal/views/projects/
+├── and/
+│   └── and.go         # "Analysis & Discovery - Coming Soon"
+├── anp/
+│   └── anp.go         # "Architecture & Planning - Coming Soon"
+├── int/
+│   └── int.go         # "Implementation & Testing - Coming Soon"
+└── doo/
+    └── doo.go         # "Deployment & Operations - Coming Soon"
+```
+
+---
+
+## 🟢 Phase 3: Tool Integration
+
+### 3.1 Tool Detection
+
+```
+internal/tools/
+├── detector.go        # Check which tools are installed
+├── config.go          # Load ~/.hecate/config.toml
+└── launcher.go        # tea.ExecProcess wrappers
+```
+
+### 3.2 Quick Edit
+
+Built-in lightweight editor:
+
+```
+internal/editor/
+├── editor.go          # textarea-based editor
+├── syntax.go          # chroma highlighting
+└── styles.go
+```
+
+---
+
+## 🟢 Phase 4: Flesh Out Phases
+
+Build actual functionality for each phase. Order TBD based on needs.
+
+---
+
+## Architecture Notes
+
+### View Interface
+
+All views implement:
+
+```go
+package views
+
+type View interface {
+    tea.Model
+    Name() string
+    ShortHelp() string
+}
+```
+
+### Navigation
+
+```go
+// Global keybindings (work in any view)
+"1" → Chat
+"2" → Browse
+"3" → Projects
+"4" → Monitor
+"5" → Pair
+"6" → Me
+"?" → Help overlay
+"q" → Quit (with confirm if unsaved state)
+```
+
+### Shared Styles
+
+```
+internal/ui/styles/
+└── styles.go          # Shared colors, borders, etc.
+```
+
+Use consistent Hecate colors:
+- Purple: `#7C3AED` (primary)
+- Amber: `#F59E0B` (accent)
+- Gray scale for text
+
+---
+
+## Test Flow
+
+After Phase 1:
+
 ```bash
-# 1. Start Ollama
+# Terminal 1
 ollama run llama3.2
 
-# 2. Start daemon
-./hecate-daemon
+# Terminal 2  
+cd hecate-daemon && rebar3 shell
 
-# 3. Start TUI, navigate to Chat view
-./hecate-tui
-# Press 'c' for chat (or whatever key you assign)
+# Terminal 3
+cd hecate-tui && go run ./cmd/hecate-tui
+
+# Should see:
+# - 6 tabs: Chat, Browse, Projects, Monitor, Pair, Me
+# - Number keys switch tabs
+# - Each view shows basic content
 ```
 
-**Phase 2 (later):** Mesh discovery, remote model routing.
-
 ---
 
-## Active Tasks
-
-### ✅ DONE [tui]: Fix Endpoint Mismatch
-
-Fixed in this session. **COMMIT AND PUSH NOW.**
-
----
-
-### 🔴 HIGH [tui]: Chat View + LLM Client — UNBLOCKED
-
-**The daemon LLM API is DONE.** You built it yourself:
-- Phase 1: `d604efb` — serve_llm app
-- Phase 2: `6e40a5b` — mesh announcement
-- Phase 3: `3a8278f` — RPC listener
-
-**Endpoints ready:**
-```
-GET  /api/llm/models   → list Ollama models
-POST /api/llm/chat     → chat completion (SSE streaming)
-GET  /api/llm/health   → backend status
-```
-
-**Proceed with TUI chat view implementation.** See `plans/PLAN_CHAT_VIEW.md`.
-
----
-
-### 🟡 MEDIUM [tui]: Project Context Support (HECATE.md)
-
-**Hecate TUI is THE AI interface. Not Claude. Not anything else.**
-
-The TUI should read project context files, just like other AI coding tools.
-
-**Context files to support:**
-
-| File | Scope | Purpose |
-|------|-------|---------|
-| `HECATE.md` | Project root | Project-specific instructions |
-| `SKILLS.md` | Project root | Specialized capabilities |
-| `.hecate/config.yaml` | Workspace | TUI settings, preferences |
-| `.hecate/memory/` | Workspace | Conversation history, context |
-
-**Implementation:**
-
-```
-internal/
-├── context/
-│   ├── loader.go          # Find and load context files
-│   ├── hecate_md.go       # Parse HECATE.md
-│   ├── skills.go          # Parse SKILLS.md
-│   └── memory.go          # Load/save conversation memory
-```
-
-**Behavior:**
-
-1. On startup, walk up from cwd looking for `HECATE.md`
-2. Load project context into system prompt
-3. Load any `SKILLS.md` as additional capabilities
-4. Include context when sending chat requests to LLM
-
-**HECATE.md format (same as CLAUDE.md):**
-
-```markdown
-# Project Name
-
-Brief description.
-
-## Architecture
-
-Key patterns, conventions.
-
-## Commands
-
-Common tasks, how to run them.
-
-## Guidelines
-
-Do's and don'ts for this project.
-```
-
-**This makes Hecate TUI a first-class AI coding assistant.**
-
----
-
-### 🟡 MEDIUM: Pairing UI Polish
-
-Basic pairing works. Polish it:
-- Better QR code display
-- Progress indicator during polling
-- Nicer success/error states
-- Timeout handling
-
-### 🟡 MEDIUM: Identity View
-
-After pairing works, flesh out Identity view:
-- Agent MRI and profile
-- Pairing status (which realm, when)
-- Daemon status (running, version, uptime)
-- Re-pair / unpair actions
-
-### 🟢 LOW: Coach Rules Engine
-
-Read the Architecture Decisions in `plans/PLAN_HECATE_STUDIO_UX.md`.
-
-**Coach is rules-based, NOT LLM-based:**
-- Detect `services/`, `helpers/`, `utils/` → regex on paths
-- Catch central supervisors → naming patterns
-- Generate corrections → templates
-
-No LLM needed for doctrine enforcement.
-
----
-
-## Architecture Decisions (READ THIS)
-
-**1. Macula Services are NOT AI-powered**
-
-Services on the mesh are pure business logic. Deterministic. Testable. No LLM runtime.
-
-**2. Two distinct concerns in the TUI:**
-
-| Concern | Implementation | LLM Required |
-|---------|----------------|--------------|
-| **Coach** (doctrine enforcement) | Rules engine, pattern matching | No |
-| **Studio** (code generation) | LLM generates Cartwheel code | **Yes** |
-
-**3. First-run experience:**
-- If no model configured, prompt user to set up
-- Detect local Ollama, offer easy path
-- Or enter cloud API key
-
----
-
-## Completed Tasks
-
-### ✅ Basic TUI Structure
-- Views: Status, Mesh, Capabilities, RPC, Logs
-- Tab navigation
-- Daemon client connection
-
-### ✅ Basic Pairing Flow
-- QR code display
-- Polling logic
-- Success/error handling
-
----
-
-*Ship it.* 🔥🗝️🔥
+*Build the structure. Refine the soul later.* 🔥🗝️🔥
