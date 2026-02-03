@@ -6,7 +6,7 @@
 
 ## Current Task
 
-**COMPLETE: Phase 1.1 Navigation Refactor**
+**COMPLETE: Phase 1.2-1.3 Browse & Monitor Enhancements**
 
 ## Last Active
 
@@ -15,6 +15,29 @@
 ---
 
 ## Session Log
+
+### 2026-02-03 Session (Browse & Monitor Enhancements)
+
+**Status:** Complete
+
+**Completed:**
+- Enhanced `internal/views/browse/browse.go` with:
+  - Search mode (`/` to activate, live filtering)
+  - Detail view (`Enter` to view capability details)
+  - Scroll indicator for long lists
+  - ViewMode state machine (List/Search/Detail)
+- Created `internal/views/browse/styles.go` with dedicated browse styling
+- Enhanced `internal/views/monitor/monitor.go` with:
+  - Stats cards row (Uptime, Subscriptions, Capabilities, Status)
+  - Two-column layout for Daemon/Mesh sections
+  - Error state with helpful hints
+  - Last refresh timestamp
+- Created `internal/views/monitor/styles.go` with dedicated monitor styling
+- Added InputSchema/OutputSchema fields to Capability struct
+
+**Build:** Successful, go vet clean
+
+---
 
 ### 2026-02-03 Session (Navigation Refactor)
 

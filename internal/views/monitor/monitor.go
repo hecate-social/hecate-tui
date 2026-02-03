@@ -3,6 +3,7 @@ package monitor
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -22,6 +23,13 @@ type Model struct {
 	health   *client.Health
 	identity *client.Identity
 	err      error
+
+	// Stats
+	subscriptionCount int
+	capabilityCount   int
+
+	// Refresh
+	lastRefresh time.Time
 }
 
 // New creates a new monitor view
@@ -39,16 +47,20 @@ func New(c *client.Client) Model {
 
 // Messages
 type healthMsg struct {
-	health   *client.Health
-	identity *client.Identity
-	err      error
+	health            *client.Health
+	identity          *client.Identity
+	subscriptionCount int
+	capabilityCount   int
+	err               error
 }
+
+type refreshTickMsg struct{}
 
 // Init initializes the view
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
-		m.fetchHealth,
+		m.fetchAll,
 	)
 }
 
@@ -64,7 +76,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "r":
 			m.loading = true
-			return m, m.fetchHealth
+			return m, m.fetchAll
 		}
 
 	case spinner.TickMsg:
@@ -76,7 +88,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = false
 		m.health = msg.health
 		m.identity = msg.identity
+		m.subscriptionCount = msg.subscriptionCount
+		m.capabilityCount = msg.capabilityCount
 		m.err = msg.err
+		m.lastRefresh = time.Now()
+
+	case refreshTickMsg:
+		if m.focused && time.Since(m.lastRefresh) > 30*time.Second {
+			return m, m.fetchAll
+		}
 	}
 
 	return m, tea.Batch(cmds...)
@@ -91,7 +111,7 @@ func (m Model) View() string {
 	var b strings.Builder
 
 	// Title
-	b.WriteString(styles.TitleStyle.Render("📊 Monitor"))
+	b.WriteString(styles.TitleStyle.Render("Monitor"))
 	b.WriteString("\n\n")
 
 	if m.loading {
@@ -100,68 +120,120 @@ func (m Model) View() string {
 	}
 
 	if m.err != nil {
-		b.WriteString(styles.StatusError.Render("⚠ " + m.err.Error()))
-		b.WriteString("\n\n")
-		b.WriteString(lipgloss.NewStyle().
-			Foreground(styles.Muted).
-			Render("Make sure the Hecate daemon is running:\n  hecate start"))
+		b.WriteString(m.renderError())
 		return m.wrapInBox(b.String())
 	}
 
-	// Daemon status section
-	b.WriteString(m.renderDaemonStatus())
+	// Stats cards row
+	b.WriteString(m.renderStatsRow())
 	b.WriteString("\n\n")
 
-	// Identity section
-	b.WriteString(m.renderIdentity())
+	// Two-column layout
+	leftCol := m.renderDaemonStatus()
+	rightCol := m.renderMesh()
+
+	colWidth := (m.width - 12) / 2
+	leftBox := SectionBoxStyle.Width(colWidth).Render(leftCol)
+	rightBox := SectionBoxStyle.Width(colWidth).Render(rightCol)
+
+	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "  ", rightBox))
 	b.WriteString("\n\n")
 
-	// Mesh section
-	b.WriteString(m.renderMesh())
+	// Identity section (full width)
+	b.WriteString(SectionBoxStyle.Width(m.width - 8).Render(m.renderIdentity()))
+
+	// Last refresh time
+	b.WriteString("\n\n")
+	if !m.lastRefresh.IsZero() {
+		refreshTime := m.lastRefresh.Format("15:04:05")
+		b.WriteString(lipgloss.NewStyle().
+			Foreground(styles.Muted).
+			Italic(true).
+			Render("Last updated: " + refreshTime))
+	}
 
 	return m.wrapInBox(b.String())
+}
+
+func (m Model) renderError() string {
+	var b strings.Builder
+
+	icon := lipgloss.NewStyle().
+		Foreground(UnhealthyColor).
+		Render("⚠")
+
+	b.WriteString(icon + " ")
+	b.WriteString(StatusUnhealthyStyle.Render("Daemon Offline"))
+	b.WriteString("\n\n")
+
+	b.WriteString(lipgloss.NewStyle().
+		Foreground(styles.Text).
+		Render(m.err.Error()))
+	b.WriteString("\n\n")
+
+	hint := lipgloss.NewStyle().
+		Foreground(styles.Muted).
+		Render("Make sure the Hecate daemon is running:\n\n  hecate start\n\nOr start the daemon shell:\n\n  cd hecate-daemon && rebar3 shell")
+
+	b.WriteString(hint)
+
+	return b.String()
+}
+
+func (m Model) renderStatsRow() string {
+	// Uptime stat
+	uptimeVal := "--"
+	if m.health != nil {
+		uptimeVal = formatUptimeShort(m.health.UptimeSeconds)
+	}
+	uptimeCard := RenderStatCard(uptimeVal, "Uptime")
+
+	// Subscriptions stat
+	subVal := fmt.Sprintf("%d", m.subscriptionCount)
+	subCard := RenderStatCard(subVal, "Subscriptions")
+
+	// Capabilities stat
+	capVal := fmt.Sprintf("%d", m.capabilityCount)
+	capCard := RenderStatCard(capVal, "Capabilities")
+
+	// Status stat
+	statusVal := "Offline"
+	if m.health != nil && m.health.Status == "healthy" {
+		statusVal = "Online"
+	}
+	statusCard := RenderStatCard(statusVal, "Status")
+
+	return lipgloss.JoinHorizontal(lipgloss.Center,
+		uptimeCard, "  ",
+		subCard, "  ",
+		capCard, "  ",
+		statusCard,
+	)
 }
 
 func (m Model) renderDaemonStatus() string {
 	var rows []string
 
-	rows = append(rows, lipgloss.NewStyle().
-		Bold(true).
-		Foreground(styles.Secondary).
-		Render("Daemon Status"))
-
-	rows = append(rows, "")
+	rows = append(rows, SectionTitleStyle.Render("Daemon"))
 
 	if m.health == nil {
 		rows = append(rows, lipgloss.NewStyle().
 			Foreground(styles.Muted).
-			Render("No health data available"))
+			Render("No health data"))
 		return strings.Join(rows, "\n")
 	}
 
-	// Status with indicator
-	statusStyle := styles.StatusOK
-	if m.health.Status != "healthy" {
-		statusStyle = styles.StatusError
-	}
-	rows = append(rows, fmt.Sprintf("  %s %s",
-		styles.LabelStyle.Render("Status:"),
-		statusStyle.Render("● "+m.health.Status)))
+	// Status
+	rows = append(rows, renderRow("Status:", StatusIndicator(m.health.Status)+" "+StatusText(m.health.Status)))
 
 	// Version
-	rows = append(rows, fmt.Sprintf("  %s %s",
-		styles.LabelStyle.Render("Version:"),
-		styles.ValueStyle.Render(m.health.Version)))
+	rows = append(rows, renderRow("Version:", m.health.Version))
 
 	// Uptime
-	rows = append(rows, fmt.Sprintf("  %s %s",
-		styles.LabelStyle.Render("Uptime:"),
-		styles.ValueStyle.Render(formatUptime(m.health.UptimeSeconds))))
+	rows = append(rows, renderRow("Uptime:", formatUptime(m.health.UptimeSeconds)))
 
 	// Port
-	rows = append(rows, fmt.Sprintf("  %s %s",
-		styles.LabelStyle.Render("Port:"),
-		styles.ValueStyle.Render("4444")))
+	rows = append(rows, renderRow("Port:", "4444"))
 
 	return strings.Join(rows, "\n")
 }
@@ -169,29 +241,33 @@ func (m Model) renderDaemonStatus() string {
 func (m Model) renderIdentity() string {
 	var rows []string
 
-	rows = append(rows, lipgloss.NewStyle().
-		Bold(true).
-		Foreground(styles.Secondary).
-		Render("Identity"))
-
-	rows = append(rows, "")
+	rows = append(rows, SectionTitleStyle.Render("Identity"))
 
 	if m.identity == nil {
 		rows = append(rows, lipgloss.NewStyle().
 			Foreground(styles.Muted).
-			Render("  No identity configured"))
+			Render("No identity configured. Run: hecate init"))
 		return strings.Join(rows, "\n")
 	}
 
 	// MRI
-	rows = append(rows, fmt.Sprintf("  %s %s",
-		styles.LabelStyle.Render("MRI:"),
-		lipgloss.NewStyle().Foreground(styles.Primary).Render(m.identity.Identity)))
+	mri := m.identity.Identity
+	if len(mri) > 60 {
+		mri = mri[:57] + "..."
+	}
+	rows = append(rows, renderRow("MRI:", RowHighlightStyle.Render(mri)))
+
+	// Public key (truncated)
+	pubKey := m.identity.PublicKey
+	if len(pubKey) > 40 {
+		pubKey = pubKey[:20] + "..." + pubKey[len(pubKey)-16:]
+	}
+	rows = append(rows, renderRow("Public Key:", pubKey))
 
 	// Created
-	rows = append(rows, fmt.Sprintf("  %s %s",
-		styles.LabelStyle.Render("Created:"),
-		styles.ValueStyle.Render(m.identity.CreatedAt)))
+	if m.identity.CreatedAt != "" {
+		rows = append(rows, renderRow("Created:", m.identity.CreatedAt))
+	}
 
 	return strings.Join(rows, "\n")
 }
@@ -199,23 +275,33 @@ func (m Model) renderIdentity() string {
 func (m Model) renderMesh() string {
 	var rows []string
 
-	rows = append(rows, lipgloss.NewStyle().
-		Bold(true).
-		Foreground(styles.Secondary).
-		Render("Mesh Connection"))
+	rows = append(rows, SectionTitleStyle.Render("Mesh Connection"))
 
+	// Bootstrap server
+	rows = append(rows, renderRow("Bootstrap:", "boot.macula.io:443"))
+
+	// Connection status (derived from health)
+	meshStatus := "disconnected"
+	if m.health != nil && m.health.Status == "healthy" {
+		meshStatus = "connected"
+	}
+	rows = append(rows, renderRow("Status:", StatusIndicator(meshStatus)+" "+StatusText(meshStatus)))
+
+	// Note about mesh status
 	rows = append(rows, "")
-
-	// TODO: Get actual mesh status from daemon
-	rows = append(rows, fmt.Sprintf("  %s %s",
-		styles.LabelStyle.Render("Bootstrap:"),
-		styles.ValueStyle.Render("boot.macula.io:443")))
-
-	rows = append(rows, fmt.Sprintf("  %s %s",
-		styles.LabelStyle.Render("Status:"),
-		styles.StatusOK.Render("● Connected")))
+	rows = append(rows, lipgloss.NewStyle().
+		Foreground(styles.Muted).
+		Italic(true).
+		Render("Mesh status endpoint TBD"))
 
 	return strings.Join(rows, "\n")
+}
+
+func renderRow(label, value string) string {
+	return lipgloss.JoinHorizontal(lipgloss.Left,
+		RowLabelStyle.Render(label),
+		RowValueStyle.Render(value),
+	)
 }
 
 func (m Model) wrapInBox(content string) string {
@@ -223,14 +309,34 @@ func (m Model) wrapInBox(content string) string {
 }
 
 // Commands
-func (m Model) fetchHealth() tea.Msg {
+func (m Model) fetchAll() tea.Msg {
 	health, err := m.client.GetHealth()
 	if err != nil {
 		return healthMsg{err: err}
 	}
 
 	identity, _ := m.client.GetIdentity()
-	return healthMsg{health: health, identity: identity}
+
+	// Fetch subscription count
+	subs, _ := m.client.ListSubscriptions()
+	subCount := 0
+	if subs != nil {
+		subCount = len(subs)
+	}
+
+	// Fetch capability count
+	caps, _ := m.client.DiscoverCapabilities("", "", 1000)
+	capCount := 0
+	if caps != nil {
+		capCount = len(caps)
+	}
+
+	return healthMsg{
+		health:            health,
+		identity:          identity,
+		subscriptionCount: subCount,
+		capabilityCount:   capCount,
+	}
 }
 
 // View interface implementation
@@ -273,6 +379,20 @@ func formatUptime(seconds int) string {
 	}
 	if hours > 0 {
 		return fmt.Sprintf("%dh %dm", hours, minutes)
+	}
+	return fmt.Sprintf("%dm", minutes)
+}
+
+func formatUptimeShort(seconds int) string {
+	days := seconds / 86400
+	hours := (seconds % 86400) / 3600
+	minutes := (seconds % 3600) / 60
+
+	if days > 0 {
+		return fmt.Sprintf("%dd%dh", days, hours)
+	}
+	if hours > 0 {
+		return fmt.Sprintf("%dh%dm", hours, minutes)
 	}
 	return fmt.Sprintf("%dm", minutes)
 }

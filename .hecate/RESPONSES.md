@@ -139,6 +139,65 @@ ollama run llama3.2
 
 ---
 
+## 2026-02-03 COMPLETE [tui]: Phase 1.2-1.3 Browse & Monitor Views
+
+### Summary
+
+Enhanced Browse and Monitor views with search, details, and improved styling.
+
+### Browse View Enhancements
+
+1. **Search Mode** (`/` key)
+   - Live filtering as you type
+   - Searches MRI, description, and tags
+   - Filter count display (e.g., "3 of 10")
+
+2. **Detail View** (`Enter` key)
+   - Full capability details panel
+   - Shows MRI, name, source, agent, description
+   - Tags rendered as styled chips
+   - Input/output schemas (when available)
+
+3. **UI Improvements**
+   - Scroll indicator for long lists
+   - Proper ViewMode state machine
+   - Dedicated styles.go
+
+### Monitor View Enhancements
+
+1. **Stats Cards Row**
+   - Uptime, Subscriptions, Capabilities, Status
+   - Centered card layout
+
+2. **Two-Column Layout**
+   - Daemon status (left)
+   - Mesh connection (right)
+
+3. **Error State**
+   - Helpful daemon startup hints
+   - Clear visual indicator
+
+4. **Additional**
+   - Last refresh timestamp
+   - Subscription/capability counts fetched from API
+
+### Files Changed
+
+```
+internal/views/browse/
+├── browse.go       # Enhanced with search + details
+└── styles.go       # NEW
+
+internal/views/monitor/
+├── monitor.go      # Enhanced with stats + columns
+└── styles.go       # NEW
+
+internal/client/
+└── client.go       # Added InputSchema/OutputSchema
+```
+
+---
+
 ## 2026-02-03 COMPLETE [tui]: Phase 1.1 Navigation Refactor
 
 ### Summary

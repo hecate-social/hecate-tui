@@ -54,6 +54,8 @@ type Capability struct {
 	Description   string            `json:"description"`
 	DemoProcedure string            `json:"demo_procedure,omitempty"`
 	Metadata      map[string]string `json:"metadata,omitempty"`
+	InputSchema   string            `json:"input_schema,omitempty"`
+	OutputSchema  string            `json:"output_schema,omitempty"`
 	AnnouncedAt   string            `json:"announced_at"`
 }
 
