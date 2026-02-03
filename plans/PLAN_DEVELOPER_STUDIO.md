@@ -828,7 +828,20 @@ AI guidance for each phase lives in Skills files:
 └── DoO_SKILLS.md     # Deployment & Operations
 ```
 
-### Skills File Structure
+### ⚠️ Skills = Quality
+
+**Each skills file is a separate project.** These determine the quality of AI assistance in each phase. They deserve focused attention and iteration.
+
+| Skills File | Focus | Status |
+|-------------|-------|--------|
+| `AnD_SKILLS.md` | Event Storming, DDD, domain discovery | 📋 TODO |
+| `AnP_SKILLS.md` | Cartwheel Architecture, vertical slices, Kanban | 📋 TODO |
+| `InT_SKILLS.md` | Code generation, doctrine enforcement, testing | 📋 TODO |
+| `DoO_SKILLS.md` | Deployment, mesh publishing, monitoring | 📋 TODO |
+
+**Will be developed separately with dedicated planning.**
+
+### Skills File Structure (Template)
 
 Each file follows this template:
 
@@ -849,12 +862,16 @@ What must be complete before moving to next phase.
 
 ## Anti-patterns
 What to avoid.
+
+## Examples
+Worked examples demonstrating correct approach.
 ```
 
 Skills files are:
 - Shipped with hecate-node installer
 - User-customizable
 - Loaded as context when Chat is invoked in that phase
+- Version-controlled in `hecate-social/hecate-skills` repo (future)
 
 ---
 
