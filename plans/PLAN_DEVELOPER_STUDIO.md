@@ -1,0 +1,675 @@
+# PLAN: Hecate Developer Studio
+
+**Version:** 1.0
+**Date:** 2026-02-03
+**Status:** Draft
+
+---
+
+## Vision
+
+Hecate TUI evolves from a monitoring tool into a **full Developer Studio** for building Macula mesh services.
+
+Two integrated experiences:
+
+1. **Mesh Interface** — Chat, browse, pair, monitor (the mesh IS the computer)
+2. **Developer Studio** — Project-based, AI-assisted development workflow
+
+The Studio follows **four phases** that mirror the software development lifecycle:
+
+| Phase | Code | Focus |
+|-------|------|-------|
+| **Analysis & Discovery** | AnD | Event Storming, DDD, domain modeling |
+| **Architecture & Planning** | AnP | Vertical slices, Cartwheel, Kanban |
+| **Implementation & Testing** | InT | Code generation, doctrine, testing |
+| **Deployment & Operations** | DoO | Deploy, publish to mesh, monitor |
+
+Each phase is guided by AI using dedicated **Skills files**.
+
+---
+
+## Core Principle: The Mesh IS the Computer
+
+Local and remote capabilities are equivalent. My node is just one node on the distributed mesh. The TUI treats them uniformly — where something runs is an implementation detail, not a primary concern.
+
+---
+
+## Navigation Structure
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ [1]Chat [2]Browse [3]Projects [4]Monitor [5]Pair [6]Me               │
+└──────────────────────────────────────────────────────────────────────┘
+
+1. Chat      — Talk to AI (mesh LLMs, context-aware)
+2. Browse    — Discover capabilities, agents, models
+3. Projects  — Developer Studio (AnD → AnP → InT → DoO)
+4. Monitor   — Daemon health, my services, logs
+5. Pair      — Mesh connection management
+6. Me        — Identity, social, permissions, settings
+```
+
+---
+
+## View Specifications
+
+### 1. Chat View
+
+**Purpose:** Communicate with LLMs on the mesh.
+
+**Features:**
+- Model selector (local + mesh-discovered models)
+- Streaming responses with token stats
+- Context loading (HECATE.md, project files)
+- Conversation persistence
+
+**Status:** ✅ Phase 1 Complete (local chat)
+
+**Pending:**
+- [ ] Mesh model discovery
+- [ ] HECATE.md context loading
+- [ ] Conversation save/load
+
+---
+
+### 2. Browse View
+
+**Purpose:** Discover capabilities, agents, and models on the mesh.
+
+**Sub-views:**
+
+| Sub-view | Description |
+|----------|-------------|
+| Capabilities | Search/filter available services |
+| Agents | Browse agent profiles |
+| Models | LLM models specifically |
+
+**Features:**
+- Unified search across local and mesh
+- Filter by tags, type, rating
+- Detail view with test capability
+- Actions: Subscribe, Endorse, Test Call
+
+**Key Insight:** No "Local vs Remote" distinction in primary UI. The mesh is one computer.
+
+---
+
+### 3. Projects View (Developer Studio)
+
+**Purpose:** AI-assisted development workflow for Macula services.
+
+**Structure:**
+```
+Projects View
+├── Project List (recent projects, add new)
+├── Project Selected
+│   ├── [AnD] Analysis & Discovery
+│   ├── [AnP] Architecture & Planning
+│   ├── [InT] Implementation & Testing
+│   └── [DoO] Deployment & Operations
+```
+
+Each phase is detailed below.
+
+---
+
+### 4. Monitor View
+
+**Purpose:** Observe daemon and service health.
+
+**Sub-views:**
+
+| Sub-view | Description |
+|----------|-------------|
+| Daemon | Health, version, uptime, connection |
+| Services | My announced capabilities, their status |
+| Logs | Tail logs for daemon or specific service |
+| Reputation | My ratings, endorsements, disputes |
+
+---
+
+### 5. Pair View
+
+**Purpose:** Manage mesh connection.
+
+**Features:**
+- Pairing flow (QR code, confirmation code)
+- Connection status (bootstrap nodes, peers)
+- Re-pair / Unpair actions
+- Multi-realm support (future)
+
+---
+
+### 6. Me View
+
+**Purpose:** Identity, social, permissions, settings.
+
+**Sub-views:**
+
+| Sub-view | Description |
+|----------|-------------|
+| Profile | MRI, display name, description |
+| Social | Followers, following, endorsements |
+| UCAN | Granted/received permissions |
+| Settings | LLM config, preferences, theme |
+
+---
+
+## Developer Studio — Phase Details
+
+### AnD: Analysis & Discovery
+
+**Purpose:** Domain modeling using Event Storming and DDD practices.
+
+**AI Skills:** `~/.hecate/skills/AnD_SKILLS.md`
+
+**Capabilities:**
+- Scan existing codebase for domain events
+- Identify aggregates and bounded contexts
+- Discover commands and queries
+- Visualize domain model
+- Chat with AI about domain concepts
+
+**UI Layout:**
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ AnD: Analysis & Discovery                          [project-name]   │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Domain Events:                      Aggregates:                     │
+│  ┌────────────────────────────┐     ┌────────────────────────────┐  │
+│  │ 🟠 capability_announced    │     │ ▪ capability_aggregate     │  │
+│  │ 🟠 capability_retracted    │     │ ▪ identity_aggregate       │  │
+│  │ 🟠 agent_paired            │     │ ▪ serve_llm_aggregate      │  │
+│  │ 🟠 follower_recorded       │     └────────────────────────────┘  │
+│  │ [+ Add Event]              │                                      │
+│  └────────────────────────────┘     Commands:                        │
+│                                      ┌────────────────────────────┐  │
+│  Bounded Contexts:                   │ ▸ announce_capability      │  │
+│  ┌────────────────────────────┐     │ ▸ pair_agent               │  │
+│  │ ▪ capabilities (manage_*)  │     │ ▸ follow_agent             │  │
+│  │ ▪ identity (manage_*)      │     └────────────────────────────┘  │
+│  │ ▪ social (manage_social)   │                                      │
+│  └────────────────────────────┘                                      │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ [Scan] Analyze codebase  [Chat] Ask AI  [Export] → AnP         │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Actions:**
+- `Scan` — Parse codebase for events, commands, aggregates
+- `Chat` — Discuss domain with AI (uses AnD_SKILLS.md)
+- `Export` — Carry discovered model to AnP phase
+- `Diagram` — Generate Event Storming board (mermaid)
+
+**Outputs:**
+- Domain event catalog
+- Aggregate map
+- Bounded context boundaries
+- Exported context for AnP
+
+---
+
+### AnP: Architecture & Planning
+
+**Purpose:** Design vertical slices and plan implementation.
+
+**AI Skills:** `~/.hecate/skills/AnP_SKILLS.md`
+
+**Capabilities:**
+- Design Cartwheel vertical slices
+- Define spoke/supervisor structure
+- Generate Kanban task board
+- Export tasks to external tools
+
+**UI Layout:**
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ AnP: Architecture & Planning                       [project-name]   │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Vertical Slices:                    Kanban Board:                   │
+│  ┌────────────────────────────┐     ┌──────┬───────┬──────────────┐ │
+│  │ serve_llm/                 │     │ TODO │ DOING │ DONE         │ │
+│  │ ├── announce_llm_cap/      │     ├──────┼───────┼──────────────┤ │
+│  │ │   ├── command            │     │ ▪ P3 │ ▪ P2  │ ▪ P1 API     │ │
+│  │ │   ├── event              │     │ ▪ P4 │       │ ▪ Tests      │ │
+│  │ │   ├── handler            │     │      │       │ ▪ Docs       │ │
+│  │ │   └── emitter            │     │      │       │              │ │
+│  │ ├── retract_llm_cap/       │     └──────┴───────┴──────────────┘ │
+│  │ └── handle_llm_rpc/        │                                      │
+│  │                            │     Task Details:                    │
+│  │ [+ Add Slice]              │     ┌────────────────────────────┐  │
+│  └────────────────────────────┘     │ P2: Mesh announcement      │  │
+│                                      │ Slice: announce_llm_cap/   │  │
+│  Mesh Integration:                   │ Files: 4  Tests: 0         │  │
+│  ┌────────────────────────────┐     └────────────────────────────┘  │
+│  │ ▪ Emitters (EVENT → FACT)  │                                      │
+│  │ ▪ Listeners (FACT → CMD)   │                                      │
+│  │ ▪ Responders (RPC)         │                                      │
+│  └────────────────────────────┘                                      │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ [Generate] Scaffold  [Chat] Ask AI  [Export] → taskwarrior     │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Actions:**
+- `Generate` — Create directory structure and boilerplate
+- `Chat` — Discuss architecture with AI (uses AnP_SKILLS.md)
+- `Export` — Sync tasks to taskwarrior or GitHub Issues
+- `Diagram` — Generate architecture diagram (mermaid)
+
+**Cartwheel Patterns:**
+- CMD slices (command → event → handler → aggregate)
+- QRY slices (queries on projections)
+- Projections (event → read model)
+- Mesh integration (emitters, listeners, responders)
+
+**Outputs:**
+- Slice directory structure
+- Kanban task list
+- Architecture diagrams
+- Generated boilerplate (→ InT)
+
+---
+
+### InT: Implementation & Testing
+
+**Purpose:** Code generation, doctrine enforcement, testing.
+
+**AI Skills:** `~/.hecate/skills/InT_SKILLS.md`
+
+**Capabilities:**
+- Generate Cartwheel code from templates
+- Real-time doctrine violation detection
+- Test generation and execution
+- Integration with external editors
+
+**UI Layout:**
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ InT: Implementation & Testing                      [project-name]   │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Current Slice: serve_llm/announce_llm_capability/                   │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │ Status │ File                              │ Type     │ Notes │  │
+│  ├────────┼───────────────────────────────────┼──────────┼───────┤  │
+│  │   ✅   │ announce_llm_capability_v1.erl    │ command  │       │  │
+│  │   ✅   │ llm_capability_announced_v1.erl   │ event    │       │  │
+│  │   ⚠️   │ maybe_announce_llm_capability.erl │ handler  │ 2 TODO│  │
+│  │   ✅   │ llm_capability_announced_to_mesh  │ emitter  │       │  │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  Doctrine Coach:                     Tests:                          │
+│  ┌────────────────────────────┐     ┌────────────────────────────┐  │
+│  │ Violations: 0              │     │ Total:    14               │  │
+│  │ Warnings:   1              │     │ Passing:  14  ✅           │  │
+│  │ ─────────────────────────  │     │ Failing:  0               │  │
+│  │ ⚠️ Nested case in handler  │     │ Coverage: 78%             │  │
+│  └────────────────────────────┘     └────────────────────────────┘  │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ [Edit] neovim  [Git] lazygit  [Test] Run  [Chat] Ask AI        │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Actions:**
+- `Edit` — Open file in neovim (or configured editor)
+- `Git` — Launch lazygit for version control
+- `Test` — Run tests for current slice
+- `Chat` — Get AI help (uses InT_SKILLS.md)
+- `Generate` — Create file from template
+
+**Doctrine Coach (Built-in):**
+Real-time filesystem watcher that detects violations:
+
+| Rule | Detection |
+|------|-----------|
+| Horizontal directories | Path regex: `/services/`, `/helpers/`, `/utils/` |
+| Central supervisors | Path regex: `_listeners_sup.erl`, `_handlers_sup.erl` |
+| CRUD events | Content regex: `_created_v`, `_updated_v`, `_deleted_v` |
+| God modules | Path regex: `_manager.erl` |
+
+Violations shown inline with explanation and suggested fix.
+
+**External Tool Integration:**
+- **neovim** — Code editing
+- **lazygit** — Git operations
+- **rebar3/mix/go** — Build and test
+
+**Outputs:**
+- Implemented code
+- Passing tests
+- Clean doctrine report
+- Ready for deployment (→ DoO)
+
+---
+
+### DoO: Deployment & Operations
+
+**Purpose:** Deploy to local/cluster/mesh, announce capabilities, monitor.
+
+**AI Skills:** `~/.hecate/skills/DoO_SKILLS.md`
+
+**Capabilities:**
+- Pre-flight checks (compile, dialyzer, tests)
+- Deploy to multiple targets
+- Announce capabilities to mesh
+- Monitor deployed services
+
+**UI Layout:**
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ DoO: Deployment & Operations                       [project-name]   │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Deploy Target:                                                      │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │  ○ Local (this machine)                                      │   │
+│  │  ● Cluster (beam00-03.lab)                                   │   │
+│  │  ○ Container (Docker/Podman)                                 │   │
+│  │  ○ Kubernetes (k3s cluster)                                  │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  Pre-flight Checks:                  Capabilities to Announce:       │
+│  ┌────────────────────────────┐     ┌────────────────────────────┐  │
+│  │ ✅ Compiles cleanly        │     │ ☑ serve_llm                │  │
+│  │ ✅ Dialyzer passes         │     │   ├─ llama3.2             │  │
+│  │ ✅ Tests pass (14/14)      │     │   ├─ qwen2.5-coder        │  │
+│  │ ✅ No doctrine violations  │     │   └─ deepseek-r1          │  │
+│  │ ⚠️ 2 TODOs remaining       │     │ ☐ query_capabilities      │  │
+│  └────────────────────────────┘     │ ☐ manage_social           │  │
+│                                      └────────────────────────────┘  │
+│  Announcement Preview:                                               │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │ MRI: mri:capability:io.macula/hecate-dev/llm/llama3.2        │   │
+│  │ Type: llm                                                     │   │
+│  │ Tags: [ai, chat, llm, local]                                  │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ [Deploy] Execute  [Docker] lazydocker  [K8s] k9s  [Chat] AI    │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Actions:**
+- `Deploy` — Execute deployment to selected target
+- `Docker` — Launch lazydocker for container management
+- `K8s` — Launch k9s for Kubernetes management
+- `Announce` — Publish capabilities to mesh
+- `Chat` — Get AI help (uses DoO_SKILLS.md)
+
+**Deployment Targets:**
+1. **Local** — Run on this machine
+2. **Cluster** — SSH to beam cluster nodes
+3. **Container** — Build and run Docker image
+4. **Kubernetes** — Deploy to k3s/k8s cluster
+
+**Post-deployment:**
+- Automatic capability announcement (if selected)
+- Health check verification
+- Link to Monitor view for ongoing observation
+
+---
+
+## External Tool Integration
+
+### Recommended Sidecar Tools
+
+| Tool | Purpose | Phase |
+|------|---------|-------|
+| **lazygit** | Git operations | InT |
+| **lazydocker** | Container management | DoO |
+| **k9s** | Kubernetes management | DoO |
+| **neovim** | Code editing | InT |
+| **ranger** / **lf** | File navigation | All |
+| **taskwarrior-tui** | Kanban task management | AnP |
+
+### Integration Approach
+
+Tools are launched externally (not embedded). Hecate TUI:
+1. Detects if tool is installed
+2. Provides keybinding to launch
+3. Returns focus to TUI after tool exits
+
+```go
+// Example: Launch lazygit
+func launchLazygit(projectDir string) tea.Cmd {
+    return tea.ExecProcess(
+        exec.Command("lazygit"),
+        func(err error) tea.Msg { return toolExitMsg{err} },
+    )
+}
+```
+
+### Tool Detection
+
+On startup and per-project:
+```go
+type ToolAvailability struct {
+    Lazygit     bool
+    Lazydocker  bool
+    K9s         bool
+    Neovim      bool
+    Ranger      bool
+    Taskwarrior bool
+}
+
+func detectTools() ToolAvailability {
+    return ToolAvailability{
+        Lazygit:     commandExists("lazygit"),
+        Lazydocker:  commandExists("lazydocker"),
+        K9s:         commandExists("k9s"),
+        Neovim:      commandExists("nvim"),
+        Ranger:      commandExists("ranger"),
+        Taskwarrior: commandExists("task"),
+    }
+}
+```
+
+---
+
+## Skills Files
+
+AI guidance for each phase lives in Skills files:
+
+```
+~/.hecate/skills/
+├── AnD_SKILLS.md     # Analysis & Discovery
+├── AnP_SKILLS.md     # Architecture & Planning
+├── InT_SKILLS.md     # Implementation & Testing
+└── DoO_SKILLS.md     # Deployment & Operations
+```
+
+### Skills File Structure
+
+Each file follows this template:
+
+```markdown
+# [Phase] Skills
+
+## Context
+What this phase is about.
+
+## Patterns
+Specific patterns the AI should follow.
+
+## Templates
+Code/document templates for this phase.
+
+## Checklist
+What must be complete before moving to next phase.
+
+## Anti-patterns
+What to avoid.
+```
+
+Skills files are:
+- Shipped with hecate-node installer
+- User-customizable
+- Loaded as context when Chat is invoked in that phase
+
+---
+
+## Project Detection
+
+A directory is recognized as a "Hecate Project" if it contains:
+
+1. `HECATE.md` — Project-specific AI instructions (preferred)
+2. `.hecate/` directory — Hecate workspace files
+3. `rebar.config` / `mix.exs` / `go.mod` — Language-specific markers
+4. `.git/` — Any git repository (fallback)
+
+**Priority:** HECATE.md > .hecate/ > language marker > git
+
+---
+
+## File Structure
+
+```
+internal/views/
+├── chat/                    # Chat with mesh LLMs
+│   ├── chat.go
+│   ├── styles.go
+│   ├── model_selector.go
+│   └── context_loader.go
+│
+├── browse/                  # Discover mesh capabilities
+│   ├── browse.go
+│   ├── capabilities.go
+│   ├── agents.go
+│   ├── models.go
+│   └── test_call.go
+│
+├── projects/                # Developer Studio
+│   ├── projects.go          # Project list/selection
+│   ├── detector.go          # Project detection logic
+│   │
+│   ├── and/                 # Analysis & Discovery
+│   │   ├── and.go
+│   │   ├── scanner.go       # Codebase scanner
+│   │   ├── events.go        # Event discovery UI
+│   │   ├── aggregates.go    # Aggregate visualization
+│   │   └── contexts.go      # Bounded contexts
+│   │
+│   ├── anp/                 # Architecture & Planning
+│   │   ├── anp.go
+│   │   ├── slices.go        # Slice designer
+│   │   ├── kanban.go        # Task board
+│   │   ├── generator.go     # Scaffold generator
+│   │   └── export.go        # Taskwarrior/GH export
+│   │
+│   ├── int/                 # Implementation & Testing
+│   │   ├── int.go
+│   │   ├── files.go         # File checklist
+│   │   ├── coach.go         # Doctrine enforcer
+│   │   ├── templates.go     # Code templates
+│   │   └── tests.go         # Test runner
+│   │
+│   └── doo/                 # Deployment & Operations
+│       ├── doo.go
+│       ├── preflight.go     # Pre-flight checks
+│       ├── deploy.go        # Deployment execution
+│       ├── announce.go      # Capability announcement
+│       └── targets.go       # Deploy target config
+│
+├── monitor/                 # Daemon & service health
+│   ├── monitor.go
+│   ├── daemon.go
+│   ├── services.go
+│   ├── logs.go
+│   └── reputation.go
+│
+├── pair/                    # Mesh connection
+│   ├── pair.go
+│   ├── qr.go
+│   └── status.go
+│
+└── me/                      # Identity & settings
+    ├── me.go
+    ├── profile.go
+    ├── social.go
+    ├── ucan.go
+    └── settings.go
+```
+
+---
+
+## Implementation Phases
+
+### Phase 1: Foundation ✅ (Partial)
+- [x] Chat view (local LLM)
+- [ ] Browse view (basic capability list)
+- [ ] Monitor view (daemon health)
+- [ ] Me view (identity display)
+- [ ] Pair view (pairing flow)
+
+### Phase 2: Projects Shell
+- [ ] Project list/detection
+- [ ] Project selection
+- [ ] Phase navigation (AnD/AnP/InT/DoO tabs)
+- [ ] Tool detection
+
+### Phase 3: AnD — Analysis & Discovery
+- [ ] Codebase scanner
+- [ ] Event/aggregate discovery
+- [ ] Domain visualization
+- [ ] AI chat integration
+
+### Phase 4: AnP — Architecture & Planning
+- [ ] Slice designer
+- [ ] Kanban board
+- [ ] Scaffold generator
+- [ ] Task export
+
+### Phase 5: InT — Implementation & Testing
+- [ ] File checklist
+- [ ] Doctrine coach (filesystem watcher)
+- [ ] Editor integration (neovim)
+- [ ] Test runner
+
+### Phase 6: DoO — Deployment & Operations
+- [ ] Pre-flight checks
+- [ ] Multi-target deployment
+- [ ] Capability announcement
+- [ ] Container/K8s integration
+
+### Phase 7: Polish
+- [ ] Mesh model discovery (Chat)
+- [ ] Full Browse functionality
+- [ ] Social features (Me)
+- [ ] UCAN management (Me)
+
+---
+
+## Open Questions
+
+1. **Sidecar installation** — Should `hecate-node/install.sh` offer to install lazygit/k9s/etc.? Or detect and suggest?
+
+2. **Neovim integration** — Launch externally, or attempt to embed?
+
+3. **Skills files** — Draft structure for AnD/AnP/InT/DoO_SKILLS.md?
+
+4. **Project detection** — Preference order for identifying Hecate projects?
+
+---
+
+## Design Principles
+
+1. **Task-based, not data-based** — Views are activities, not data types
+2. **Screaming architecture** — Folder names describe what users DO
+3. **AI-assisted, not AI-dependent** — Guidance helps, manual override always available
+4. **Tools compose** — Integrate external tools, don't reinvent them
+5. **Offline-capable** — Core features work without mesh connection
+6. **The mesh is the computer** — Local/remote is an implementation detail
+
+---
+
+*The goddess guides developers through the crossroads of creation.* 🔥🗝️🔥
