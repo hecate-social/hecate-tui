@@ -14,7 +14,10 @@ var (
 	Cyan        = lipgloss.Color("#06B6D4")
 	Pink        = lipgloss.Color("#EC4899")
 	Orange      = lipgloss.Color("#F97316")
+	OrangeDark  = lipgloss.Color("#EA580C")
 	Yellow      = lipgloss.Color("#EAB308")
+	Amber       = lipgloss.Color("#F59E0B")
+	Gold        = lipgloss.Color("#FCD34D")
 	Gray50      = lipgloss.Color("#F9FAFB")
 	Gray100     = lipgloss.Color("#F3F4F6")
 	Gray200     = lipgloss.Color("#E5E7EB")
@@ -154,18 +157,49 @@ var ThinkingFrames = []string{
 	"🔮 Thinking...",
 }
 
-// WelcomeArt returns ASCII art for empty chat
+// Avatar color styles
+var (
+	AvatarHoodStyle = lipgloss.NewStyle().Foreground(Purple)
+	AvatarEyeStyle  = lipgloss.NewStyle().Foreground(Amber)
+	AvatarBodyStyle = lipgloss.NewStyle().Foreground(PurpleLight)
+	AvatarKeyStyle  = lipgloss.NewStyle().Foreground(Gold)
+	AvatarFireStyle = lipgloss.NewStyle().Foreground(Orange)
+	AvatarTextStyle = lipgloss.NewStyle().Foreground(Gray400).Italic(true)
+)
+
+// WelcomeArt returns the Hecate Threshold Guardian avatar for empty chat
 func WelcomeArt() string {
-	return `
-    ╭──────────────────────────────────╮
-    │                                  │
-    │      🗝️  Welcome to Hecate      │
-    │                                  │
-    │    Your AI companion awaits.     │
-    │    Type a message to begin.      │
-    │                                  │
-    ╰──────────────────────────────────╯
-`
+	// Build the avatar with colors
+	hood := AvatarHoodStyle
+	eye := AvatarEyeStyle
+	body := AvatarBodyStyle
+	key := AvatarKeyStyle
+	fire := AvatarFireStyle
+
+	// Line by line construction for proper coloring
+	lines := []string{
+		hood.Render("    ╭─╮") + "           " + hood.Render("╭─╮"),
+		hood.Render("    │█│") + "   " + body.Render("▄███▄") + "   " + hood.Render("│█│"),
+		hood.Render("    │▓│") + "  " + body.Render("█▒") + eye.Render("◉") + body.Render("▒") + eye.Render("◉") + body.Render("▒█") + "  " + hood.Render("│▓│"),
+		hood.Render("    ╰┬╯") + "  " + body.Render("█▒╰─╯▒█") + "  " + hood.Render("╰┬╯"),
+		"     │  " + body.Render("█▒▒▒▒▒▒▒█") + "  │",
+		"     │  " + body.Render("█▒") + key.Render("╭───╮") + body.Render("▒█") + "  │",
+		"     │  " + body.Render("█▒") + key.Render("│ ⚷ │") + body.Render("▒█") + "  │",
+		"     │  " + body.Render("█▒") + key.Render("╰─┬─╯") + body.Render("▒█") + "  │",
+		hood.Render("    ╭┴╮") + "  " + body.Render("▀█▄│▄█▀") + "  " + hood.Render("╭┴╮"),
+		hood.Render("    ╚═╝") + "     │     " + hood.Render("╚═╝"),
+		"",
+		"       " + fire.Render("🔥") + "  " + key.Render("🗝️") + "  " + fire.Render("🔥"),
+		"",
+		AvatarTextStyle.Render("     Welcome to Hecate"),
+		AvatarTextStyle.Render("   Type a message to begin"),
+	}
+
+	result := ""
+	for _, line := range lines {
+		result += line + "\n"
+	}
+	return result
 }
 
 // FormatTokens formats token count nicely

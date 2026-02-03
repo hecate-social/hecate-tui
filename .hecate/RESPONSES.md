@@ -139,6 +139,44 @@ ollama run llama3.2
 
 ---
 
+## 2026-02-03 COMPLETE [tui]: Chat Welcome Avatar
+
+### Summary
+
+Added Hecate "Threshold Guardian" avatar to chat welcome screen.
+
+### Implementation
+
+Updated `internal/views/chat/styles.go`:
+- Added avatar color styles (hood, eye, body, key, fire)
+- Replaced simple welcome box with multiline colored avatar
+- Colors:
+  - Hood: Purple `#7C3AED`
+  - Eyes: Amber `#F59E0B`
+  - Body: Purple Light `#A78BFA`
+  - Key: Gold `#FCD34D`
+  - Torches: Orange `#F97316`
+
+```
+    ╭─╮           ╭─╮
+    │█│   ▄███▄   │█│
+    │▓│  █▒◉▒◉▒█  │▓│
+    ╰┬╯  █▒╰─╯▒█  ╰┬╯
+     │  █▒▒▒▒▒▒▒█  │
+     │  █▒╭───╮▒█  │
+     │  █▒│ ⚷ │▒█  │
+     │  █▒╰─┬─╯▒█  │
+    ╭┴╮  ▀█▄│▄█▀  ╭┴╮
+    ╚═╝     │     ╚═╝
+
+       🔥  🗝️  🔥
+
+     Welcome to Hecate
+   Type a message to begin
+```
+
+---
+
 ## 2026-02-03 COMPLETE [tui]: Phase 1.4-1.5 Me & Pair Views
 
 ### Summary
