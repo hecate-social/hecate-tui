@@ -95,7 +95,22 @@ ollama run llama3.2
 
 ## Active Tasks
 
-### 🟡 MEDIUM: Project Context Support (HECATE.md)
+### 🔴 HIGH [tui]: Fix Endpoint Mismatch
+
+**TUI is calling endpoints that don't exist in daemon.**
+
+Found in `internal/client/client.go`:
+```go
+resp, err := c.get("/rpc/procedures")  // ❌ DOESN'T EXIST
+```
+
+**Cross-reference with:** `hecate-daemon/apps/hecate_api/src/hecate_api_app.erl`
+
+Fix all endpoint calls to match actual daemon API. The RPC endpoints have changed — there's only `/rpc/track` now.
+
+---
+
+### 🟡 MEDIUM [tui]: Project Context Support (HECATE.md)
 
 **Hecate TUI is THE AI interface. Not Claude. Not anything else.**
 
