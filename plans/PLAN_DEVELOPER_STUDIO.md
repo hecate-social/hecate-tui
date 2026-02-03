@@ -655,7 +655,101 @@ editor = ""             # e.g., "emacsclient -t"
 Tools are launched externally (not embedded). Hecate TUI:
 1. Detects if tool is installed
 2. Provides keybinding to launch
-3. Returns focus to TUI after tool exits
+3. **Returns focus to TUI after tool exits** (`:q` in neovim → back to TUI)
+
+```go
+// Example: Launch configured editor
+func launchEditor(cfg *config.Tools, filepath string) tea.Cmd {
+    tool := cfg.Editor.Default // "nvim", "hx", etc.
+    if tool == "" || tool == "disabled" {
+        return nil
+    }
+    cmd := exec.Command(tool, filepath)
+    return tea.ExecProcess(cmd, func(err error) tea.Msg {
+        return editorExitMsg{err: err, file: filepath}
+    })
+}
+```
+
+---
+
+### Editor Integration: Full vs Quick Edit
+
+Two modes for editing files:
+
+#### Full Edit (External Editor)
+
+Launch user's configured editor (neovim, helix, etc.):
+- Full editor experience with user's config/plugins
+- `:q` / `Ctrl+Q` returns to TUI
+- Used for: implementation work, complex edits
+
+```
+Keybinding: [e] Edit in neovim
+            [E] Edit in $EDITOR (fallback)
+```
+
+#### Quick Edit (Inline)
+
+Built-in lightweight editor for small changes:
+- Single-file, basic editing
+- No external process
+- Used for: config tweaks, template fills, commit messages
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Quick Edit: announce_llm_capability_v1.erl                          │
+├─────────────────────────────────────────────────────────────────────┤
+│   1 │ -module(announce_llm_capability_v1).                          │
+│   2 │ -export([new/3, to_map/1, from_map/1]).                       │
+│   3 │                                                                │
+│   4 │ -record(announce_llm_capability_v1, {                         │
+│   5 │     model_name,                                                │
+│   6 │     agent_identity,█                                          │
+│   7 │     metadata                                                   │
+│   8 │ }).                                                            │
+│   9 │                                                                │
+├─────────────────────────────────────────────────────────────────────┤
+│ [Ctrl+S] Save  [Ctrl+Q] Cancel  [Ctrl+G] Go to line                 │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Implementation:** Use `github.com/charmbracelet/bubbles/textarea` with line numbers and syntax highlighting (via `github.com/alecthomas/chroma`).
+
+```go
+// Quick edit for simple changes
+type QuickEditModel struct {
+    textarea textarea.Model
+    filepath string
+    modified bool
+}
+
+// Full edit launches external editor
+func (m Model) fullEdit(filepath string) tea.Cmd {
+    editor := m.cfg.Tools.Editor.Default
+    if editor == "" {
+        editor = os.Getenv("EDITOR")
+    }
+    if editor == "" {
+        editor = "vi" // fallback
+    }
+    return tea.ExecProcess(
+        exec.Command(editor, filepath),
+        func(err error) tea.Msg { return editorExitMsg{err, filepath} },
+    )
+}
+```
+
+#### When to Use Which
+
+| Scenario | Mode | Keybinding |
+|----------|------|------------|
+| Implement a full slice | Full Edit | `e` |
+| Fill in a template placeholder | Quick Edit | `q` |
+| Edit config file | Quick Edit | `q` |
+| Write commit message | Quick Edit | (auto) |
+| Complex refactoring | Full Edit | `e` |
+| View-only with small fix | Quick Edit | `q` |
 
 ```go
 // Example: Launch configured git tool
