@@ -421,16 +421,234 @@ Violations shown inline with explanation and suggested fix.
 
 ## External Tool Integration
 
-### Recommended Sidecar Tools
+### Tool Categories
 
-| Tool | Purpose | Phase |
-|------|---------|-------|
-| **lazygit** | Git operations | InT |
-| **lazydocker** | Container management | DoO |
-| **k9s** | Kubernetes management | DoO |
-| **neovim** | Code editing | InT |
-| **ranger** / **lf** | File navigation | All |
-| **taskwarrior-tui** | Kanban task management | AnP |
+The Developer Studio integrates with external TUI tools. Users choose their preferred tool per category.
+
+#### 🔍 Search & Find
+| Tool | Description | Phase |
+|------|-------------|-------|
+| **fzf** | Fuzzy finder (recommended) | All |
+| **ripgrep (rg)** | Fast grep | AnD |
+| **fd** | Fast find | AnD |
+
+#### 📝 Editor
+| Tool | Description | Phase |
+|------|-------------|-------|
+| **neovim** | Extensible vim (recommended) | InT |
+| **helix** | Post-modern, modal | InT |
+| **micro** | Simple, intuitive | InT |
+| **kakoune** | Selection-based | InT |
+
+#### 📂 File Manager
+| Tool | Description | Phase |
+|------|-------------|-------|
+| **yazi** | Blazing fast, async (recommended) | All |
+| **ranger** | Vim-style, classic | All |
+| **lf** | Lightweight, Go-based | All |
+| **superfile** | Fancy, modern | All |
+| **broot** | Tree navigation | All |
+
+#### 🔀 Git Interface
+| Tool | Description | Phase |
+|------|-------------|-------|
+| **lazygit** | Simple, powerful (recommended) | InT |
+| **tig** | Classic, ncurses | InT |
+| **gitui** | Rust-based, fast | InT |
+| **serie** | Rich commit graph | InT |
+
+#### 🐳 Containers
+| Tool | Description | Phase |
+|------|-------------|-------|
+| **lazydocker** | Docker TUI (recommended) | DoO |
+| **oxker** | Lightweight | DoO |
+| **dry** | Docker manager | DoO |
+| **dive** | Image layer explorer | DoO |
+
+#### ☸️ Kubernetes
+| Tool | Description | Phase |
+|------|-------------|-------|
+| **k9s** | K8s TUI (recommended) | DoO |
+| **kdash** | Dashboard | DoO |
+| **kubetui** | Monitoring focused | DoO |
+
+#### 🗄️ Database
+| Tool | Description | Phase |
+|------|-------------|-------|
+| **lazysql** | Multi-DB client | InT |
+| **harlequin** | SQL IDE | InT |
+| **rainfrog** | Postgres/MySQL/SQLite | InT |
+| **dblab** | Database browser | InT |
+
+#### 🌐 API/HTTP
+| Tool | Description | Phase |
+|------|-------------|-------|
+| **posting** | HTTP client TUI | InT |
+| **ATAC** | Full API client | InT |
+
+#### 📊 JSON/Data
+| Tool | Description | Phase |
+|------|-------------|-------|
+| **fx** | JSON viewer/processor | InT |
+| **jqp** | jq playground | InT |
+| **visidata** | Data exploration | AnD |
+
+#### 📋 Logs
+| Tool | Description | Phase |
+|------|-------------|-------|
+| **lazyjournal** | journalctl TUI | DoO |
+| **nerdlog** | Multi-host logs | DoO |
+
+#### 📈 System Monitor
+| Tool | Description | Phase |
+|------|-------------|-------|
+| **btop** | Resource monitor (recommended) | DoO |
+| **bottom** | Customizable | DoO |
+| **glances** | Cross-platform | DoO |
+
+#### 🔧 Process Manager
+| Tool | Description | Phase |
+|------|-------------|-------|
+| **process-compose** | Multi-process runner | DoO |
+
+#### 🐙 GitHub
+| Tool | Description | Phase |
+|------|-------------|-------|
+| **gh-dash** | PR/issue dashboard | InT |
+
+---
+
+### Install-Time Selection (Workstation Role)
+
+When `workstation` role is selected during install, show interactive checklist:
+
+```
+━━━ Developer Tools (optional) ━━━
+
+The Developer Studio integrates with these tools.
+Select which to install (space to toggle, enter to confirm):
+
+  🔍 Search & Find:
+    [x] fzf              fuzzy finder (recommended)
+    [ ] ripgrep (rg)     fast grep
+    [ ] fd               fast find
+
+  📝 Editor:
+    [x] neovim           (recommended)
+    [ ] helix            post-modern editor
+
+  📂 File Manager:
+    [x] yazi             blazing fast (recommended)
+    [ ] ranger           vim-style classic
+
+  🔀 Git Interface:
+    [x] lazygit          (recommended)
+    [ ] tig              classic
+
+  🐳 Containers:
+    [x] lazydocker       (recommended)
+
+  ☸️  Kubernetes:
+    [x] k9s              (recommended)
+
+  ... (more categories)
+
+  [ ] Skip all - I'll configure in TUI later
+```
+
+---
+
+### TUI Settings Configuration
+
+Users can change tool preferences in `Me → Settings → Developer Tools`:
+
+```
+━━━ Developer Tools ━━━
+
+Configure which tools the Studio launches.
+Blank = disabled. "custom" = use custom command.
+
+┌──────────────────┬────────────────┬─────────────────────────────┐
+│  Category        │  Tool          │  Status                     │
+├──────────────────┼────────────────┼─────────────────────────────┤
+│  Search/Fuzzy    │  [fzf       ]  │  ✅ installed               │
+│  Search/Grep     │  [rg        ]  │  ✅ installed               │
+│  Search/Find     │  [fd        ]  │  ✅ installed               │
+├──────────────────┼────────────────┼─────────────────────────────┤
+│  Editor          │  [nvim      ]  │  ✅ installed               │
+│  Files           │  [yazi      ]  │  ❌ not found               │
+│  Git             │  [lazygit   ]  │  ✅ installed               │
+├──────────────────┼────────────────┼─────────────────────────────┤
+│  Containers      │  [lazydocker]  │  ✅ installed               │
+│  Kubernetes      │  [k9s       ]  │  ✅ installed               │
+│  Database        │  [lazysql   ]  │  ❌ not found               │
+├──────────────────┼────────────────┼─────────────────────────────┤
+│  API             │  [posting   ]  │  ❌ not found               │
+│  JSON            │  [fx        ]  │  ✅ installed               │
+│  Logs            │  [          ]  │  (disabled)                 │
+│  Monitor         │  [btop      ]  │  ✅ installed               │
+│  GitHub          │  [gh-dash   ]  │  ❌ not found               │
+└──────────────────┴────────────────┴─────────────────────────────┘
+
+  [Install Missing] via package manager    [Verify All] check paths
+```
+
+---
+
+### Configuration File
+
+```toml
+# ~/.hecate/config.toml
+
+[tools.search]
+fuzzy = "fzf"           # fzf, skim, custom
+grep = "rg"             # rg, grep, ag, custom
+find = "fd"             # fd, find, custom
+
+[tools.editor]
+default = "nvim"        # nvim, hx, micro, code, custom
+diff = "delta"          # delta, diff, custom
+
+[tools.files]
+manager = "yazi"        # yazi, ranger, lf, nnn, superfile, broot, custom
+
+[tools.git]
+client = "lazygit"      # lazygit, tig, gitui, custom
+graph = "serie"         # serie, git-log, custom
+
+[tools.containers]
+docker = "lazydocker"   # lazydocker, oxker, dry, custom
+images = "dive"         # dive, custom
+
+[tools.kubernetes]
+client = "k9s"          # k9s, kdash, kubetui, custom
+
+[tools.database]
+client = "lazysql"      # lazysql, harlequin, rainfrog, dblab, custom
+
+[tools.api]
+client = "posting"      # posting, ATAC, custom
+
+[tools.data]
+json = "fx"             # fx, jq, custom
+playground = "jqp"      # jqp, play, custom
+tables = "visidata"     # visidata, custom
+
+[tools.logs]
+viewer = "lazyjournal"  # lazyjournal, nerdlog, custom
+
+[tools.monitor]
+system = "btop"         # btop, bottom, htop, glances, custom
+
+[tools.github]
+dashboard = "gh-dash"   # gh-dash, custom
+
+[tools.custom]
+# Override any tool with custom command
+editor = ""             # e.g., "emacsclient -t"
+```
+
+---
 
 ### Integration Approach
 
@@ -440,10 +658,14 @@ Tools are launched externally (not embedded). Hecate TUI:
 3. Returns focus to TUI after tool exits
 
 ```go
-// Example: Launch lazygit
-func launchLazygit(projectDir string) tea.Cmd {
+// Example: Launch configured git tool
+func launchGitTool(cfg *config.Tools, projectDir string) tea.Cmd {
+    tool := cfg.Git.Client // "lazygit", "tig", etc.
+    if tool == "" || tool == "disabled" {
+        return nil
+    }
     return tea.ExecProcess(
-        exec.Command("lazygit"),
+        exec.Command(tool),
         func(err error) tea.Msg { return toolExitMsg{err} },
     )
 }
@@ -451,25 +673,49 @@ func launchLazygit(projectDir string) tea.Cmd {
 
 ### Tool Detection
 
-On startup and per-project:
 ```go
-type ToolAvailability struct {
-    Lazygit     bool
-    Lazydocker  bool
-    K9s         bool
-    Neovim      bool
-    Ranger      bool
-    Taskwarrior bool
+type ToolStatus struct {
+    Configured string // what user configured
+    Installed  bool   // whether it exists on PATH
+    Path       string // resolved path
 }
 
-func detectTools() ToolAvailability {
+type ToolAvailability struct {
+    Search struct {
+        Fuzzy ToolStatus
+        Grep  ToolStatus
+        Find  ToolStatus
+    }
+    Editor    ToolStatus
+    Files     ToolStatus
+    Git       ToolStatus
+    Containers ToolStatus
+    Kubernetes ToolStatus
+    Database  ToolStatus
+    API       ToolStatus
+    JSON      ToolStatus
+    Logs      ToolStatus
+    Monitor   ToolStatus
+    GitHub    ToolStatus
+}
+
+func detectTools(cfg *config.Tools) ToolAvailability {
     return ToolAvailability{
-        Lazygit:     commandExists("lazygit"),
-        Lazydocker:  commandExists("lazydocker"),
-        K9s:         commandExists("k9s"),
-        Neovim:      commandExists("nvim"),
-        Ranger:      commandExists("ranger"),
-        Taskwarrior: commandExists("task"),
+        Editor: checkTool(cfg.Editor.Default),
+        Git:    checkTool(cfg.Git.Client),
+        // ... etc
+    }
+}
+
+func checkTool(name string) ToolStatus {
+    if name == "" || name == "disabled" {
+        return ToolStatus{Configured: name, Installed: false}
+    }
+    path, err := exec.LookPath(name)
+    return ToolStatus{
+        Configured: name,
+        Installed:  err == nil,
+        Path:       path,
     }
 }
 ```
