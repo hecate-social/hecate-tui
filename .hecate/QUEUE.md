@@ -95,6 +95,63 @@ ollama run llama3.2
 
 ## Active Tasks
 
+### 🟡 MEDIUM: Project Context Support (HECATE.md)
+
+**Hecate TUI is THE AI interface. Not Claude. Not anything else.**
+
+The TUI should read project context files, just like other AI coding tools.
+
+**Context files to support:**
+
+| File | Scope | Purpose |
+|------|-------|---------|
+| `HECATE.md` | Project root | Project-specific instructions |
+| `SKILLS.md` | Project root | Specialized capabilities |
+| `.hecate/config.yaml` | Workspace | TUI settings, preferences |
+| `.hecate/memory/` | Workspace | Conversation history, context |
+
+**Implementation:**
+
+```
+internal/
+├── context/
+│   ├── loader.go          # Find and load context files
+│   ├── hecate_md.go       # Parse HECATE.md
+│   ├── skills.go          # Parse SKILLS.md
+│   └── memory.go          # Load/save conversation memory
+```
+
+**Behavior:**
+
+1. On startup, walk up from cwd looking for `HECATE.md`
+2. Load project context into system prompt
+3. Load any `SKILLS.md` as additional capabilities
+4. Include context when sending chat requests to LLM
+
+**HECATE.md format (same as CLAUDE.md):**
+
+```markdown
+# Project Name
+
+Brief description.
+
+## Architecture
+
+Key patterns, conventions.
+
+## Commands
+
+Common tasks, how to run them.
+
+## Guidelines
+
+Do's and don'ts for this project.
+```
+
+**This makes Hecate TUI a first-class AI coding assistant.**
+
+---
+
 ### 🟡 MEDIUM: Pairing UI Polish
 
 Basic pairing works. Polish it:
