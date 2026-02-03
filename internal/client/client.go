@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -111,21 +112,19 @@ func (c *Client) GetIdentity() (*Identity, error) {
 
 // DiscoverCapabilities returns discovered capabilities
 func (c *Client) DiscoverCapabilities(realm, tag string, limit int) ([]Capability, error) {
-	path := "/capabilities/discover"
-	if realm != "" || tag != "" || limit > 0 {
-		path += "?"
-		if realm != "" {
-			path += "realm=" + realm + "&"
-		}
-		if tag != "" {
-			path += "tag=" + tag + "&"
-		}
-		if limit > 0 {
-			path += fmt.Sprintf("limit=%d", limit)
-		}
+	// Build request body
+	reqBody := make(map[string]interface{})
+	if realm != "" {
+		reqBody["realm"] = realm
+	}
+	if tag != "" {
+		reqBody["tags"] = []string{tag}
+	}
+	if limit > 0 {
+		reqBody["limit"] = limit
 	}
 
-	resp, err := c.get(path)
+	resp, err := c.post("/capabilities/discover", reqBody)
 	if err != nil {
 		return nil, err
 	}
@@ -145,24 +144,12 @@ func (c *Client) DiscoverCapabilities(realm, tag string, limit int) ([]Capabilit
 }
 
 // ListProcedures returns registered procedures
+// NOTE: The daemon does not have a /rpc/procedures endpoint.
+// RPC tracking is done via POST /rpc/track for reputation.
+// This returns empty until the daemon implements procedure listing.
 func (c *Client) ListProcedures() ([]Procedure, error) {
-	resp, err := c.get("/rpc/procedures")
-	if err != nil {
-		return nil, err
-	}
-
-	if !resp.Ok {
-		return nil, fmt.Errorf("list procedures failed: %s", resp.Error)
-	}
-
-	var result struct {
-		Procedures []Procedure `json:"procedures"`
-	}
-	if err := json.Unmarshal(resp.Result, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse procedures response: %w", err)
-	}
-
-	return result.Procedures, nil
+	// Daemon doesn't have this endpoint - return empty list
+	return []Procedure{}, nil
 }
 
 // ListSubscriptions returns active subscriptions
@@ -206,6 +193,42 @@ func (c *Client) get(path string) (*Response, error) {
 
 	var resp Response
 	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &resp, nil
+}
+
+// post performs a POST request with JSON body
+func (c *Client) post(path string, body interface{}) (*Response, error) {
+	var reqBody io.Reader
+	if body != nil {
+		jsonBody, err := json.Marshal(body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal request body: %w", err)
+		}
+		reqBody = bytes.NewReader(jsonBody)
+	}
+
+	req, err := http.NewRequest("POST", c.baseURL+path, reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	httpResp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer httpResp.Body.Close()
+
+	respBody, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	var resp Response
+	if err := json.Unmarshal(respBody, &resp); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 

@@ -114,18 +114,27 @@ ollama run llama3.2
 
 ## Active Tasks
 
-### 🔴 HIGH [tui]: Fix Endpoint Mismatch
+### ✅ DONE [tui]: Fix Endpoint Mismatch
 
-**TUI is calling endpoints that don't exist in daemon.**
+Fixed in this session. **COMMIT AND PUSH NOW.**
 
-Found in `internal/client/client.go`:
-```go
-resp, err := c.get("/rpc/procedures")  // ❌ DOESN'T EXIST
+---
+
+### 🔴 HIGH [tui]: Chat View + LLM Client — UNBLOCKED
+
+**The daemon LLM API is DONE.** You built it yourself:
+- Phase 1: `d604efb` — serve_llm app
+- Phase 2: `6e40a5b` — mesh announcement
+- Phase 3: `3a8278f` — RPC listener
+
+**Endpoints ready:**
+```
+GET  /api/llm/models   → list Ollama models
+POST /api/llm/chat     → chat completion (SSE streaming)
+GET  /api/llm/health   → backend status
 ```
 
-**Cross-reference with:** `hecate-daemon/apps/hecate_api/src/hecate_api_app.erl`
-
-Fix all endpoint calls to match actual daemon API. The RPC endpoints have changed — there's only `/rpc/track` now.
+**Proceed with TUI chat view implementation.** See `plans/PLAN_CHAT_VIEW.md`.
 
 ---
 
