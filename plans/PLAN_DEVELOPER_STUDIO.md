@@ -15,6 +15,81 @@ Two integrated experiences:
 1. **Mesh Interface** — Chat, browse, pair, monitor (the mesh IS the computer)
 2. **Developer Studio** — Project-based, AI-assisted development workflow
 
+---
+
+## Why Hecate? — Differentiators
+
+Current AI coding tools (Claude Code, Cursor, Warp, etc.) are **chat-first**. You talk to AI, it responds with code. Hecate is **workflow-first**. The phases guide you through development. AI assists at each phase. The structure prevents chaos.
+
+### The Problems We Solve
+
+| Problem | Current Tools | Hecate |
+|---------|---------------|--------|
+| **Context Amnesia** | Each session starts fresh. Re-explain constantly. | Persistent `.hecate/memory/` per project. Phase context survives. |
+| **No Architecture** | Generates `services/` folders. Apologizes. Repeats. | **Doctrine Coach** — real-time rules engine catches violations on write. |
+| **Skip to Code** | Jump straight to implementation. No design. | **Phased workflow** — AnD → AnP → InT → DoO. Can't skip analysis. |
+| **Reactive Only** | Waits for you to notice problems. | Filesystem watcher. Violations flagged immediately. |
+| **Single File Focus** | Good at one file. Bad at coordination. | **Slice-aware** — vertical slices are the atomic unit, not files. |
+| **Vendor Lock-in** | Tied to Claude/GPT. Data goes to cloud. | **Model agnostic** — Ollama, mesh models, any OpenAI-compatible. Fully local option. |
+| **Tool Fragmentation** | Alt-tab between chat, git, deploy, test. | **Integrated** — lazygit, k9s, neovim one keypress away. `:q` returns to TUI. |
+| **Generic Instructions** | Same prompts for every project. | **Skills per phase** + **HECATE.md per project**. Learns your patterns. |
+| **Black Box** | Generates code. Doesn't explain why. | Reasoning in workflow. AnD/AnP decisions documented in `.hecate/state/`. |
+| **Text Only** | Render diagrams elsewhere. | **Structured views** — Kanban, slice trees, event maps. Not just chat. |
+
+### The Core Insight
+
+> **Chat is ONE view. Not THE view.**
+
+Current tools put chat at the center. Everything is a conversation. Hecate puts **workflow** at the center. Chat assists the workflow. Structure guides the chaos.
+
+### Hecate's Unique Value
+
+1. **Architecture-First Development**
+   - Doctrine enforcement is automatic, not aspirational
+   - HECATE.md defines YOUR patterns, not generic best practices
+   - Coach catches violations before they compound
+
+2. **Phased Workflow (AnD → AnP → InT → DoO)**
+   - Analysis before architecture
+   - Architecture before implementation
+   - Implementation before deployment
+   - Each phase has specialized AI guidance
+
+3. **Mesh-Native Intelligence**
+   - Discover LLM models from the mesh
+   - Not just local Ollama — distributed AI
+   - The mesh IS the computer
+
+4. **Tool Integration, Not Replacement**
+   - Your neovim config. Your lazygit workflows. Your k9s.
+   - Hecate orchestrates. Tools execute.
+   - One keypress away, `:q` returns home
+
+5. **Project Memory**
+   - Corrections remembered, not repeated
+   - Domain discoveries persist across sessions
+   - Architecture decisions tracked and explained
+
+6. **No Vendor Lock-in**
+   - Run fully local with Ollama
+   - Or use cloud APIs
+   - Or use mesh-discovered models
+   - Your choice. Your data.
+
+### The Tagline
+
+> *"The AI coding assistant that understands architecture."*
+
+Or:
+
+> *"Workflow-first development. AI-assisted, not AI-dependent."*
+
+Or:
+
+> *"Chat is a feature. Structure is the product."*
+
+---
+
 The Studio follows **four phases** that mirror the software development lifecycle:
 
 | Phase | Code | Focus |
