@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/hecate-social/hecate-tui/internal/client"
 	"github.com/hecate-social/hecate-tui/internal/ui/styles"
+	"github.com/hecate-social/hecate-tui/internal/views/chat"
 )
 
 // Tab represents a navigation tab
@@ -16,6 +17,7 @@ type Tab int
 
 const (
 	TabStatus Tab = iota
+	TabChat
 	TabMesh
 	TabCapabilities
 	TabRPC
@@ -23,7 +25,7 @@ const (
 )
 
 func (t Tab) String() string {
-	return [...]string{"Status", "Mesh", "Capabilities", "RPC", "Logs"}[t]
+	return [...]string{"Status", "Chat", "Mesh", "Capabilities", "RPC", "Logs"}[t]
 }
 
 // App is the main TUI application model
@@ -40,6 +42,9 @@ type App struct {
 	capabilities []client.Capability
 	procedures   []client.Procedure
 
+	// Views
+	chatView chat.Model
+
 	// UI state
 	loading bool
 	spinner spinner.Model
@@ -52,10 +57,13 @@ func NewApp(hecateURL string) *App {
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(styles.Primary)
 
+	c := client.New(hecateURL)
+
 	return &App{
-		client:    client.New(hecateURL),
+		client:    c,
 		activeTab: TabStatus,
-		tabs:      []Tab{TabStatus, TabMesh, TabCapabilities, TabRPC, TabLogs},
+		tabs:      []Tab{TabStatus, TabChat, TabMesh, TabCapabilities, TabRPC, TabLogs},
+		chatView:  chat.New(c),
 		spinner:   s,
 		loading:   true,
 	}
@@ -83,51 +91,93 @@ func (a *App) Init() tea.Cmd {
 	return tea.Batch(
 		a.spinner.Tick,
 		a.fetchHealth,
+		a.chatView.Init(),
 	)
 }
 
 // Update handles messages
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "q", "ctrl+c":
+		// Global quit
+		if msg.String() == "q" && a.activeTab != TabChat {
 			return a, tea.Quit
-		case "tab":
-			a.activeTab = Tab((int(a.activeTab) + 1) % len(a.tabs))
-			return a, a.fetchDataForTab()
-		case "shift+tab":
-			a.activeTab = Tab((int(a.activeTab) - 1 + len(a.tabs)) % len(a.tabs))
-			return a, a.fetchDataForTab()
-		case "r":
-			a.loading = true
-			return a, a.fetchDataForTab()
-		case "1":
-			a.activeTab = TabStatus
-			return a, a.fetchHealth
-		case "2":
-			a.activeTab = TabMesh
-			return a, nil
-		case "3":
-			a.activeTab = TabCapabilities
-			return a, a.fetchCapabilities
-		case "4":
-			a.activeTab = TabRPC
-			return a, a.fetchProcedures
-		case "5":
-			a.activeTab = TabLogs
-			return a, nil
+		}
+		if msg.String() == "ctrl+c" {
+			return a, tea.Quit
+		}
+
+		// Tab navigation (only when not in chat or chat allows it)
+		if a.activeTab != TabChat {
+			switch msg.String() {
+			case "tab":
+				a.activeTab = Tab((int(a.activeTab) + 1) % len(a.tabs))
+				a.onTabChange()
+				return a, a.fetchDataForTab()
+			case "shift+tab":
+				a.activeTab = Tab((int(a.activeTab) - 1 + len(a.tabs)) % len(a.tabs))
+				a.onTabChange()
+				return a, a.fetchDataForTab()
+			case "r":
+				a.loading = true
+				return a, a.fetchDataForTab()
+			case "1":
+				a.activeTab = TabStatus
+				a.onTabChange()
+				return a, a.fetchHealth
+			case "2":
+				a.activeTab = TabChat
+				a.onTabChange()
+				return a, nil
+			case "3":
+				a.activeTab = TabMesh
+				a.onTabChange()
+				return a, nil
+			case "4":
+				a.activeTab = TabCapabilities
+				a.onTabChange()
+				return a, a.fetchCapabilities
+			case "5":
+				a.activeTab = TabRPC
+				a.onTabChange()
+				return a, a.fetchProcedures
+			case "6":
+				a.activeTab = TabLogs
+				a.onTabChange()
+				return a, nil
+			case "c":
+				// Quick key to jump to chat
+				a.activeTab = TabChat
+				a.onTabChange()
+				return a, nil
+			}
+		} else {
+			// In chat view, allow escape to leave chat
+			if msg.String() == "esc" {
+				a.activeTab = TabStatus
+				a.chatView.Blur()
+				return a, nil
+			}
 		}
 
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
 		a.height = msg.Height
+		// Update chat view size
+		a.chatView.SetSize(msg.Width, msg.Height-6) // Account for header/tabs/footer
+	}
 
-	case spinner.TickMsg:
+	// Always update spinner
+	if tickMsg, ok := msg.(spinner.TickMsg); ok {
 		var cmd tea.Cmd
-		a.spinner, cmd = a.spinner.Update(msg)
-		return a, cmd
+		a.spinner, cmd = a.spinner.Update(tickMsg)
+		cmds = append(cmds, cmd)
+	}
 
+	// Handle data messages
+	switch msg := msg.(type) {
 	case healthMsg:
 		a.loading = false
 		a.health = msg.health
@@ -145,7 +195,22 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.err = msg.err
 	}
 
-	return a, nil
+	// Update chat view if active
+	if a.activeTab == TabChat {
+		var cmd tea.Cmd
+		a.chatView, cmd = a.chatView.Update(msg)
+		cmds = append(cmds, cmd)
+	}
+
+	return a, tea.Batch(cmds...)
+}
+
+func (a *App) onTabChange() {
+	if a.activeTab == TabChat {
+		a.chatView.Focus()
+	} else {
+		a.chatView.Blur()
+	}
 }
 
 // View renders the UI
@@ -216,6 +281,8 @@ func (a *App) renderContent() string {
 	switch a.activeTab {
 	case TabStatus:
 		return a.renderStatusView()
+	case TabChat:
+		return a.chatView.View()
 	case TabMesh:
 		return a.renderMeshView()
 	case TabCapabilities:
@@ -350,7 +417,10 @@ func (a *App) renderLogsView() string {
 }
 
 func (a *App) renderFooter() string {
-	return styles.HelpStyle.Render("Tab: switch view • r: refresh • q: quit • ?: help")
+	if a.activeTab == TabChat {
+		return styles.HelpStyle.Render("Enter: send • Tab: model • Ctrl+L: clear • Esc: back • ↑↓: scroll")
+	}
+	return styles.HelpStyle.Render("Tab/1-6: switch view • c: chat • r: refresh • q: quit")
 }
 
 // Commands
@@ -379,6 +449,8 @@ func (a *App) fetchDataForTab() tea.Cmd {
 	switch a.activeTab {
 	case TabStatus:
 		return a.fetchHealth
+	case TabChat:
+		return a.chatView.Init()
 	case TabCapabilities:
 		return a.fetchCapabilities
 	case TabRPC:

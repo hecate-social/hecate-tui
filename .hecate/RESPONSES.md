@@ -76,3 +76,65 @@ func (c *Client) ListProcedures() ([]Procedure, error) {
 If daemon adds a `/rpc/procedures` endpoint, update `ListProcedures()` to call it.
 
 ---
+
+## 2026-02-03 COMPLETE [tui]: Chat View + LLM Client (Phase 1)
+
+### Summary
+
+Implemented beautiful chat interface with LLM streaming support.
+
+### Files Created
+
+```
+internal/
+├── llm/
+│   ├── types.go           # Message, Model, ChatRequest, ChatResponse
+│   └── stream.go          # SSE/NDJSON stream parser
+├── client/
+│   └── llm.go             # ListModels(), ChatStream(), Chat(), GetLLMHealth()
+└── views/
+    └── chat/
+        ├── styles.go      # Beautiful styling (bubbles, colors, animations)
+        └── chat.go        # Main Bubble Tea chat model
+```
+
+### Features
+
+- 🎨 **Beautiful message bubbles** — Purple for user, gray for assistant
+- ✨ **Streaming animation** — Sparkles + "Thinking..." indicator
+- 📊 **Stats display** — Token count and tok/s after completion
+- 🔄 **Model selector** — Tab to cycle through available models
+- 📜 **Scroll history** — ↑↓ to scroll through messages
+- 🗝️ **Welcome art** — ASCII art welcome screen for empty chat
+- ⌨️ **Keybindings**:
+  - `Enter` — Send message
+  - `Tab` — Cycle models
+  - `Ctrl+L` — Clear chat
+  - `Esc` — Cancel streaming / exit chat view
+  - `c` — Quick jump to chat from any tab
+
+### Integration
+
+- Added `TabChat` to main navigation (position 2)
+- Chat view accessible via Tab navigation or pressing 'c'
+- Daemon LLM API: `GET /api/llm/models`, `POST /api/llm/chat`
+
+### Test Flow
+
+```bash
+# 1. Start Ollama
+ollama run llama3.2
+
+# 2. Start daemon
+./hecate-daemon
+
+# 3. Start TUI
+./hecate-tui
+
+# 4. Press 'c' or navigate to Chat tab
+# 5. Type message, press Enter
+```
+
+*Chat view implementation complete.* 🗝️
+
+---
