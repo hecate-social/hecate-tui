@@ -129,7 +129,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
 		a.height = msg.Height
-		viewHeight := msg.Height - 6 // Header + tabs + footer
+		// Header (1) + spacing (2) + tabs (1) + spacing (2) + spacing (2) + footer (1) = 9
+		viewHeight := msg.Height - 9
 		a.chatView.SetSize(msg.Width, viewHeight)
 		a.browseView.SetSize(msg.Width, viewHeight)
 		a.projectsView.SetSize(msg.Width, viewHeight)
