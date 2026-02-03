@@ -144,39 +144,16 @@ func TestDiscoverCapabilities(t *testing.T) {
 }
 
 func TestListProcedures(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/rpc/procedures" {
-			t.Errorf("Expected path '/rpc/procedures', got '%s'", r.URL.Path)
-		}
-
-		resp := Response{
-			Ok: true,
-			Result: json.RawMessage(`{
-				"procedures": [
-					{
-						"name": "echo",
-						"mri": "mri:rpc:io.macula/echo",
-						"endpoint": "http://localhost:8080/echo",
-						"registered_at": "2026-02-01T12:00:00Z"
-					}
-				]
-			}`),
-		}
-		json.NewEncoder(w).Encode(resp)
-	}))
-	defer server.Close()
-
-	c := New(server.URL)
+	// ListProcedures returns empty list because daemon doesn't have /rpc/procedures endpoint
+	// (daemon only has /rpc/track for reputation tracking)
+	c := New("http://localhost:4444")
 	procs, err := c.ListProcedures()
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	if len(procs) != 1 {
-		t.Fatalf("Expected 1 procedure, got %d", len(procs))
-	}
-	if procs[0].Name != "echo" {
-		t.Errorf("Expected name 'echo', got '%s'", procs[0].Name)
+	if len(procs) != 0 {
+		t.Fatalf("Expected 0 procedures (endpoint not implemented), got %d", len(procs))
 	}
 }
 
