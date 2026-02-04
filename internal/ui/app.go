@@ -129,8 +129,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
 		a.height = msg.Height
-		// Header (1) + spacing (2) + tabs (1) + spacing (2) + spacing (2) + footer (1) = 9
-		viewHeight := msg.Height - 9
+		// Content area: total - header(1) - spacing(2) - tabs(1) - spacing(1) - spacing(1) - footer(1) = 7
+		viewHeight := msg.Height - 7
+		if viewHeight < 10 {
+			viewHeight = 10
+		}
 		a.chatView.SetSize(msg.Width, viewHeight)
 		a.browseView.SetSize(msg.Width, viewHeight)
 		a.projectsView.SetSize(msg.Width, viewHeight)
@@ -230,24 +233,25 @@ func (a *App) View() string {
 		return "Loading..."
 	}
 
-	var b strings.Builder
+	// Fixed header section
+	header := a.renderHeader() + "\n\n" + a.renderTabs() + "\n"
 
-	// Header
-	b.WriteString(a.renderHeader())
-	b.WriteString("\n\n")
+	// Fixed footer section
+	footer := "\n" + a.renderFooter()
 
-	// Tabs
-	b.WriteString(a.renderTabs())
-	b.WriteString("\n\n")
+	// Content height = total - header lines (4) - footer lines (2) - 1 buffer
+	contentHeight := a.height - 7
+	if contentHeight < 10 {
+		contentHeight = 10
+	}
 
-	// Content
-	b.WriteString(a.renderContent())
+	// Constrain content to exact height
+	content := lipgloss.NewStyle().
+		Height(contentHeight).
+		MaxHeight(contentHeight).
+		Render(a.renderContent())
 
-	// Footer
-	b.WriteString("\n\n")
-	b.WriteString(a.renderFooter())
-
-	return b.String()
+	return header + content + footer
 }
 
 func (a *App) renderHeader() string {

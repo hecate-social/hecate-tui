@@ -286,7 +286,8 @@ func (m Model) View() string {
 		b.WriteString(ErrorStyle.Render("⚠ " + m.err.Error()))
 	}
 
-	return b.String()
+	// Constrain to allocated height
+	return lipgloss.NewStyle().MaxHeight(m.height).Render(b.String())
 }
 
 func (m Model) renderModelSelector() string {
