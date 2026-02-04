@@ -15,357 +15,263 @@ This is the **[tui]** channel. Tag all RESPONSES.md entries:
 ## 📖 READ FIRST
 
 1. `cat ~/work/github.com/CLAUDE.md` — Re-read every session
-2. `plans/PLAN_DEVELOPER_STUDIO.md` — **The master plan (APPROVED)**
+2. `plans/PLAN_MODAL_CHAT.md` — **The new master plan (APPROVED). This REPLACES PLAN_DEVELOPER_STUDIO.md**
 
 ---
 
-## 🎯 Current Focus: Build the TUI
+## ⚠️ ARCHITECTURAL PIVOT: Modal Chat Interface
 
-**Skills files come later.** Build the structure first, refine AI guidance iteratively.
+**The tab-based UI is DEAD.** We're pivoting to a **modal chat interface** inspired by vim.
 
----
+**Why:** Hecate is a conversational gateway, not a dashboard. Chat is the primary interface. Everything else is a command or a mode you visit and return from.
 
-## ✅ Completed
+**Read `plans/PLAN_MODAL_CHAT.md` carefully.** It defines modes, keybindings, commands, layout, and architecture.
 
-- [x] Chat View (local LLM) — `b8da1b7`
-- [x] Basic navigation (tabs)
-- [x] Daemon client
-- [x] Endpoint mismatch fix
-- [x] Phase 1.1 Navigation refactor — `bae9309`
-- [x] Phase 1.2-1.3 Browse & Monitor — `c555ca6`
-- [x] Phase 1.4-1.5 Me & Pair — `14b3100`
-
----
-
-## 🎨 NEW: Chat Welcome Avatar
-
-**Update chat view welcome screen with Hecate ASCII avatar.**
-
-Source: `hecate-social/hecate-artwork/banners/CHAT_AVATAR.md`
-
-Use the **Threshold Guardian** (Option 5):
-
-```go
-const hecateAvatar = `
-    ╭─╮           ╭─╮
-    │█│   ▄███▄   │█│
-    │▓│  █▒◉▒◉▒█  │▓│
-    ╰┬╯  █▒╰─╯▒█  ╰┬╯
-     │  █▒▒▒▒▒▒▒█  │
-     │  █▒╭───╮▒█  │
-     │  █▒│ ⚷ │▒█  │
-     │  █▒╰─┬─╯▒█  │
-    ╭┴╮  ▀█▄│▄█▀  ╭┴╮
-    ╚═╝     │     ╚═╝
-       
-       🔥  🗝️  🔥`
-```
-
-**Style with Lip Gloss:**
-- Avatar/hood: Purple `#7C3AED`
-- Eyes: Amber `#F59E0B`  
-- Torches: Orange gradient
-- Key: Gold `#FCD34D`
-
-Replace the current simple welcome box in `internal/views/chat/chat.go`.
+**Key principles:**
+- Chat is home. Always visible. Everything returns here.
+- Modes: Normal → Insert → Command → Browse → Pair
+- `/` commands for actions. Self-registering. Extensible.
+- `j/k` navigation. `Esc` always returns to Normal.
+- Status bar shows current mode + contextual hints.
 
 ---
 
-## 🔴 Phase 1: Foundation (NOW)
+## ✅ Completed (Tab-Based Era — ARCHIVED)
 
-### 1.1 Navigation Refactor
+These are done but the tab-based UI is being replaced:
 
-Current tabs are placeholder. Refactor to match plan:
+- [x] Chat View (local LLM) — streaming, bubbles, model selector
+- [x] Chat Welcome Avatar (Threshold Guardian)
+- [x] Tab navigation (6 tabs)
+- [x] Browse view (search, detail)
+- [x] Monitor view (stats cards, two-column)
+- [x] Me view (profile, settings)
+- [x] Pair view (flow state machine)
+- [x] Projects view (phase navigation)
+- [x] Tool integration (detector, config, launcher, editor)
+- [x] Endpoint mismatch fixes
 
-```
-[1]Chat [2]Browse [3]Projects [4]Monitor [5]Pair [6]Me
-```
+**What SURVIVES the pivot (reuse directly):**
+- `internal/client/` — all API calls (untouched)
+- `internal/llm/` — types and streaming (untouched)
+- `internal/tools/` — detection, config, launcher (untouched)
+- Chat rendering logic (bubbles, styles, streaming animation)
+- Built-in editor
+
+**What gets RESTRUCTURED:**
+- `internal/views/*` → extracted into `commands/` and `modes/`
+- `internal/ui/app.go` → rewritten as modal state machine
+
+---
+
+## 🔴 Phase 1: Modal Foundation (NOW)
+
+### 1.1 Mode State Machine
+
+Create the modal core. This is THE fundamental change.
 
 **Files:**
 ```
-internal/
-├── app/
-│   └── app.go             # Main model, tab switching
-└── views/
-    ├── chat/              # ✅ EXISTS
-    ├── browse/            # NEW
-    ├── projects/          # NEW
-    ├── monitor/           # NEW
-    ├── pair/              # NEW (refactor from existing)
-    └── me/                # NEW
+internal/app/
+├── app.go              # Root Bubble Tea model (replaces ui/app.go)
+├── modes.go            # Mode enum + transition rules
+└── keymap.go           # Per-mode key dispatch
 ```
 
-Each view is a Bubble Tea model implementing:
+**Mode enum:**
 ```go
-type View interface {
-    Init() tea.Cmd
-    Update(tea.Msg) (tea.Model, tea.Cmd)
-    View() string
-    Name() string      // Tab label
-    ShortHelp() string // Status bar hint
+type Mode int
+const (
+    ModeNormal Mode = iota
+    ModeInsert
+    ModeCommand
+    ModeBrowse
+    ModePair
+)
+```
+
+**Transitions:**
+- `Normal` → `Insert` (press `i`)
+- `Normal` → `Command` (press `/` or `:`)
+- `Command` → `Browse` (execute `/browse`)
+- `Command` → `Pair` (execute `/pair`)
+- `*` → `Normal` (press `Esc`)
+
+**Key dispatch:** Each mode has its own key handler. `app.go` delegates to the current mode's handler.
+
+### 1.2 Chat Renderer
+
+Extract chat rendering from existing `views/chat/chat.go` into standalone renderer.
+
+**Files:**
+```
+internal/chat/
+├── chat.go             # Message list renderer + viewport
+├── input.go            # Textarea for Insert mode
+└── styles.go           # Reuse existing bubble styles
+```
+
+The chat is NOT a "view" anymore — it's the canvas. Always visible. Messages render in the main area. The textarea appears/disappears based on Insert mode.
+
+### 1.3 Command System
+
+The slash command framework.
+
+**Files:**
+```
+internal/commands/
+├── command.go          # Command interface
+├── registry.go         # Command registry + dispatch + autocomplete
+├── help.go             # /help
+├── status.go           # /status (inline card)
+├── health.go           # /health
+├── models.go           # /models, /model <name>
+├── me.go               # /me (inline card)
+├── clear.go            # /clear
+└── quit.go             # /quit, :q
+```
+
+**Command interface:**
+```go
+type Command interface {
+    Name() string
+    Aliases() []string
+    Description() string
+    Execute(args []string, ctx *Context) tea.Cmd
 }
 ```
 
----
+**Context provides:** client, terminal size, mode setter, chat message injector.
 
-### 1.2 Browse View (Basic)
+Command output appears as "system messages" in the chat stream. This preserves history and is simple to implement.
 
-Show capabilities from daemon. Start simple.
+### 1.4 Status Bar
 
-**Endpoints:**
-- `POST /capabilities/discover` — list capabilities
-
-**UI:**
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│ Browse                                                    [2]       │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  Capabilities on mesh:                                               │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ ● serve_llm/llama3.2        local     llm, chat              │   │
-│  │   serve_llm/qwen2.5-coder   local     llm, code              │   │
-│  │   weather.forecast          remote    weather, api           │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│                                                                      │
-│  [Enter] View details  [/] Search  [r] Refresh                      │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
-```
+Always visible at the bottom. Mode indicator + model + mesh status + hints.
 
 **Files:**
 ```
-internal/views/browse/
-├── browse.go          # Main model
-├── capabilities.go    # Capability list component
-└── styles.go
+internal/statusbar/
+└── statusbar.go
 ```
+
+### 1.5 Layout Assembly
+
+Wire it all together:
+```
+┌──────────────────────────────────┐
+│ Header (title, model, mesh)      │
+├──────────────────────────────────┤
+│                                  │
+│ Chat area (scrollable)           │
+│                                  │
+├──────────────────────────────────┤
+│ Input area (mode-dependent)      │
+│ - Normal: empty                  │
+│ - Insert: textarea               │
+│ - Command: command line (/...)   │
+├──────────────────────────────────┤
+│ Status bar (mode, model, hints)  │
+└──────────────────────────────────┘
+```
+
+**Acceptance criteria:**
+- `i` enters Insert mode, textarea appears, `Esc` returns to Normal
+- `j/k` scrolls chat in Normal mode
+- `/` opens command line, typing a command + Enter executes it
+- `/help` shows available commands as a system message in chat
+- `/status` shows daemon status as an inline card
+- Status bar updates with current mode
+- LLM chat works (type in Insert mode, send, see streaming response)
 
 ---
 
-### 1.3 Monitor View (Basic)
+## 🟡 Phase 2: Browse Mode
 
-Daemon health and status.
+### 2.1 Browse Mode Overlay
 
-**Endpoints:**
-- `GET /health`
-- `GET /identity`
-
-**UI:**
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│ Monitor                                                   [4]       │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  Daemon Status:                                                      │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ Status:    ● Running                                         │   │
-│  │ Version:   0.1.1                                              │   │
-│  │ Uptime:    2h 34m                                             │   │
-│  │ Port:      4444                                               │   │
-│  │ Identity:  mri:agent:io.macula/hecate-dev                     │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│                                                                      │
-│  Mesh Connection:                                                    │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ Status:    ● Connected                                        │   │
-│  │ Bootstrap: boot.macula.io:443                                 │   │
-│  │ Peers:     3                                                  │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
-```
+Entered via `/browse`. Shows capability list as an overlay panel.
 
 **Files:**
 ```
-internal/views/monitor/
-├── monitor.go
-├── daemon.go
-└── styles.go
+internal/modes/
+└── browse.go           # Browse mode: list, navigation, filter, detail
+```
+
+**Keybindings in Browse mode:** `j/k` navigate, `Enter` detail, `/` filter, `Esc` back to Normal.
+
+**Layout:** Split pane (chat dimmed left, browse right) on wide terminals. Full-width browse on narrow terminals.
+
+### 2.2 Browse Command
+
+```
+internal/commands/
+└── browse.go           # /browse [type] → enters Browse mode
 ```
 
 ---
 
-### 1.4 Me View (Basic)
+## 🟡 Phase 3: Pair Mode + Utilities
 
-Identity and basic settings.
+### 3.1 Pair Mode
 
-**UI:**
+Entered via `/pair`. Reuses existing pairing state machine logic.
+
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│ Me                                                        [6]       │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  Identity:                                                           │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ MRI:       mri:agent:io.macula/hecate-dev                     │   │
-│  │ Realm:     io.macula                                          │   │
-│  │ Paired:    ✅ Yes (since 2026-02-03)                          │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│                                                                      │
-│  [p] Re-pair  [s] Settings                                          │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
+internal/modes/
+└── pair.go
 ```
 
-**Files:**
+### 3.2 Utility Commands
+
 ```
-internal/views/me/
-├── me.go
-├── profile.go
-└── styles.go
+internal/commands/
+├── config.go           # /config [key] [value]
+├── tools.go            # /tools
+└── project.go          # /project
 ```
 
 ---
 
-### 1.5 Pair View (Refactor)
+## 🟢 Phase 4: Polish
 
-Move existing pairing logic into proper view structure.
-
-**Files:**
-```
-internal/views/pair/
-├── pair.go
-├── qr.go
-└── styles.go
-```
-
----
-
-## 🟡 Phase 2: Projects Shell
-
-After Phase 1, build the Projects view structure.
-
-### 2.1 Project Detection
-
-```
-internal/projects/
-├── detector.go        # Find projects (git, HECATE.md, etc.)
-├── project.go         # Project type/state
-└── workspace.go       # .hecate/ management
-```
-
-### 2.2 Projects View Shell
-
-```
-internal/views/projects/
-├── projects.go        # Project list + selection
-├── phases.go          # AnD/AnP/InT/DoO tab bar
-└── styles.go
-```
-
-### 2.3 Phase Placeholder Views
-
-Empty shells that say "Coming soon" — structure first:
-
-```
-internal/views/projects/
-├── and/
-│   └── and.go         # "Analysis & Discovery - Coming Soon"
-├── anp/
-│   └── anp.go         # "Architecture & Planning - Coming Soon"
-├── int/
-│   └── int.go         # "Implementation & Testing - Coming Soon"
-└── doo/
-    └── doo.go         # "Deployment & Operations - Coming Soon"
-```
-
----
-
-## 🟢 Phase 3: Tool Integration
-
-### 3.1 Tool Detection
-
-```
-internal/tools/
-├── detector.go        # Check which tools are installed
-├── config.go          # Load ~/.hecate/config.toml
-└── launcher.go        # tea.ExecProcess wrappers
-```
-
-### 3.2 Quick Edit
-
-Built-in lightweight editor:
-
-```
-internal/editor/
-├── editor.go          # textarea-based editor
-├── syntax.go          # chroma highlighting
-└── styles.go
-```
-
----
-
-## 🟢 Phase 4: Flesh Out Phases
-
-Build actual functionality for each phase. Order TBD based on needs.
+- Contextual `?` help per mode
+- Command autocomplete with Tab
+- Command history with ↑/↓
+- Terminal width adaptation
+- `:w` to save chat transcript
+- Welcome screen with Threshold Guardian
+- Smooth mode transitions
 
 ---
 
 ## Architecture Notes
 
-### View Interface
+### Command Output = System Messages
 
-All views implement:
-
-```go
-package views
-
-type View interface {
-    tea.Model
-    Name() string
-    ShortHelp() string
-}
-```
-
-### Navigation
-
-```go
-// Global keybindings (work in any view)
-"1" → Chat
-"2" → Browse
-"3" → Projects
-"4" → Monitor
-"5" → Pair
-"6" → Me
-"?" → Help overlay
-"q" → Quit (with confirm if unsaved state)
-```
-
-### Shared Styles
+When `/status` runs, its output becomes a system message in the chat:
 
 ```
-internal/ui/styles/
-└── styles.go          # Shared colors, borders, etc.
+◆ System
+┌─────────────────────────────┐
+│ Status                       │
+│ Daemon: ● Running            │
+│ Mesh:   ● Connected          │
+│ Models: 3 available          │
+│ Tests:  85 passing           │
+└─────────────────────────────┘
 ```
 
-Use consistent Hecate colors:
-- Purple: `#7C3AED` (primary)
-- Amber: `#F59E0B` (accent)
-- Gray scale for text
+This is simpler than overlays and preserves history. You can scroll up to see past command results.
+
+### Mode Transitions Are Explicit
+
+Never silently switch modes. The status bar MUST update. The input area MUST change. The user should always know where they are.
+
+### Esc Is Sacred
+
+`Esc` ALWAYS returns toward Normal mode. No exceptions. No "Esc does different things in different contexts." It goes home.
 
 ---
 
-## Test Flow
-
-After Phase 1:
-
-```bash
-# Terminal 1
-ollama run llama3.2
-
-# Terminal 2  
-cd hecate-daemon && rebar3 shell
-
-# Terminal 3
-cd hecate-tui && go run ./cmd/hecate-tui
-
-# Should see:
-# - 6 tabs: Chat, Browse, Projects, Monitor, Pair, Me
-# - Number keys switch tabs
-# - Each view shows basic content
-```
-
----
-
-*Build the structure. Refine the soul later.* 🔥🗝️🔥
+*The goddess speaks through dialogue, not dashboards.* 🔥🗝️🔥
