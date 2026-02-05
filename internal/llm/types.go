@@ -17,15 +17,16 @@ type Message struct {
 
 // Model represents an available LLM model
 type Model struct {
-	Name          string  `json:"name"`
-	Size          string  `json:"size,omitempty"`
-	ModifiedAt    string  `json:"modified_at,omitempty"`
-	Digest        string  `json:"digest,omitempty"`
-	ParameterSize string  `json:"parameter_size,omitempty"`
-	Family        string  `json:"family,omitempty"`
-	Format        string  `json:"format,omitempty"`
-	ContextLength int     `json:"context_length,omitempty"`
-	Quantization  string  `json:"quantization_level,omitempty"`
+	Name          string `json:"name"`
+	Size          string `json:"size,omitempty"`
+	ModifiedAt    string `json:"modified_at,omitempty"`
+	Digest        string `json:"digest,omitempty"`
+	ParameterSize string `json:"parameter_size,omitempty"`
+	Family        string `json:"family,omitempty"`
+	Format        string `json:"format,omitempty"`
+	ContextLength int    `json:"context_length,omitempty"`
+	Quantization  string `json:"quantization_level,omitempty"`
+	Provider      string `json:"provider,omitempty"`
 }
 
 // ChatRequest represents a chat completion request
@@ -53,10 +54,24 @@ type ChatResponse struct {
 
 // LLMHealth represents the LLM backend health status
 type LLMHealth struct {
-	Status  string `json:"status"`
-	Backend string `json:"backend"`
+	Status    string            `json:"status"`
+	Backend   string            `json:"backend,omitempty"`
+	URL       string            `json:"url,omitempty"`
+	Error     string            `json:"error,omitempty"`
+	Providers map[string]string `json:"providers,omitempty"`
+}
+
+// Provider represents a configured LLM provider
+type Provider struct {
+	Name    string `json:"name,omitempty"`
+	Type    string `json:"type"`
 	URL     string `json:"url,omitempty"`
-	Error   string `json:"error,omitempty"`
+	Enabled bool   `json:"enabled"`
+}
+
+// ProvidersResponse represents the list providers response
+type ProvidersResponse struct {
+	Providers map[string]Provider `json:"providers"`
 }
 
 // ModelsResponse represents the list models response

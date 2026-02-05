@@ -172,6 +172,7 @@ COMMANDS:
     /system [text]   Set/view LLM system prompt
     /edit [file]     Open built-in editor
     /theme <name>    Switch theme (dark, light, monochrome)
+    /provider        Manage LLM providers (add, remove, list)
     /alc             Project lifecycle (browse, init, manage phases)
     /clear           Clear chat
     /quit            Quit

@@ -126,6 +126,64 @@ func (c *Client) ChatStream(ctx context.Context, req llm.ChatRequest) (<-chan ll
 	return respChan, errChan
 }
 
+// ListProviders returns configured LLM providers
+func (c *Client) ListProviders() (map[string]llm.Provider, error) {
+	resp, err := c.get("/api/llm/providers")
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.Ok {
+		return nil, fmt.Errorf("list providers failed: %s", resp.Error)
+	}
+
+	var result llm.ProvidersResponse
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse providers response: %w", err)
+	}
+
+	return result.Providers, nil
+}
+
+// AddProvider adds a new LLM provider configuration
+func (c *Client) AddProvider(name, pType, apiKey, url string) error {
+	body := map[string]string{
+		"name": name,
+		"type": pType,
+	}
+	if apiKey != "" {
+		body["api_key"] = apiKey
+	}
+	if url != "" {
+		body["url"] = url
+	}
+
+	resp, err := c.post("/api/llm/providers/add", body)
+	if err != nil {
+		return err
+	}
+
+	if !resp.Ok {
+		return fmt.Errorf("add provider failed: %s", resp.Error)
+	}
+
+	return nil
+}
+
+// RemoveProvider removes an LLM provider by name
+func (c *Client) RemoveProvider(name string) error {
+	resp, err := c.post("/api/llm/providers/"+name+"/remove", nil)
+	if err != nil {
+		return err
+	}
+
+	if !resp.Ok {
+		return fmt.Errorf("remove provider failed: %s", resp.Error)
+	}
+
+	return nil
+}
+
 // Chat sends a non-streaming chat request
 func (c *Client) Chat(req llm.ChatRequest) (*llm.ChatResponse, error) {
 	req.Stream = false

@@ -23,7 +23,7 @@ func (c *ModelsCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		}
 
 		if len(models) == 0 {
-			return InjectSystemMsg{Content: s.Subtle.Render("No models available. Is Ollama running?")}
+			return InjectSystemMsg{Content: s.Subtle.Render("No models available. Is Ollama running?\nUse /provider add <type> <key> to add a cloud provider.")}
 		}
 
 		var b strings.Builder
@@ -39,6 +39,10 @@ func (c *ModelsCmd) Execute(args []string, ctx *Context) tea.Cmd {
 			}
 			if m.Family != "" {
 				b.WriteString(s.Subtle.Render(" — " + m.Family))
+			}
+			if m.Provider != "" {
+				b.WriteString(" ")
+				b.WriteString(s.Subtle.Render("[" + m.Provider + "]"))
 			}
 			b.WriteString("\n")
 		}
