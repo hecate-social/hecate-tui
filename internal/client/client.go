@@ -2,9 +2,11 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"time"
 )
@@ -13,9 +15,10 @@ import (
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
+	transport  *http.Transport // nil for default TCP, set for Unix socket
 }
 
-// New creates a new hecate client
+// New creates a new hecate client using TCP
 func New(baseURL string) *Client {
 	return &Client{
 		baseURL: baseURL,
@@ -23,6 +26,31 @@ func New(baseURL string) *Client {
 			Timeout: 10 * time.Second,
 		},
 	}
+}
+
+// NewWithSocket creates a new hecate client using a Unix domain socket.
+// All HTTP requests are tunneled through the socket; the Host header is ignored.
+func NewWithSocket(socketPath string) *Client {
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			var d net.Dialer
+			return d.DialContext(ctx, "unix", socketPath)
+		},
+	}
+	return &Client{
+		baseURL: "http://localhost",
+		httpClient: &http.Client{
+			Timeout:   10 * time.Second,
+			Transport: transport,
+		},
+		transport: transport,
+	}
+}
+
+// Transport returns the underlying http.Transport (for SSE streaming reuse).
+// Returns nil for default TCP clients.
+func (c *Client) Transport() *http.Transport {
+	return c.transport
 }
 
 // Response is the standard hecate API response

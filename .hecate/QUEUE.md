@@ -12,6 +12,40 @@ This is the **[tui]** channel. Tag all RESPONSES.md entries:
 
 ---
 
+## 🔴 COMMIT AND PUSH (IMMEDIATE)
+
+**All 10 phases of the modal chat pivot are sitting uncommitted in the working tree.**
+
+36 new files + deletions + modifications. NONE of it is committed. This work could be lost.
+
+**Do this NOW before anything else:**
+
+```bash
+cd ~/work/github.com/hecate-social/hecate-tui
+git add -A
+git commit -m "feat(tui): Modal chat interface v0.2.0 — all 10 phases
+
+- Theme system with 3 built-in themes (Hecate Dark, Light, Monochrome)
+- Vim-inspired modal state machine (Normal, Insert, Command, Browse, Pair, Edit)
+- Slash command framework with 20+ commands and Tab autocomplete
+- Browse mode overlay for capability discovery
+- Pair mode with full pairing state machine
+- Built-in editor with syntax highlighting
+- Lightweight markdown renderer for assistant responses
+- Chat persistence (auto-save/load conversations)
+- /new, /history, /load, /delete conversation management
+- /find search, /save export, /system prompt, /call RPC
+- Multiline input (Alt+Enter), retry (r), yank (y)
+- Persistent config (~/.config/hecate/config.json)
+- Periodic health polling (30s)
+- Replaced tab-based UI (deleted internal/ui/, internal/views/)"
+git push origin main
+```
+
+Then confirm in RESPONSES.md.
+
+---
+
 ## 📖 READ FIRST
 
 1. `cat ~/work/github.com/CLAUDE.md` — Re-read every session

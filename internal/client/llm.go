@@ -75,8 +75,11 @@ func (c *Client) ChatStream(ctx context.Context, req llm.ChatRequest) (<-chan ll
 		httpReq.Header.Set("Content-Type", "application/json")
 		httpReq.Header.Set("Accept", "text/event-stream")
 
-		// Use a client without timeout for streaming
+		// Use a client without timeout for streaming, but reuse socket transport
 		streamClient := &http.Client{}
+		if c.transport != nil {
+			streamClient.Transport = c.transport
+		}
 		httpResp, err := streamClient.Do(httpReq)
 		if err != nil {
 			errChan <- fmt.Errorf("request failed: %w", err)

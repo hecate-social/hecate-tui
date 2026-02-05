@@ -96,6 +96,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
+	case saveResultMsg:
+		if msg.err != nil {
+			m.message = "Save failed: " + msg.err.Error()
+			m.messageErr = true
+		} else {
+			m.message = "Saved: " + m.filename
+			m.messageErr = false
+			m.modified = false
+		}
+		return m, nil
+
 	case tea.KeyMsg:
 		// Clear message on any keypress
 		m.message = ""

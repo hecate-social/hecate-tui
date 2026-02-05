@@ -31,6 +31,115 @@ Types: `COMPLETE`, `QUESTION`, `BLOCKED`, `DECISION`, `UPDATE`
 
 ---
 
+## 2026-02-05 COMPLETE [tui]: Connector Architecture — Phases 4-5
+
+### Summary
+
+Implemented Unix socket transport and config consolidation for the TUI, completing the client-side of the connector architecture.
+
+### Phase 4: Unix Socket Transport
+
+**`client.NewWithSocket(socketPath)`** creates an HTTP client that communicates over Unix domain sockets instead of TCP:
+
+```go
+transport := &http.Transport{
+    DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+        var d net.Dialer
+        return d.DialContext(ctx, "unix", socketPath)
+    },
+}
+```
+
+**Connection resolution priority (main.go):**
+1. `HECATE_SOCKET` env var (explicit socket path)
+2. `~/.config/hecate/connectors/tui.sock` (daemon auto-creates)
+3. `HECATE_URL` env var (TCP fallback)
+4. `http://localhost:4444` (TCP default)
+
+SSE streaming reuses the socket transport — no separate connection.
+
+### Phase 5: Config Consolidation
+
+**Before (inconsistent):**
+- `~/.config/hecate/config.json` (JSON) — theme, system prompt, daemon URL
+- `~/.hecate/config.toml` (TOML) — tools, editor, UI settings
+- `~/.config/hecate/conversations/` — chat history
+
+**After (consolidated):**
+- `~/.config/hecate-tui/config.toml` — single TOML config
+- `~/.config/hecate-tui/conversations/` — chat history
+
+**Migration:** On startup, reads old JSON + TOML, merges, writes new, renames old files to `.migrated`. Zero data loss.
+
+### Related
+
+Companion changes in [daemon] — Phases 1-3 (manage_connectors domain, socket listeners, connector API).
+
+### Build
+
+`go build ./...` — Clean. Version 0.3.0.
+
+---
+
+## 2026-02-05 COMPLETE [tui]: Phase 1 — Modal Chat Foundation
+
+### Summary
+
+Implemented the complete Phase 1 modal chat interface, replacing the tab-based UI with a vim-inspired modal architecture. Chat is now home — always visible, everything else is a command or mode.
+
+### What Was Built
+
+**Theme System** (`internal/theme/`):
+- Semantic color mapping via `Theme` struct
+- `ComputeStyles()` generates all lipgloss styles from theme
+- 3 built-in themes: Hecate Dark, Hecate Light, Monochrome
+- Every component receives `*theme.Theme` for consistency
+
+**Mode State Machine** (`internal/modes/`):
+- Mode enum: Normal, Insert, Command, Browse, Pair
+- Per-mode contextual hints for status bar
+- Explicit transitions only
+
+**Command System** (`internal/commands/`):
+- `Command` interface with Name, Aliases, Description, Execute
+- `Registry` with dispatch + Tab autocomplete
+- 8 built-in commands: `/help`, `/clear`, `/quit`, `/status`, `/health`, `/models`, `/model <name>`, `/me`
+- All output renders as system messages in chat stream
+
+**Chat Renderer** (`internal/chat/`):
+- Standalone canvas (not a "view") — always visible
+- Public API for mode-driven control (SetInputVisible, ScrollUp/Down, etc.)
+- System message injection for command output
+- Streaming preserved from existing implementation
+- Themed welcome art with Threshold Guardian
+
+**Status Bar** (`internal/statusbar/`):
+- Color-coded mode label (Normal=purple, Insert=green, Command=amber)
+- Active model name, daemon status indicator
+- Contextual key hints per mode
+
+**Root App** (`internal/app/`):
+- Modal state machine replacing tab-based `ui/app.go`
+- Key dispatch: i→Insert, /→Command, Esc→Normal, j/k scroll, ?→help, q→quit
+- Command line with / or : prefix
+
+### Architecture Decision
+
+Old tab-based views are **preserved** (still compile) but not used by the new main entry point. This allows gradual extraction into Browse/Pair modes in Phase 2-3.
+
+### Build
+
+`go build ./...` — Clean. Version bumped to 0.2.0.
+
+### Next Steps (Phase 2)
+
+- Browse mode overlay via `/browse`
+- Pair mode via `/pair`
+- `/theme` command for runtime theme switching
+- Command history (↑/↓)
+
+---
+
 ## 2026-02-03 UPDATE [tui]: Endpoint Mismatch Identified
 
 ### Cross-Repo Verification Results
