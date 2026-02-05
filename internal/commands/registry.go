@@ -46,6 +46,7 @@ func NewRegistry() *Registry {
 	r.Register(&SystemCmd{})
 	r.Register(&ThemeCmd{})
 	r.Register(&ToolsCmd{})
+	r.Register(&ALCCmd{})
 
 	return r
 }

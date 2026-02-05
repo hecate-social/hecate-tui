@@ -66,9 +66,10 @@ type Styles struct {
 	NormalMode  lipgloss.Style
 	InsertMode  lipgloss.Style
 	CommandMode lipgloss.Style
-	BrowseMode  lipgloss.Style
-	PairMode    lipgloss.Style
-	EditMode    lipgloss.Style
+	BrowseMode   lipgloss.Style
+	PairMode     lipgloss.Style
+	EditMode     lipgloss.Style
+	ProjectsMode lipgloss.Style
 
 	// Chat
 	UserBubble      lipgloss.Style
@@ -138,6 +139,11 @@ func (t *Theme) ComputeStyles() *Styles {
 			Bold(true).
 			Foreground(t.StatusBarFg).
 			Background(t.PrimaryDark).
+			Padding(0, 1),
+		ProjectsMode: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(t.StatusBarFg).
+			Background(t.SecondaryDark).
 			Padding(0, 1),
 
 		// Chat bubbles

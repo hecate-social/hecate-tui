@@ -9,7 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const version = "0.3.0"
+const version = "0.4.0"
 
 func main() {
 	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
@@ -123,6 +123,7 @@ MODES:
     Browse           Browse capabilities (via /browse).
     Pair             Realm pairing wizard (via /pair).
     Edit             Built-in file editor (via /edit).
+    Projects         Project lifecycle browser (via /alc).
 
 KEY BINDINGS:
     Normal mode:
@@ -171,6 +172,7 @@ COMMANDS:
     /system [text]   Set/view LLM system prompt
     /edit [file]     Open built-in editor
     /theme <name>    Switch theme (dark, light, monochrome)
+    /alc             Project lifecycle (browse, init, manage phases)
     /clear           Clear chat
     /quit            Quit
 
