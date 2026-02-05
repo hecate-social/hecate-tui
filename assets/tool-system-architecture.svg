@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+    <style>
+      .title { font: bold 18px sans-serif; fill: #333; }
+      .subtitle { font: 14px sans-serif; fill: #666; }
+      .box-label { font: bold 12px sans-serif; fill: #333; }
+      .box-detail { font: 11px sans-serif; fill: #555; }
+      .category { font: bold 11px sans-serif; fill: #fff; }
+      .tool-name { font: 10px monospace; fill: #333; }
+      .arrow-label { font: 10px sans-serif; fill: #666; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="600" fill="#fafafa"/>
+
+  <!-- Title -->
+  <text x="400" y="30" text-anchor="middle" class="title">Hecate TUI Tool System Architecture</text>
+  <text x="400" y="50" text-anchor="middle" class="subtitle">LLM Function Calling with Approval Flow</text>
+
+  <!-- LLM Provider Box -->
+  <rect x="50" y="80" width="150" height="80" rx="8" fill="#e3f2fd" stroke="#1976d2" stroke-width="2"/>
+  <text x="125" y="105" text-anchor="middle" class="box-label">LLM Provider</text>
+  <text x="125" y="125" text-anchor="middle" class="box-detail">Anthropic / OpenAI</text>
+  <text x="125" y="140" text-anchor="middle" class="box-detail">Google / Mistral</text>
+
+  <!-- Chat Model Box -->
+  <rect x="250" y="80" width="150" height="80" rx="8" fill="#e8f5e9" stroke="#388e3c" stroke-width="2"/>
+  <text x="325" y="105" text-anchor="middle" class="box-label">Chat Model</text>
+  <text x="325" y="125" text-anchor="middle" class="box-detail">Message History</text>
+  <text x="325" y="140" text-anchor="middle" class="box-detail">Tool Call Handler</text>
+
+  <!-- Tool Executor Box -->
+  <rect x="450" y="80" width="150" height="80" rx="8" fill="#fff3e0" stroke="#f57c00" stroke-width="2"/>
+  <text x="525" y="105" text-anchor="middle" class="box-label">Tool Executor</text>
+  <text x="525" y="125" text-anchor="middle" class="box-detail">Permission Check</text>
+  <text x="525" y="140" text-anchor="middle" class="box-detail">Execute Handler</text>
+
+  <!-- Approval UI Box -->
+  <rect x="650" y="80" width="120" height="80" rx="8" fill="#fce4ec" stroke="#c2185b" stroke-width="2"/>
+  <text x="710" y="105" text-anchor="middle" class="box-label">Approval UI</text>
+  <text x="710" y="125" text-anchor="middle" class="box-detail">[y] Allow</text>
+  <text x="710" y="140" text-anchor="middle" class="box-detail">[n] Deny</text>
+
+  <!-- Arrows between top boxes -->
+  <line x1="200" y1="120" x2="248" y2="120" stroke="#666" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <text x="224" y="112" text-anchor="middle" class="arrow-label">stream</text>
+
+  <line x1="400" y1="120" x2="448" y2="120" stroke="#666" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <text x="424" y="112" text-anchor="middle" class="arrow-label">tool_use</text>
+
+  <line x1="600" y1="120" x2="648" y2="120" stroke="#666" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <text x="624" y="112" text-anchor="middle" class="arrow-label">ask?</text>
+
+  <!-- Tool Registry -->
+  <rect x="300" y="200" width="350" height="50" rx="8" fill="#f3e5f5" stroke="#7b1fa2" stroke-width="2"/>
+  <text x="475" y="225" text-anchor="middle" class="box-label">Tool Registry (18 Tools)</text>
+  <text x="475" y="240" text-anchor="middle" class="box-detail">Definitions + Handlers + Permissions</text>
+
+  <!-- Arrow from executor to registry -->
+  <line x1="525" y1="160" x2="525" y2="198" stroke="#666" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+  <!-- Tool Categories -->
+  <!-- Filesystem -->
+  <rect x="50" y="280" width="140" height="130" rx="6" fill="#fff" stroke="#ddd" stroke-width="1"/>
+  <rect x="50" y="280" width="140" height="24" rx="6" fill="#2196f3"/>
+  <text x="120" y="296" text-anchor="middle" class="category">Filesystem</text>
+  <text x="60" y="318" class="tool-name">read_file</text>
+  <text x="60" y="333" class="tool-name">write_file *</text>
+  <text x="60" y="348" class="tool-name">edit_file *</text>
+  <text x="60" y="363" class="tool-name">list_directory</text>
+  <text x="60" y="378" class="tool-name">glob_search</text>
+
+  <!-- Code Explore -->
+  <rect x="200" y="280" width="140" height="100" rx="6" fill="#fff" stroke="#ddd" stroke-width="1"/>
+  <rect x="200" y="280" width="140" height="24" rx="6" fill="#4caf50"/>
+  <text x="270" y="296" text-anchor="middle" class="category">Code Explore</text>
+  <text x="210" y="318" class="tool-name">grep_search</text>
+  <text x="210" y="333" class="tool-name">symbol_search</text>
+  <text x="210" y="348" class="tool-name">code_context</text>
+
+  <!-- System -->
+  <rect x="350" y="280" width="140" height="115" rx="6" fill="#fff" stroke="#ddd" stroke-width="1"/>
+  <rect x="350" y="280" width="140" height="24" rx="6" fill="#ff9800"/>
+  <text x="420" y="296" text-anchor="middle" class="category">System</text>
+  <text x="360" y="318" class="tool-name">run_command *</text>
+  <text x="360" y="333" class="tool-name">ask_user</text>
+  <text x="360" y="348" class="tool-name">get_env</text>
+  <text x="360" y="363" class="tool-name">cwd</text>
+
+  <!-- Web -->
+  <rect x="500" y="280" width="140" height="85" rx="6" fill="#fff" stroke="#ddd" stroke-width="1"/>
+  <rect x="500" y="280" width="140" height="24" rx="6" fill="#00bcd4"/>
+  <text x="570" y="296" text-anchor="middle" class="category">Web</text>
+  <text x="510" y="318" class="tool-name">web_search</text>
+  <text x="510" y="333" class="tool-name">web_fetch</text>
+
+  <!-- Mesh -->
+  <rect x="650" y="280" width="140" height="100" rx="6" fill="#fff" stroke="#ddd" stroke-width="1"/>
+  <rect x="650" y="280" width="140" height="24" rx="6" fill="#9c27b0"/>
+  <text x="720" y="296" text-anchor="middle" class="category">Mesh</text>
+  <text x="660" y="318" class="tool-name">mesh_search</text>
+  <text x="660" y="333" class="tool-name">mesh_call *</text>
+  <text x="660" y="348" class="tool-name">mesh_publish *</text>
+
+  <!-- Permission Legend -->
+  <rect x="50" y="430" width="700" height="70" rx="8" fill="#fff" stroke="#ddd" stroke-width="1"/>
+  <text x="70" y="455" class="box-label">Permission Levels:</text>
+  <circle cx="200" cy="450" r="6" fill="#4caf50"/>
+  <text x="215" y="455" class="box-detail">Allow - runs without prompting</text>
+  <circle cx="380" cy="450" r="6" fill="#ff9800"/>
+  <text x="395" y="455" class="box-detail">Ask - prompts user each time</text>
+  <circle cx="560" cy="450" r="6" fill="#f44336"/>
+  <text x="575" y="455" class="box-detail">Deny - blocked entirely</text>
+  <text x="70" y="480" class="box-detail">* = Requires approval by default (dangerous operations)</text>
+
+  <!-- Flow Description -->
+  <rect x="50" y="520" width="700" height="60" rx="8" fill="#e8eaf6" stroke="#3f51b5" stroke-width="1"/>
+  <text x="400" y="545" text-anchor="middle" class="box-label">Tool Call Flow</text>
+  <text x="400" y="565" text-anchor="middle" class="box-detail">LLM requests tool_use → Executor checks permissions → If Ask: show approval UI → Execute handler → Return result to LLM</text>
+</svg>

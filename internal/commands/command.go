@@ -1,8 +1,11 @@
 package commands
 
 import (
+	"context"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/hecate-social/hecate-tui/internal/client"
+	"github.com/hecate-social/hecate-tui/internal/llmtools"
 	"github.com/hecate-social/hecate-tui/internal/theme"
 )
 
@@ -27,9 +30,18 @@ type Context struct {
 	InjectChat func(msg ChatMessage)
 
 	// Chat access
-	GetMessages    func() []ChatExportMsg
+	GetMessages     func() []ChatExportMsg
 	GetSystemPrompt func() string
 	SetSystemPrompt func(prompt string)
+
+	// Tool system access
+	GetToolExecutor func() *llmtools.Executor
+	ToolsEnabled    func() bool
+}
+
+// Ctx returns a background context. Used for tool execution.
+func (c *Context) Ctx() context.Context {
+	return context.Background()
 }
 
 // ChatExportMsg represents a message for export purposes.

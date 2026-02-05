@@ -15,10 +15,12 @@ import (
 	"github.com/hecate-social/hecate-tui/internal/commands"
 	"github.com/hecate-social/hecate-tui/internal/config"
 	"github.com/hecate-social/hecate-tui/internal/editor"
+	"github.com/hecate-social/hecate-tui/internal/llmtools"
 	"github.com/hecate-social/hecate-tui/internal/modes"
 	"github.com/hecate-social/hecate-tui/internal/pair"
 	"github.com/hecate-social/hecate-tui/internal/statusbar"
 	"github.com/hecate-social/hecate-tui/internal/theme"
+	"github.com/hecate-social/hecate-tui/internal/ui"
 )
 
 // App is the root Bubble Tea model — the modal chat interface.
@@ -45,6 +47,10 @@ type App struct {
 	cmdInput   textinput.Model
 	registry   *commands.Registry
 
+	// Tool system
+	toolExecutor   *llmtools.Executor
+	approvalPrompt *ui.ApprovalPrompt
+
 	// Overlay modes initialized
 	browseReady bool
 	pairReady   bool
@@ -53,7 +59,7 @@ type App struct {
 
 	// Command history
 	cmdHistory []string
-	cmdHistIdx int // -1 = new input, 0..N = browsing history
+	cmdHistIdx int    // -1 = new input, 0..N = browsing history
 	cmdDraft   string // save draft when browsing history
 
 	// System prompt for LLM
@@ -106,6 +112,21 @@ func New(hecateURL string) *App {
 		chatModel.SetSystemPrompt(cfg.SystemPrompt)
 	}
 
+	// Initialize tool system
+	toolRegistry := llmtools.NewDefaultRegistry()
+	toolPermissions := llmtools.NewPermissions()
+	toolExecutor := llmtools.NewExecutor(toolRegistry, toolPermissions)
+
+	// Wire up tool executor to chat
+	chatModel.SetToolExecutor(toolExecutor)
+	chatModel.EnableTools(true) // Enable tools by default
+
+	// Set mesh client for mesh tools
+	llmtools.SetMeshClient(c)
+
+	// Create approval prompt for tool authorization
+	approvalPrompt := ui.NewApprovalPrompt(t, s)
+
 	// Auto-load most recent conversation
 	convID := config.NewConversationID()
 	convTitle := ""
@@ -131,12 +152,14 @@ func New(hecateURL string) *App {
 		cfg:               cfg,
 		conversationID:    convID,
 		conversationTitle: convTitle,
-		mode:           modes.Normal,
-		chat:           chatModel,
-		systemPrompt:   cfg.SystemPrompt,
-		statusBar:      sb,
-		cmdInput:       ci,
-		registry:       commands.NewRegistry(),
+		mode:              modes.Normal,
+		chat:              chatModel,
+		systemPrompt:      cfg.SystemPrompt,
+		statusBar:         sb,
+		cmdInput:          ci,
+		registry:          commands.NewRegistry(),
+		toolExecutor:      toolExecutor,
+		approvalPrompt:    approvalPrompt,
 	}
 }
 
@@ -186,6 +209,21 @@ func NewWithSocket(socketPath string) *App {
 		chatModel.LoadMessages(msgs)
 	}
 
+	// Initialize tool system
+	toolRegistry := llmtools.NewDefaultRegistry()
+	toolPermissions := llmtools.NewPermissions()
+	toolExecutor := llmtools.NewExecutor(toolRegistry, toolPermissions)
+
+	// Wire up tool executor to chat
+	chatModel.SetToolExecutor(toolExecutor)
+	chatModel.EnableTools(true)
+
+	// Set mesh client for mesh tools
+	llmtools.SetMeshClient(c)
+
+	// Create approval prompt for tool authorization
+	approvalPrompt := ui.NewApprovalPrompt(t, s)
+
 	return &App{
 		client:            c,
 		theme:             t,
@@ -193,12 +231,14 @@ func NewWithSocket(socketPath string) *App {
 		cfg:               cfg,
 		conversationID:    convID,
 		conversationTitle: convTitle,
-		mode:           modes.Normal,
-		chat:           chatModel,
-		systemPrompt:   cfg.SystemPrompt,
-		statusBar:      sb,
-		cmdInput:       ci,
-		registry:       commands.NewRegistry(),
+		mode:              modes.Normal,
+		chat:              chatModel,
+		systemPrompt:      cfg.SystemPrompt,
+		statusBar:         sb,
+		cmdInput:          ci,
+		registry:          commands.NewRegistry(),
+		toolExecutor:      toolExecutor,
+		approvalPrompt:    approvalPrompt,
 	}
 }
 
@@ -256,8 +296,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 		}
 		a.statusBar.ModelName = a.chat.ActiveModelName()
+		a.statusBar.ModelProvider = a.chat.ActiveModelProvider()
 		a.statusBar.Mode = a.mode
 		a.statusBar.InputLen = a.chat.InputLen()
+		a.statusBar.SessionTokens = a.chat.SessionTokenCount()
 
 	case healthMsg:
 		a.daemonStatus = msg.status
@@ -384,6 +426,22 @@ func (a *App) handleKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 func (a *App) handleNormalKey(key string) tea.Cmd {
+	// Handle tool approval keys when there's a pending approval
+	if a.chat.HasPendingApproval() {
+		switch key {
+		case "y": // Allow this time
+			return a.chat.ApproveToolCall(false)
+		case "n": // Deny
+			return a.chat.DenyToolCall()
+		case "a": // Allow all for session
+			return a.chat.ApproveToolCall(true)
+		case "esc": // Cancel (same as deny)
+			return a.chat.DenyToolCall()
+		}
+		// Block other keys while approval is pending
+		return nil
+	}
+
 	switch key {
 	case "i":
 		a.setMode(modes.Insert)
@@ -420,6 +478,22 @@ func (a *App) handleNormalKey(key string) tea.Cmd {
 }
 
 func (a *App) handleInsertKey(key string) tea.Cmd {
+	// Handle tool approval keys when there's a pending approval
+	if a.chat.HasPendingApproval() {
+		switch key {
+		case "y": // Allow this time
+			return a.chat.ApproveToolCall(false)
+		case "n": // Deny
+			return a.chat.DenyToolCall()
+		case "a": // Allow all for session
+			return a.chat.ApproveToolCall(true)
+		case "esc": // Cancel (same as deny)
+			return a.chat.DenyToolCall()
+		}
+		// Block other keys while approval is pending
+		return nil
+	}
+
 	switch key {
 	case "esc":
 		if a.chat.IsStreaming() {
@@ -438,6 +512,7 @@ func (a *App) handleInsertKey(key string) tea.Cmd {
 	case "tab":
 		a.chat.CycleModel()
 		a.statusBar.ModelName = a.chat.ActiveModelName()
+		a.statusBar.ModelProvider = a.chat.ActiveModelProvider()
 	}
 	return nil
 }
@@ -700,6 +775,8 @@ func (a *App) switchTheme(t *theme.Theme) {
 	a.statusBar.Mode = a.mode
 	a.statusBar.DaemonStatus = a.daemonStatus
 	a.statusBar.ModelName = a.chat.ActiveModelName()
+	a.statusBar.ModelProvider = a.chat.ActiveModelProvider()
+	a.statusBar.SessionTokens = a.chat.SessionTokenCount()
 
 	// Rebuild chat with new theme (preserves messages via re-init)
 	oldChat := a.chat
@@ -762,6 +839,12 @@ func (a *App) commandContext() *commands.Context {
 			a.chat.SetSystemPrompt(prompt)
 			a.cfg.SystemPrompt = prompt
 			_ = a.cfg.Save()
+		},
+		GetToolExecutor: func() *llmtools.Executor {
+			return a.chat.ToolExecutor()
+		},
+		ToolsEnabled: func() bool {
+			return a.chat.ToolsEnabled()
 		},
 	}
 }
@@ -868,7 +951,81 @@ func (a *App) View() string {
 	// Status bar (always at bottom)
 	sections = append(sections, a.statusBar.View())
 
-	return strings.Join(sections, "\n")
+	content := strings.Join(sections, "\n")
+
+	// Overlay tool approval prompt if there's a pending approval
+	if a.chat.HasPendingApproval() && a.approvalPrompt != nil {
+		content = a.renderWithApprovalOverlay(content)
+	}
+
+	return content
+}
+
+// renderWithApprovalOverlay overlays the approval prompt on top of the content.
+func (a *App) renderWithApprovalOverlay(content string) string {
+	call := a.chat.PendingToolCall()
+	if call == nil {
+		return content
+	}
+
+	// Get tool info from registry
+	registry := a.toolExecutor.Registry()
+	tool, _, ok := registry.Get(call.Name)
+	if !ok {
+		// Unknown tool, just show basic info
+		tool = llmtools.Tool{
+			Name:        call.Name,
+			Description: "Unknown tool",
+			Category:    llmtools.CategorySystem,
+		}
+	}
+
+	// Set width based on terminal
+	dialogWidth := 60
+	if a.width > 80 {
+		dialogWidth = 70
+	}
+	if a.width < 70 {
+		dialogWidth = a.width - 4
+	}
+	a.approvalPrompt.SetWidth(dialogWidth)
+
+	// Render the approval prompt
+	prompt := a.approvalPrompt.Render(tool, *call)
+
+	// Center the prompt on the screen
+	promptLines := strings.Split(prompt, "\n")
+	promptHeight := len(promptLines)
+
+	// Calculate vertical position (center)
+	contentLines := strings.Split(content, "\n")
+	startLine := (len(contentLines) - promptHeight) / 2
+	if startLine < 0 {
+		startLine = 0
+	}
+
+	// Calculate horizontal padding to center
+	maxPromptWidth := 0
+	for _, line := range promptLines {
+		if w := lipgloss.Width(line); w > maxPromptWidth {
+			maxPromptWidth = w
+		}
+	}
+	leftPad := (a.width - maxPromptWidth) / 2
+	if leftPad < 0 {
+		leftPad = 0
+	}
+	padding := strings.Repeat(" ", leftPad)
+
+	// Overlay the prompt
+	for i, line := range promptLines {
+		lineIdx := startLine + i
+		if lineIdx >= 0 && lineIdx < len(contentLines) {
+			contentLines[lineIdx] = padding + line
+		}
+	}
+
+	return strings.Join(contentLines, "\n")
 }
 
 func (a *App) renderBrowseLayout() string {

@@ -15,11 +15,13 @@ type Model struct {
 	styles *theme.Styles
 	width  int
 
-	Mode         modes.Mode
-	ModelName    string
-	MeshStatus   string // "connected", "disconnected", "unknown"
-	DaemonStatus string // "healthy", "degraded", "error", "unknown"
-	InputLen     int    // character count for Insert mode
+	Mode          modes.Mode
+	ModelName     string
+	ModelProvider string // "ollama", "openai", "anthropic", etc.
+	MeshStatus    string // "connected", "disconnected", "unknown"
+	DaemonStatus  string // "healthy", "degraded", "error", "unknown"
+	InputLen      int    // character count for Insert mode
+	SessionTokens int    // cumulative tokens for session
 }
 
 // New creates a new status bar.
@@ -47,7 +49,7 @@ func (m Model) View() string {
 	modeStyle := m.modeStyle()
 	modeLabel := modeStyle.Render(" " + m.Mode.String() + " ")
 
-	// Model indicator
+	// Model indicator with provider badge
 	modelSection := ""
 	if m.ModelName != "" {
 		name := m.ModelName
@@ -55,6 +57,11 @@ func (m Model) View() string {
 			name = name[:17] + "..."
 		}
 		modelSection = m.styles.Subtle.Render("  " + name)
+
+		// Show provider badge for paid providers
+		if m.isPaidProvider() {
+			modelSection += m.styles.StatusWarning.Render(" $")
+		}
 	}
 
 	// Daemon status
@@ -70,6 +77,12 @@ func (m Model) View() string {
 		daemonSection += m.styles.Subtle.Render("○")
 	}
 
+	// Token count (only show if non-zero and using paid provider)
+	tokenSection := ""
+	if m.SessionTokens > 0 && m.isPaidProvider() {
+		tokenSection = m.styles.Subtle.Render(fmt.Sprintf("  %s tok", formatTokenCount(m.SessionTokens)))
+	}
+
 	// Contextual hints
 	hintsText := m.Mode.Hints()
 	if m.Mode == modes.Insert && m.InputLen > 0 {
@@ -77,8 +90,8 @@ func (m Model) View() string {
 	}
 	hints := m.styles.Subtle.Render("  " + hintsText)
 
-	// Left side: mode + model + daemon
-	left := modeLabel + modelSection + daemonSection
+	// Left side: mode + model + daemon + tokens
+	left := modeLabel + modelSection + daemonSection + tokenSection
 
 	// Right side: hints
 	right := hints
@@ -115,4 +128,22 @@ func (m Model) modeStyle() lipgloss.Style {
 	default:
 		return m.styles.NormalMode
 	}
+}
+
+// isPaidProvider returns true if the current model uses a commercial provider.
+func (m Model) isPaidProvider() bool {
+	switch m.ModelProvider {
+	case "anthropic", "openai", "google", "mistral", "groq", "together":
+		return true
+	default:
+		return false
+	}
+}
+
+// formatTokenCount formats token count with K suffix for thousands.
+func formatTokenCount(count int) string {
+	if count >= 1000 {
+		return fmt.Sprintf("%.1fK", float64(count)/1000)
+	}
+	return fmt.Sprintf("%d", count)
 }

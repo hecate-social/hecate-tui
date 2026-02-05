@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/hecate-social/hecate-tui/internal/client"
 	"github.com/hecate-social/hecate-tui/internal/llm"
+	"github.com/hecate-social/hecate-tui/internal/llmtools"
 	"github.com/hecate-social/hecate-tui/internal/theme"
 )
 
@@ -37,10 +39,11 @@ type Model struct {
 	thinkingFrame int
 
 	// Stats
-	lastTokenCount int
-	lastDuration   time.Duration
-	lastSpeed      float64
-	streamStart    time.Time
+	lastTokenCount    int
+	lastDuration      time.Duration
+	lastSpeed         float64
+	streamStart       time.Time
+	sessionTokenCount int // Cumulative tokens for session
 
 	// Error
 	err error
@@ -52,6 +55,15 @@ type Model struct {
 
 	// System prompt
 	systemPrompt string
+
+	// Tool execution
+	toolExecutor    *llmtools.Executor
+	toolsEnabled    bool
+	pendingToolCall *llm.ToolCall      // Tool waiting for approval
+	toolInputBuf    strings.Builder    // Accumulates streaming tool input JSON
+	currentToolUse  *llm.ToolCall      // Tool use being streamed
+	executingTool   bool               // Whether we're executing a tool
+	toolResults     []llm.ToolResult   // Results to send back to LLM
 }
 
 // Message represents a chat message (user, assistant, or system).
@@ -84,6 +96,37 @@ type thinkingTickMsg struct{}
 
 type continueStreamMsg struct{}
 
+// Tool-related messages
+type toolUseStartMsg struct {
+	id   string
+	name string
+}
+
+type toolInputDeltaMsg struct {
+	delta string
+}
+
+type toolUseCompleteMsg struct {
+	call llm.ToolCall
+}
+
+type toolApprovalRequestMsg struct {
+	tool llmtools.Tool
+	call llm.ToolCall
+}
+
+type toolApprovalResponseMsg struct {
+	approved        bool
+	grantForSession bool
+	call            llm.ToolCall
+}
+
+type toolExecutionResultMsg struct {
+	result llm.ToolResult
+}
+
+type toolContinueMsg struct{} // Signal to continue after tool execution
+
 // New creates a new chat model.
 func New(c *client.Client, t *theme.Theme, s *theme.Styles) Model {
 	ta := textarea.New()
@@ -111,6 +154,36 @@ func New(c *client.Client, t *theme.Theme, s *theme.Styles) Model {
 		input:    ta,
 		messages: []Message{},
 	}
+}
+
+// SetToolExecutor sets the tool executor for function calling.
+func (m *Model) SetToolExecutor(executor *llmtools.Executor) {
+	m.toolExecutor = executor
+}
+
+// EnableTools enables or disables tool/function calling.
+func (m *Model) EnableTools(enabled bool) {
+	m.toolsEnabled = enabled
+}
+
+// ToolsEnabled returns whether tools are enabled.
+func (m Model) ToolsEnabled() bool {
+	return m.toolsEnabled && m.toolExecutor != nil
+}
+
+// ToolExecutor returns the tool executor (may be nil).
+func (m Model) ToolExecutor() *llmtools.Executor {
+	return m.toolExecutor
+}
+
+// HasPendingApproval returns true if there's a tool waiting for user approval.
+func (m Model) HasPendingApproval() bool {
+	return m.pendingToolCall != nil
+}
+
+// PendingToolCall returns the tool call waiting for approval.
+func (m Model) PendingToolCall() *llm.ToolCall {
+	return m.pendingToolCall
 }
 
 // Init fetches available models.
@@ -149,6 +222,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case streamDoneMsg:
 		m.streaming = false
 		m.lastTokenCount = msg.totalTokens
+		m.sessionTokenCount += msg.totalTokens // Accumulate session tokens
 		m.lastDuration = msg.duration
 		if msg.duration > 0 {
 			m.lastSpeed = float64(msg.totalTokens) / msg.duration.Seconds()
@@ -162,6 +236,11 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		}
 		m.streamBuf.Reset()
 		m.updateViewport()
+
+		// If we have tool results, continue the conversation
+		if len(m.toolResults) > 0 {
+			return m, m.ContinueAfterToolResult()
+		}
 		return m, nil
 
 	case streamErrorMsg:
@@ -171,11 +250,43 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		return m, nil
 
 	case thinkingTickMsg:
-		if m.streaming {
+		if m.streaming || m.executingTool {
 			m.thinkingFrame = (m.thinkingFrame + 1) % len(ThinkingFrames)
 			return m, m.thinkingTick()
 		}
 		return m, nil
+
+	// Tool-related message handling
+	case toolUseStartMsg:
+		m.currentToolUse = &llm.ToolCall{
+			ID:   msg.id,
+			Name: msg.name,
+		}
+		m.toolInputBuf.Reset()
+		return m, nil
+
+	case toolInputDeltaMsg:
+		m.toolInputBuf.WriteString(msg.delta)
+		return m, nil
+
+	case toolUseCompleteMsg:
+		// Tool use is complete, check if it needs approval
+		return m, m.handleToolUseComplete(msg.call)
+
+	case toolApprovalResponseMsg:
+		return m, m.handleApprovalResponse(msg)
+
+	case toolExecutionResultMsg:
+		m.toolResults = append(m.toolResults, msg.result)
+		m.executingTool = false
+		// Show the tool result in chat
+		m.showToolResult(msg.result)
+		// Automatically continue the conversation with tool results
+		return m, m.ContinueAfterToolResult()
+
+	case toolContinueMsg:
+		// Continue the conversation with tool results
+		return m, m.continueWithToolResults()
 	}
 
 	// Update textarea when input is visible and not streaming
@@ -381,6 +492,33 @@ func (m Model) ActiveModelName() string {
 		return m.models[m.activeModel].Name
 	}
 	return ""
+}
+
+// ActiveModelProvider returns the provider of the currently active model.
+func (m Model) ActiveModelProvider() string {
+	if len(m.models) == 0 {
+		return ""
+	}
+	if m.activeModel < len(m.models) {
+		return m.models[m.activeModel].Provider
+	}
+	return ""
+}
+
+// SessionTokenCount returns the cumulative token count for this session.
+func (m Model) SessionTokenCount() int {
+	return m.sessionTokenCount
+}
+
+// IsPaidProvider returns true if the active model uses a commercial provider.
+func (m Model) IsPaidProvider() bool {
+	provider := m.ActiveModelProvider()
+	switch provider {
+	case "anthropic", "openai", "google", "groq", "together":
+		return true
+	default:
+		return false
+	}
 }
 
 // IsStreaming returns whether a response is being streamed.
@@ -607,6 +745,10 @@ type streamState struct {
 var activeStream *streamState
 
 func (m *Model) sendMessage() tea.Cmd {
+	return m.sendMessageWithToolResults(nil)
+}
+
+func (m *Model) sendMessageWithToolResults(toolResults []llm.ToolResult) tea.Cmd {
 	return func() tea.Msg {
 		if len(m.models) == 0 {
 			return streamErrorMsg{err: fmt.Errorf("no models available")}
@@ -636,10 +778,24 @@ func (m *Model) sendMessage() tea.Cmd {
 			})
 		}
 
+		// Add tool results if any
+		for _, result := range toolResults {
+			llmMsgs = append(llmMsgs, llm.Message{
+				Role:       llm.RoleTool,
+				Content:    result.Content,
+				ToolCallID: result.ToolCallID,
+			})
+		}
+
 		req := llm.ChatRequest{
 			Model:    modelName,
 			Messages: llmMsgs,
 			Stream:   true,
+		}
+
+		// Add tool schemas if tools are enabled
+		if m.toolsEnabled && m.toolExecutor != nil {
+			req.Tools = m.buildToolSchemas()
 		}
 
 		start := time.Now()
@@ -655,6 +811,36 @@ func (m *Model) sendMessage() tea.Cmd {
 
 		return pollStreamCmd()
 	}
+}
+
+// buildToolSchemas converts the tool registry to LLM tool schemas.
+func (m *Model) buildToolSchemas() []llm.ToolSchema {
+	if m.toolExecutor == nil {
+		return nil
+	}
+
+	registry := m.toolExecutor.Registry()
+	tools := registry.All()
+	schemas := make([]llm.ToolSchema, len(tools))
+
+	for i, tool := range tools {
+		// Convert ToolParameters to map[string]any for JSON schema
+		inputSchema := map[string]any{
+			"type":       tool.Parameters.Type,
+			"properties": tool.Parameters.Properties,
+		}
+		if len(tool.Parameters.Required) > 0 {
+			inputSchema["required"] = tool.Parameters.Required
+		}
+
+		schemas[i] = llm.ToolSchema{
+			Name:        tool.Name,
+			Description: tool.Description,
+			InputSchema: inputSchema,
+		}
+	}
+
+	return schemas
 }
 
 func pollStreamCmd() tea.Msg {
@@ -673,6 +859,22 @@ func pollStreamCmd() tea.Msg {
 		if resp.EvalCount > 0 {
 			activeStream.totalTokens = resp.EvalCount
 		}
+
+		// Check for tool use in the response
+		if resp.ToolUse != nil {
+			// Complete tool call received
+			return toolUseCompleteMsg{call: *resp.ToolUse}
+		}
+
+		// Check stop reason for tool_use
+		if resp.Done && resp.StopReason == "tool_use" {
+			// LLM wants to use a tool but we need to check Message.ToolCalls
+			if resp.Message != nil && len(resp.Message.ToolCalls) > 0 {
+				// Return the first tool call (we'll handle multiple later)
+				return toolUseCompleteMsg{call: resp.Message.ToolCalls[0]}
+			}
+		}
+
 		if resp.Done {
 			duration := time.Since(activeStream.start)
 			tokens := activeStream.totalTokens
@@ -699,6 +901,247 @@ func (m Model) thinkingTick() tea.Cmd {
 	return tea.Tick(200*time.Millisecond, func(t time.Time) tea.Msg {
 		return thinkingTickMsg{}
 	})
+}
+
+// handleToolUseComplete processes a completed tool use request from the LLM.
+func (m *Model) handleToolUseComplete(call llm.ToolCall) tea.Cmd {
+	if m.toolExecutor == nil {
+		// No executor, return error
+		return func() tea.Msg {
+			return toolExecutionResultMsg{
+				result: llm.ToolResult{
+					ToolCallID: call.ID,
+					Content:    "Tool execution not available",
+					IsError:    true,
+				},
+			}
+		}
+	}
+
+	registry := m.toolExecutor.Registry()
+	tool, _, ok := registry.Get(call.Name)
+	if !ok {
+		return func() tea.Msg {
+			return toolExecutionResultMsg{
+				result: llm.ToolResult{
+					ToolCallID: call.ID,
+					Content:    fmt.Sprintf("Unknown tool: %s", call.Name),
+					IsError:    true,
+				},
+			}
+		}
+	}
+
+	// Check permissions
+	permissions := m.toolExecutor.Permissions()
+	perm := permissions.Check(call.Name, call.Arguments)
+
+	// For tools that require approval, always ask unless session-granted
+	if tool.RequiresApproval && perm == llmtools.PermissionAllow {
+		if !permissions.SessionGranted(call.Name) {
+			perm = llmtools.PermissionAsk
+		}
+	}
+
+	switch perm {
+	case llmtools.PermissionDeny:
+		return func() tea.Msg {
+			return toolExecutionResultMsg{
+				result: llm.ToolResult{
+					ToolCallID: call.ID,
+					Content:    fmt.Sprintf("Tool '%s' execution denied by policy", call.Name),
+					IsError:    true,
+				},
+			}
+		}
+
+	case llmtools.PermissionAsk:
+		// Store pending call and request approval
+		m.pendingToolCall = &call
+		return func() tea.Msg {
+			return toolApprovalRequestMsg{tool: tool, call: call}
+		}
+
+	default: // PermissionAllow
+		return m.executeToolCall(call)
+	}
+}
+
+// executeToolCall runs a tool and returns the result message.
+func (m *Model) executeToolCall(call llm.ToolCall) tea.Cmd {
+	m.executingTool = true
+
+	// Show that we're executing the tool
+	m.showToolExecution(call)
+
+	return func() tea.Msg {
+		if m.toolExecutor == nil {
+			return toolExecutionResultMsg{
+				result: llm.ToolResult{
+					ToolCallID: call.ID,
+					Content:    "Tool executor not configured",
+					IsError:    true,
+				},
+			}
+		}
+
+		// Convert llm.ToolCall to llmtools.ToolCall
+		toolCall := llmtools.ToolCall{
+			ID:        call.ID,
+			Name:      call.Name,
+			Arguments: call.Arguments,
+		}
+
+		// Execute the tool
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
+		result := m.toolExecutor.Registry().Execute(ctx, toolCall)
+
+		return toolExecutionResultMsg{
+			result: llm.ToolResult{
+				ToolCallID: result.ToolCallID,
+				Content:    result.Content,
+				IsError:    result.IsError,
+			},
+		}
+	}
+}
+
+// handleApprovalResponse processes the user's approval decision.
+func (m *Model) handleApprovalResponse(msg toolApprovalResponseMsg) tea.Cmd {
+	m.pendingToolCall = nil
+
+	if !msg.approved {
+		return func() tea.Msg {
+			return toolExecutionResultMsg{
+				result: llm.ToolResult{
+					ToolCallID: msg.call.ID,
+					Content:    "Tool execution denied by user",
+					IsError:    true,
+				},
+			}
+		}
+	}
+
+	// Grant session permission if requested
+	if msg.grantForSession && m.toolExecutor != nil {
+		m.toolExecutor.Permissions().GrantForSession(msg.call.Name)
+	}
+
+	return m.executeToolCall(msg.call)
+}
+
+// continueWithToolResults sends tool results back to the LLM to continue.
+func (m *Model) continueWithToolResults() tea.Cmd {
+	if len(m.toolResults) == 0 {
+		return nil
+	}
+
+	results := m.toolResults
+	m.toolResults = nil
+
+	m.streaming = true
+	m.streamBuf.Reset()
+	m.streamStart = time.Now()
+
+	return tea.Batch(
+		m.sendMessageWithToolResults(results),
+		m.thinkingTick(),
+	)
+}
+
+// showToolExecution displays that a tool is being executed.
+func (m *Model) showToolExecution(call llm.ToolCall) {
+	var argsPreview string
+	if len(call.Arguments) > 0 {
+		var args map[string]any
+		if err := json.Unmarshal(call.Arguments, &args); err == nil {
+			// Show a brief preview of arguments
+			parts := make([]string, 0, len(args))
+			for k, v := range args {
+				vs := fmt.Sprintf("%v", v)
+				if len(vs) > 30 {
+					vs = vs[:27] + "..."
+				}
+				parts = append(parts, fmt.Sprintf("%s=%s", k, vs))
+			}
+			argsPreview = strings.Join(parts, ", ")
+		}
+	}
+
+	content := fmt.Sprintf("⚙️ Executing: %s", call.Name)
+	if argsPreview != "" {
+		content += fmt.Sprintf("\n   Args: %s", argsPreview)
+	}
+
+	m.messages = append(m.messages, Message{
+		Role:    "system",
+		Content: content,
+		Time:    time.Now(),
+	})
+	m.updateViewport()
+}
+
+// showToolResult displays the result of a tool execution.
+func (m *Model) showToolResult(result llm.ToolResult) {
+	status := "✓"
+	if result.IsError {
+		status = "✗"
+	}
+
+	// Truncate long results for display
+	content := result.Content
+	if len(content) > 500 {
+		content = content[:500] + "\n... (truncated)"
+	}
+
+	msg := fmt.Sprintf("%s Tool result:\n%s", status, content)
+
+	m.messages = append(m.messages, Message{
+		Role:    "system",
+		Content: msg,
+		Time:    time.Now(),
+	})
+	m.updateViewport()
+}
+
+// ApproveToolCall approves the pending tool call.
+func (m *Model) ApproveToolCall(grantForSession bool) tea.Cmd {
+	if m.pendingToolCall == nil {
+		return nil
+	}
+
+	call := *m.pendingToolCall
+	return func() tea.Msg {
+		return toolApprovalResponseMsg{
+			approved:        true,
+			grantForSession: grantForSession,
+			call:            call,
+		}
+	}
+}
+
+// DenyToolCall denies the pending tool call.
+func (m *Model) DenyToolCall() tea.Cmd {
+	if m.pendingToolCall == nil {
+		return nil
+	}
+
+	call := *m.pendingToolCall
+	return func() tea.Msg {
+		return toolApprovalResponseMsg{
+			approved: false,
+			call:     call,
+		}
+	}
+}
+
+// ContinueAfterToolResult signals to continue the conversation after a tool result.
+func (m *Model) ContinueAfterToolResult() tea.Cmd {
+	return func() tea.Msg {
+		return toolContinueMsg{}
+	}
 }
 
 // SetSize updates the model dimensions.
