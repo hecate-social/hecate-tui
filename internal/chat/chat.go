@@ -35,7 +35,7 @@ type Model struct {
 	models        []llm.Model
 	activeModel   int
 	streaming     bool
-	streamBuf     strings.Builder
+	streamBuf     *strings.Builder
 	thinkingFrame int
 
 	// Stats
@@ -59,11 +59,11 @@ type Model struct {
 	// Tool execution
 	toolExecutor    *llmtools.Executor
 	toolsEnabled    bool
-	pendingToolCall *llm.ToolCall      // Tool waiting for approval
-	toolInputBuf    strings.Builder    // Accumulates streaming tool input JSON
-	currentToolUse  *llm.ToolCall      // Tool use being streamed
-	executingTool   bool               // Whether we're executing a tool
-	toolResults     []llm.ToolResult   // Results to send back to LLM
+	pendingToolCall *llm.ToolCall       // Tool waiting for approval
+	toolInputBuf    *strings.Builder    // Accumulates streaming tool input JSON
+	currentToolUse  *llm.ToolCall       // Tool use being streamed
+	executingTool   bool                // Whether we're executing a tool
+	toolResults     []llm.ToolResult    // Results to send back to LLM
 }
 
 // Message represents a chat message (user, assistant, or system).
@@ -147,12 +147,14 @@ func New(c *client.Client, t *theme.Theme, s *theme.Styles) Model {
 	vp.Style = lipgloss.NewStyle().Padding(1, 2)
 
 	return Model{
-		client:   c,
-		theme:    t,
-		styles:   s,
-		viewport: vp,
-		input:    ta,
-		messages: []Message{},
+		client:       c,
+		theme:        t,
+		styles:       s,
+		viewport:     vp,
+		input:        ta,
+		messages:     []Message{},
+		streamBuf:    &strings.Builder{},
+		toolInputBuf: &strings.Builder{},
 	}
 }
 
