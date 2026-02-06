@@ -227,6 +227,35 @@ func (p *Permissions) SetToolPermission(toolName string, level PermissionLevel) 
 	p.Tools[toolName] = level
 }
 
+// DisableTool disables a tool (sets it to PermissionDeny).
+func (p *Permissions) DisableTool(toolName string) {
+	p.Tools[toolName] = PermissionDeny
+}
+
+// EnableTool enables a tool (removes the deny, falls back to default behavior).
+func (p *Permissions) EnableTool(toolName string) {
+	delete(p.Tools, toolName)
+	// Also clear any session grant so it will ask again
+	delete(p.sessionGrants, toolName)
+}
+
+// IsDisabled returns true if the tool is explicitly disabled.
+func (p *Permissions) IsDisabled(toolName string) bool {
+	level, ok := p.Tools[toolName]
+	return ok && level == PermissionDeny
+}
+
+// DisabledTools returns a list of explicitly disabled tool names.
+func (p *Permissions) DisabledTools() []string {
+	var disabled []string
+	for name, level := range p.Tools {
+		if level == PermissionDeny {
+			disabled = append(disabled, name)
+		}
+	}
+	return disabled
+}
+
 // expandPath expands ~ to home directory.
 func expandPath(path string) string {
 	if strings.HasPrefix(path, "~/") {
