@@ -31,7 +31,7 @@ func (c *ProjectCmd) Execute(args []string, ctx *Context) tea.Cmd {
 
 		b.WriteString(s.Bold.Render("Workspace"))
 		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  Directory: "))
+		b.WriteString(s.CardLabel.Render("Directory: "))
 		b.WriteString(s.CardValue.Render(cwd))
 		b.WriteString("\n")
 
@@ -63,12 +63,12 @@ func (c *ProjectCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		}
 
 		if len(detected) > 0 {
-			b.WriteString(s.CardLabel.Render("  Type:      "))
+			b.WriteString(s.CardLabel.Render("Type: "))
 			b.WriteString(s.CardValue.Render(detected[0]))
 			b.WriteString("\n")
 
 			if len(detected) > 1 {
-				b.WriteString(s.CardLabel.Render("  Also:      "))
+				b.WriteString(s.CardLabel.Render("Also: "))
 				b.WriteString(s.Subtle.Render(strings.Join(detected[1:], ", ")))
 				b.WriteString("\n")
 			}
@@ -82,7 +82,7 @@ func (c *ProjectCmd) Execute(args []string, ctx *Context) tea.Cmd {
 				line = strings.TrimSpace(line)
 				if strings.HasPrefix(line, "module ") {
 					module := strings.TrimPrefix(line, "module ")
-					b.WriteString(s.CardLabel.Render("  Module:    "))
+					b.WriteString(s.CardLabel.Render("Module: "))
 					b.WriteString(s.CardValue.Render(module))
 					b.WriteString("\n")
 					break
@@ -100,7 +100,7 @@ func (c *ProjectCmd) Execute(args []string, ctx *Context) tea.Cmd {
 				end := strings.IndexAny(after, ",\n])")
 				if end > 0 {
 					appName := strings.TrimSpace(after[:end])
-					b.WriteString(s.CardLabel.Render("  App:       "))
+					b.WriteString(s.CardLabel.Render("App: "))
 					b.WriteString(s.CardValue.Render(appName))
 					b.WriteString("\n")
 				}
@@ -115,13 +115,13 @@ func (c *ProjectCmd) Execute(args []string, ctx *Context) tea.Cmd {
 
 		health, err := ctx.Client.GetHealth()
 		if err != nil {
-			b.WriteString(s.CardLabel.Render("  Status: "))
+			b.WriteString(s.CardLabel.Render("Status: "))
 			b.WriteString(s.Error.Render("unreachable"))
 		} else {
-			b.WriteString(s.CardLabel.Render("  Status: "))
+			b.WriteString(s.CardLabel.Render("Status: "))
 			b.WriteString(s.StatusOK.Render(health.Status))
 			b.WriteString("\n")
-			b.WriteString(s.CardLabel.Render("  Version: "))
+			b.WriteString(s.CardLabel.Render("Version: "))
 			b.WriteString(s.CardValue.Render(health.Version))
 		}
 

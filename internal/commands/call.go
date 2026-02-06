@@ -54,18 +54,18 @@ func (c *CallCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		b.WriteString(s.CardTitle.Render("RPC Result"))
 		b.WriteString("\n\n")
 
-		b.WriteString(s.CardLabel.Render("  Procedure: "))
+		b.WriteString(s.CardLabel.Render("Procedure: "))
 		b.WriteString(s.CardValue.Render(procedure))
 		b.WriteString("\n")
 
 		if result.Duration != "" {
-			b.WriteString(s.CardLabel.Render("  Duration:  "))
+			b.WriteString(s.CardLabel.Render("Duration: "))
 			b.WriteString(s.Subtle.Render(result.Duration))
 			b.WriteString("\n")
 		}
 
 		if result.Error != "" {
-			b.WriteString(s.CardLabel.Render("  Error:     "))
+			b.WriteString(s.CardLabel.Render("Error: "))
 			b.WriteString(s.Error.Render(result.Error))
 		} else {
 			b.WriteString("\n")

@@ -282,12 +282,62 @@ func (c *Client) get(path string) (*Response, error) {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
-	var resp Response
-	if err := json.Unmarshal(body, &resp); err != nil {
+	return parseResponse(body)
+}
+
+// parseResponse handles both wrapped {"ok": true, "result": {...}} and
+// flat {"ok": true, "field1": ..., "field2": ...} response formats.
+func parseResponse(body []byte) (*Response, error) {
+	// First, decode into a map to check structure
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(body, &raw); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	return &resp, nil
+	resp := &Response{}
+
+	// Extract ok field
+	if okRaw, exists := raw["ok"]; exists {
+		if err := json.Unmarshal(okRaw, &resp.Ok); err != nil {
+			return nil, fmt.Errorf("failed to parse 'ok' field: %w", err)
+		}
+	}
+
+	// Extract error field
+	if errRaw, exists := raw["error"]; exists {
+		if err := json.Unmarshal(errRaw, &resp.Error); err != nil {
+			return nil, fmt.Errorf("failed to parse 'error' field: %w", err)
+		}
+	}
+
+	// Check if there's a "result" field (wrapped format)
+	if resultRaw, exists := raw["result"]; exists {
+		resp.Result = resultRaw
+		return resp, nil
+	}
+
+	// Flat format: collect all fields except ok/error into Result
+	result := make(map[string]json.RawMessage)
+	for key, val := range raw {
+		if key != "ok" && key != "error" {
+			result[key] = val
+		}
+	}
+
+	if len(result) > 0 {
+		resultBytes, err := json.Marshal(result)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal result: %w", err)
+		}
+		resp.Result = resultBytes
+
+		// For flat responses without explicit ok/error, assume success if we got data
+		if _, hasOk := raw["ok"]; !hasOk && resp.Error == "" {
+			resp.Ok = true
+		}
+	}
+
+	return resp, nil
 }
 
 // post performs a POST request with JSON body
@@ -318,10 +368,5 @@ func (c *Client) post(path string, body interface{}) (*Response, error) {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
-	var resp Response
-	if err := json.Unmarshal(respBody, &resp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	return &resp, nil
+	return parseResponse(respBody)
 }

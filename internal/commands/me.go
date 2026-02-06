@@ -26,11 +26,11 @@ func (c *MeCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		b.WriteString(s.CardTitle.Render("Identity"))
 		b.WriteString("\n\n")
 
-		b.WriteString(s.CardLabel.Render("  MRI:"))
+		b.WriteString(s.CardLabel.Render("MRI: "))
 		b.WriteString(s.CardValue.Render(identity.Identity))
 		b.WriteString("\n")
 
-		b.WriteString(s.CardLabel.Render("  Public Key:"))
+		b.WriteString(s.CardLabel.Render("Public Key: "))
 		pk := identity.PublicKey
 		if len(pk) > 20 {
 			pk = pk[:8] + "..." + pk[len(pk)-8:]
@@ -38,14 +38,14 @@ func (c *MeCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		b.WriteString(s.CardValue.Render(pk))
 		b.WriteString("\n")
 
-		b.WriteString(s.CardLabel.Render("  Created:"))
+		b.WriteString(s.CardLabel.Render("Created: "))
 		b.WriteString(s.CardValue.Render(identity.CreatedAt))
 		b.WriteString("\n")
 
 		// Capability count
 		caps, capsErr := ctx.Client.DiscoverCapabilities("", "", 0)
 		if capsErr == nil {
-			b.WriteString(s.CardLabel.Render("  Capabilities:"))
+			b.WriteString(s.CardLabel.Render("Capabilities: "))
 			b.WriteString(s.CardValue.Render(strings.TrimSpace(itoa(len(caps)))))
 			b.WriteString("\n")
 		}

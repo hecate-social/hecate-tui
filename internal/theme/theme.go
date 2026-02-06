@@ -164,7 +164,7 @@ func (t *Theme) ComputeStyles() *Styles {
 		SystemBubble: lipgloss.NewStyle().
 			Foreground(t.SystemBubbleFg).
 			Background(t.SystemBubbleBg).
-			Padding(0, 2).
+			Padding(1, 2).
 			MarginTop(1).
 			MarginBottom(1).
 			Border(lipgloss.Border{Left: "│"}).
@@ -203,7 +203,8 @@ func (t *Theme) ComputeStyles() *Styles {
 			Bold(true),
 		CardLabel: lipgloss.NewStyle().
 			Foreground(t.TextMuted).
-			Width(18),
+			Width(12).
+			Align(lipgloss.Right),
 		CardValue: lipgloss.NewStyle().
 			Foreground(t.Text),
 		CardBorder: lipgloss.NewStyle().

@@ -8,7 +8,6 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/hecate-social/hecate-tui/internal/alc"
 	"github.com/hecate-social/hecate-tui/internal/browse"
 	"github.com/hecate-social/hecate-tui/internal/chat"
 	"github.com/hecate-social/hecate-tui/internal/client"
@@ -42,7 +41,6 @@ type App struct {
 	browseView browse.Model
 	pairView   pair.Model
 	editorView editor.Model
-	alcView    alc.Model
 	statusBar  statusbar.Model
 	cmdInput   textinput.Model
 	registry   *commands.Registry
@@ -55,7 +53,6 @@ type App struct {
 	browseReady bool
 	pairReady   bool
 	editorReady bool
-	alcReady    bool
 
 	// Command history
 	cmdHistory []string
@@ -278,16 +275,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		chatHeight := a.chatAreaHeight()
 		a.chat.SetSize(msg.Width, chatHeight)
 		if a.browseReady {
-			a.browseView.SetSize(a.browseWidth(), a.browseHeight())
+			a.browseView.SetSize(msg.Width, msg.Height) // Pass terminal size; modal calculates its own dimensions
 		}
 		if a.pairReady {
 			a.pairView.SetSize(a.pairWidth(), a.pairHeight())
 		}
 		if a.editorReady {
 			a.editorView.SetSize(a.width, a.editorHeight())
-		}
-		if a.alcReady {
-			a.alcView.SetSize(a.alcWidth(), a.alcHeight())
 		}
 
 	case tea.KeyMsg:
@@ -346,6 +340,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			a.chat.InjectSystemMessage("Loaded conversation: " + msg.ID)
 		}
+
+	case browse.SelectModelMsg:
+		// User selected an LLM model from browse
+		a.chat.SwitchModel(msg.ModelName)
+		a.setMode(modes.Normal)
+		a.chat.InjectSystemMessage("Model switched to: " + msg.ModelName)
 	}
 
 	// Forward to chat for streaming updates
@@ -384,13 +384,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Forward to ALC if in Projects mode
-	if a.mode == modes.Projects && a.alcReady {
-		var alcCmd tea.Cmd
-		a.alcView, alcCmd = a.alcView.Update(msg)
-		cmds = append(cmds, alcCmd)
-	}
-
 	return a, tea.Batch(cmds...)
 }
 
@@ -415,8 +408,6 @@ func (a *App) handleKey(msg tea.KeyMsg) tea.Cmd {
 		return a.handlePairKey(key, msg)
 	case modes.Edit:
 		return a.handleEditKey(key, msg)
-	case modes.Projects:
-		return a.handleALCKey(key, msg)
 	default:
 		if key == "esc" {
 			a.setMode(modes.Normal)
@@ -656,30 +647,6 @@ func (a *App) handleEditKey(key string, msg tea.KeyMsg) tea.Cmd {
 	return cmd
 }
 
-func (a *App) handleALCKey(key string, msg tea.KeyMsg) tea.Cmd {
-	if !a.alcReady {
-		return nil
-	}
-
-	if key == "?" {
-		ctx := a.commandContext()
-		return commands.ModeHelp(int(a.mode), ctx)
-	}
-
-	consumed, cmd := a.alcView.HandleKey(key, msg)
-	if consumed {
-		return cmd
-	}
-
-	// Unconsumed Esc exits Projects mode
-	if key == "esc" {
-		a.setMode(modes.Normal)
-		return nil
-	}
-
-	return nil
-}
-
 func (a *App) openEditor(path string) tea.Cmd {
 	if path != "" {
 		ed, err := editor.NewWithFile(path)
@@ -731,9 +698,6 @@ func (a *App) setMode(m modes.Mode) {
 	case modes.Edit:
 		a.chat.SetInputVisible(false)
 		a.cmdInput.Blur()
-	case modes.Projects:
-		a.chat.SetInputVisible(false)
-		a.cmdInput.Blur()
 	}
 
 	chatHeight := a.chatAreaHeight()
@@ -747,7 +711,7 @@ func (a *App) enterMode(m modes.Mode) tea.Cmd {
 	switch m {
 	case modes.Browse:
 		a.browseView = browse.New(a.client, a.theme, a.styles)
-		a.browseView.SetSize(a.browseWidth(), a.browseHeight())
+		a.browseView.SetSize(a.width, a.height) // Pass terminal size; modal calculates its own dimensions
 		a.browseReady = true
 		return a.browseView.Init()
 	case modes.Pair:
@@ -755,11 +719,6 @@ func (a *App) enterMode(m modes.Mode) tea.Cmd {
 		a.pairView.SetSize(a.pairWidth(), a.pairHeight())
 		a.pairReady = true
 		return a.pairView.Init()
-	case modes.Projects:
-		a.alcView = alc.New(a.client, a.theme, a.styles)
-		a.alcView.SetSize(a.alcWidth(), a.alcHeight())
-		a.alcReady = true
-		return a.alcView.Init()
 	}
 
 	return nil
@@ -912,11 +871,6 @@ func (a *App) View() string {
 		return a.renderPairLayout()
 	}
 
-	// Projects mode uses split or full layout
-	if a.mode == modes.Projects && a.alcReady {
-		return a.renderALCLayout()
-	}
-
 	// Edit mode takes full screen
 	if a.mode == modes.Edit && a.editorReady {
 		return a.renderEditLayout()
@@ -1029,42 +983,41 @@ func (a *App) renderWithApprovalOverlay(content string) string {
 }
 
 func (a *App) renderBrowseLayout() string {
+	// Render the normal chat view as the background
 	var sections []string
-
-	// Header
 	sections = append(sections, a.renderHeader())
+	sections = append(sections, a.chat.ViewChat())
+	if stats := a.chat.ViewStats(); stats != "" {
+		sections = append(sections, stats)
+	}
+	if errView := a.chat.ViewError(); errView != "" {
+		sections = append(sections, errView)
+	}
+	sections = append(sections, a.statusBar.View())
+	background := strings.Join(sections, "\n")
 
-	if a.width >= 100 {
-		// Split pane: dimmed chat left, browse right
-		chatWidth := a.width - a.browseWidth() - 1
-		chatHeight := a.browseHeight()
-
-		// Dim the chat
-		chatContent := a.chat.ViewChat()
-		dimmedChat := lipgloss.NewStyle().
-			Width(chatWidth).
-			Height(chatHeight).
-			Foreground(a.theme.TextMuted).
-			Render(chatContent)
-
-		browsePanel := a.browseView.View()
-
-		// Separator
-		sep := lipgloss.NewStyle().
-			Foreground(a.theme.Border).
-			Render("│")
-
-		split := lipgloss.JoinHorizontal(lipgloss.Top, dimmedChat, sep, browsePanel)
-		sections = append(sections, split)
-	} else {
-		// Full width browse
-		sections = append(sections, a.browseView.View())
+	// Dim the background
+	backgroundLines := strings.Split(background, "\n")
+	for i, line := range backgroundLines {
+		backgroundLines[i] = lipgloss.NewStyle().Foreground(a.theme.TextMuted).Render(line)
 	}
 
-	// Status bar
-	sections = append(sections, a.statusBar.View())
+	// The browse modal handles its own centering
+	modal := a.browseView.View()
+	modalLines := strings.Split(modal, "\n")
 
-	return strings.Join(sections, "\n")
+	// Overlay the modal on the dimmed background
+	result := make([]string, len(backgroundLines))
+	copy(result, backgroundLines)
+
+	// Overlay modal lines onto background
+	for i, line := range modalLines {
+		if i < len(result) && strings.TrimSpace(line) != "" {
+			result[i] = line
+		}
+	}
+
+	return strings.Join(result, "\n")
 }
 
 func (a *App) renderPairLayout() string {
@@ -1102,56 +1055,6 @@ func (a *App) renderPairLayout() string {
 	sections = append(sections, a.statusBar.View())
 
 	return strings.Join(sections, "\n")
-}
-
-func (a *App) renderALCLayout() string {
-	var sections []string
-
-	// Header
-	sections = append(sections, a.renderHeader())
-
-	if a.width >= 100 {
-		// Split pane: dimmed chat left, ALC right
-		chatWidth := a.width - a.alcWidth() - 1
-		chatHeight := a.alcHeight()
-
-		chatContent := a.chat.ViewChat()
-		dimmedChat := lipgloss.NewStyle().
-			Width(chatWidth).
-			Height(chatHeight).
-			Foreground(a.theme.TextMuted).
-			Render(chatContent)
-
-		alcPanel := a.alcView.View()
-
-		sep := lipgloss.NewStyle().
-			Foreground(a.theme.Border).
-			Render("│")
-
-		split := lipgloss.JoinHorizontal(lipgloss.Top, dimmedChat, sep, alcPanel)
-		sections = append(sections, split)
-	} else {
-		// Full width ALC
-		sections = append(sections, a.alcView.View())
-	}
-
-	// Status bar
-	sections = append(sections, a.statusBar.View())
-
-	return strings.Join(sections, "\n")
-}
-
-// alcWidth returns the width for the ALC overlay.
-func (a *App) alcWidth() int {
-	if a.width >= 100 {
-		return a.width / 2
-	}
-	return a.width - 4
-}
-
-// alcHeight returns the height for the ALC overlay.
-func (a *App) alcHeight() int {
-	return a.height - 4
 }
 
 func (a *App) renderEditLayout() string {

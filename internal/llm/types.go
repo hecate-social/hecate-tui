@@ -82,6 +82,7 @@ type ChatRequest struct {
 type ChatResponse struct {
 	Model   string   `json:"model,omitempty"`
 	Message *Message `json:"message,omitempty"`
+	Content string   `json:"content,omitempty"` // Top-level content (daemon format)
 	Done    bool     `json:"done"`
 
 	// Tool use events (streaming)

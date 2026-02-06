@@ -7,10 +7,9 @@ const (
 	Normal  Mode = iota // Resting state — scroll chat, press keys
 	Insert              // Typing a message — textarea focused
 	Command             // Slash command entry — command line at bottom
-	Browse              // Browsing capabilities — overlay panel
+	Browse              // Browsing capabilities — modal dialog
 	Pair                // Pairing flow — inline wizard
 	Edit                // Built-in editor — file editing overlay
-	Projects            // Project lifecycle browser — ALC overlay
 )
 
 // String returns the display name for the mode (shown in status bar).
@@ -28,8 +27,6 @@ func (m Mode) String() string {
 		return "PAIR"
 	case Edit:
 		return "EDIT"
-	case Projects:
-		return "PROJECTS"
 	default:
 		return "UNKNOWN"
 	}
@@ -50,8 +47,6 @@ func (m Mode) Hints() string {
 		return "p:pair  c:cancel  r:refresh  Esc:back"
 	case Edit:
 		return "Ctrl+S:save  Ctrl+Q:close  Esc:close"
-	case Projects:
-		return "j/k:nav  Enter:detail  Tab:phase  /:filter  Esc:back"
 	default:
 		return ""
 	}

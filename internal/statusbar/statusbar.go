@@ -123,8 +123,6 @@ func (m Model) modeStyle() lipgloss.Style {
 		return m.styles.PairMode
 	case modes.Edit:
 		return m.styles.EditMode
-	case modes.Projects:
-		return m.styles.ProjectsMode
 	default:
 		return m.styles.NormalMode
 	}

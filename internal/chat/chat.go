@@ -208,8 +208,15 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		return m, nil
 
 	case streamChunkMsg:
+		// Handle both formats: nested (msg.chunk.Message.Content) and flat (msg.chunk.Content)
+		content := ""
 		if msg.chunk.Message != nil && msg.chunk.Message.Content != "" {
-			m.streamBuf.WriteString(msg.chunk.Message.Content)
+			content = msg.chunk.Message.Content
+		} else if msg.chunk.Content != "" {
+			content = msg.chunk.Content
+		}
+		if content != "" {
+			m.streamBuf.WriteString(content)
 			m.updateStreamingMessage()
 		}
 		return m, func() tea.Msg { return pollStreamCmd() }

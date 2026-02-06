@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // ALCCmd handles all /alc subcommands for project lifecycle management.
@@ -17,10 +18,7 @@ func (c *ALCCmd) Description() string { return "Project lifecycle management (/a
 
 func (c *ALCCmd) Execute(args []string, ctx *Context) tea.Cmd {
 	if len(args) == 0 {
-		// No args → enter Projects mode
-		return func() tea.Msg {
-			return SetModeMsg{Mode: 6} // modes.Projects = 6
-		}
+		return c.showUsage(ctx)
 	}
 
 	sub := strings.ToLower(args[0])
@@ -87,66 +85,78 @@ func (c *ALCCmd) Execute(args []string, ctx *Context) tea.Cmd {
 func (c *ALCCmd) showUsage(ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
+		t := ctx.Theme
 		var b strings.Builder
-		b.WriteString(s.CardTitle.Render("ALC Commands"))
+
+		// Title
+		b.WriteString(s.CardTitle.Render("ALC - Application Lifecycle Commands"))
 		b.WriteString("\n\n")
-		b.WriteString(s.CardLabel.Render("  /alc"))
-		b.WriteString(s.CardValue.Render("Enter Projects mode"))
+
+		// Intro
+		b.WriteString(s.Subtle.Render("Manage projects through four phases: Discovery & Analysis → Architecture & Planning → Testing & Implementation → Deployment & Operations"))
+		b.WriteString("\n\n")
+
+		// Helper for table rows
+		cmdStyle := lipgloss.NewStyle().Foreground(t.Secondary)
+		descStyle := lipgloss.NewStyle().Foreground(t.Text)
+		sectionStyle := s.Bold
+		subtitleStyle := s.Subtle
+
+		row := func(cmd, desc string) string {
+			// Pad command to 30 chars for alignment
+			padded := cmd
+			for len(padded) < 30 {
+				padded += " "
+			}
+			return cmdStyle.Render(padded) + descStyle.Render(desc) + "\n"
+		}
+
+		section := func(title, subtitle string) string {
+			result := sectionStyle.Render(title)
+			if subtitle != "" {
+				result += "\n" + subtitleStyle.Render(subtitle)
+			}
+			return result + "\n"
+		}
+
+		// Getting Started
+		b.WriteString(section("🚀 Getting Started", ""))
+		b.WriteString(row("/alc init <name>", "Create a new project"))
+		b.WriteString(row("/alc <id>", "Show project status"))
+		b.WriteString(row("/alc <id> transition X", "Move to phase (arch, test, deploy)"))
+		b.WriteString(row("/alc <id> complete", "Complete current phase"))
 		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  /alc init <name>"))
-		b.WriteString(s.CardValue.Render("Initiate a new project"))
+
+		// Phase 1
+		b.WriteString(section("🔍 Phase 1: Discovery & Analysis", "Analyze requirements, gather findings, build vocabulary"))
+		b.WriteString(row("/alc <id> discovery start", "Begin discovery"))
+		b.WriteString(row("/alc <id> finding <title>", "Record insight or requirement"))
+		b.WriteString(row("/alc <id> term <t> <def>", "Define domain term"))
 		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  /alc <id>"))
-		b.WriteString(s.CardValue.Render("Show project status"))
+
+		// Phase 2
+		b.WriteString(section("🏗️ Phase 2: Architecture & Planning", "Design dossiers (aggregates) and spokes (operations)"))
+		b.WriteString(row("/alc <id> arch start", "Begin architecture"))
+		b.WriteString(row("/alc <id> dossier <name>", "Define aggregate/entity"))
+		b.WriteString(row("/alc <id> spoke <n> <t> <did>", "Add operation (cmd/qry/evt)"))
+		b.WriteString(row("/alc <id> plan", "Draft implementation plan"))
+		b.WriteString(row("/alc <id> approve", "Approve plan"))
 		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  /alc <id> discovery start"))
-		b.WriteString(s.CardValue.Render("Start discovery phase"))
+
+		// Phase 3
+		b.WriteString(section("🧪 Phase 3: Testing & Implementation", "Implement features and verify quality"))
+		b.WriteString(row("/alc <id> test start", "Begin testing"))
+		b.WriteString(row("/alc <id> skeleton", "Generate code skeleton"))
+		b.WriteString(row("/alc <id> implement <sid>", "Mark spoke implemented"))
+		b.WriteString(row("/alc <id> verify pass|fail", "Record build result"))
 		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  /alc <id> finding <title>"))
-		b.WriteString(s.CardValue.Render("Record a finding"))
-		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  /alc <id> term <t> <def>"))
-		b.WriteString(s.CardValue.Render("Define a term"))
-		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  /alc <id> transition <to>"))
-		b.WriteString(s.CardValue.Render("Transition phase"))
-		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  /alc <id> arch start"))
-		b.WriteString(s.CardValue.Render("Start architecture phase"))
-		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  /alc <id> dossier <name>"))
-		b.WriteString(s.CardValue.Render("Define a dossier"))
-		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  /alc <id> spoke <n> <t> <did>"))
-		b.WriteString(s.CardValue.Render("Inventory a spoke"))
-		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  /alc <id> test start"))
-		b.WriteString(s.CardValue.Render("Start testing phase"))
-		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  /alc <id> skeleton"))
-		b.WriteString(s.CardValue.Render("Create skeleton"))
-		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  /alc <id> implement <sid>"))
-		b.WriteString(s.CardValue.Render("Implement a spoke"))
-		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  /alc <id> verify [pass|fail]"))
-		b.WriteString(s.CardValue.Render("Verify build"))
-		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  /alc <id> deploy start"))
-		b.WriteString(s.CardValue.Render("Start deployment phase"))
-		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  /alc <id> deploy record <e> <v>"))
-		b.WriteString(s.CardValue.Render("Record deployment"))
-		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  /alc <id> incident <desc>"))
-		b.WriteString(s.CardValue.Render("Report incident"))
-		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  /alc <id> resolve <iid> <res>"))
-		b.WriteString(s.CardValue.Render("Resolve incident"))
-		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  /alc <id> complete"))
-		b.WriteString(s.CardValue.Render("Complete current phase"))
-		b.WriteString("\n")
+
+		// Phase 4
+		b.WriteString(section("📦 Phase 4: Deployment & Operations", "Release to production, monitor, handle incidents"))
+		b.WriteString(row("/alc <id> deploy start", "Begin deployment"))
+		b.WriteString(row("/alc <id> deploy record <e> <v>", "Record release"))
+		b.WriteString(row("/alc <id> incident <desc>", "Report incident"))
+		b.WriteString(row("/alc <id> resolve <iid> <res>", "Resolve incident"))
 
 		return InjectSystemMsg{Content: b.String()}
 	}
@@ -180,11 +190,11 @@ func (c *ALCCmd) initProject(args []string, ctx *Context) tea.Cmd {
 		var b strings.Builder
 		b.WriteString(s.CardTitle.Render("Project Initiated"))
 		b.WriteString("\n\n")
-		b.WriteString(s.CardLabel.Render("  Name: "))
+		b.WriteString(s.CardLabel.Render("Name: "))
 		b.WriteString(s.CardValue.Render(name))
 		if desc != "" {
 			b.WriteString("\n")
-			b.WriteString(s.CardLabel.Render("  Description: "))
+			b.WriteString(s.CardLabel.Render("Description: "))
 			b.WriteString(s.CardValue.Render(desc))
 		}
 		b.WriteString("\n\n")
@@ -206,40 +216,40 @@ func (c *ALCCmd) showProject(projectID string, ctx *Context) tea.Cmd {
 		b.WriteString(s.CardTitle.Render("Project: " + project.Name))
 		b.WriteString("\n\n")
 
-		b.WriteString(s.CardLabel.Render("  ID: "))
+		b.WriteString(s.CardLabel.Render("ID: "))
 		b.WriteString(s.CardValue.Render(project.ProjectID))
 		b.WriteString("\n")
 
 		if project.Description != "" {
-			b.WriteString(s.CardLabel.Render("  Description: "))
+			b.WriteString(s.CardLabel.Render("Description: "))
 			b.WriteString(s.CardValue.Render(project.Description))
 			b.WriteString("\n")
 		}
 
-		b.WriteString(s.CardLabel.Render("  Phase: "))
+		b.WriteString(s.CardLabel.Render("Phase: "))
 		b.WriteString(s.CardValue.Render(formatPhase(project.CurrentPhase)))
 		b.WriteString("\n")
 
-		b.WriteString(s.CardLabel.Render("  Initiated: "))
+		b.WriteString(s.CardLabel.Render("Initiated: "))
 		b.WriteString(s.Subtle.Render(formatTimestamp(project.InitiatedAt)))
 		b.WriteString("\n\n")
 
 		// Phase-specific counters
 		b.WriteString(s.Bold.Render("  Counters"))
 		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  Findings: "))
+		b.WriteString(s.CardLabel.Render("Findings: "))
 		b.WriteString(s.CardValue.Render(fmt.Sprintf("%d", project.FindingCount)))
 		b.WriteString("  ")
 		b.WriteString(s.CardLabel.Render("Terms: "))
 		b.WriteString(s.CardValue.Render(fmt.Sprintf("%d", project.TermCount)))
 		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  Dossiers: "))
+		b.WriteString(s.CardLabel.Render("Dossiers: "))
 		b.WriteString(s.CardValue.Render(fmt.Sprintf("%d", project.DossierCount)))
 		b.WriteString("  ")
 		b.WriteString(s.CardLabel.Render("Spokes: "))
 		b.WriteString(s.CardValue.Render(fmt.Sprintf("%d", project.SpokeCount)))
 		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  Implemented: "))
+		b.WriteString(s.CardLabel.Render("Implemented: "))
 		b.WriteString(s.CardValue.Render(fmt.Sprintf("%d/%d", project.ImplementedSpokeCount, project.SpokeCount)))
 		b.WriteString("  ")
 		b.WriteString(s.CardLabel.Render("Build: "))
@@ -249,7 +259,7 @@ func (c *ALCCmd) showProject(projectID string, ctx *Context) tea.Cmd {
 			b.WriteString(s.Subtle.Render("pending"))
 		}
 		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  Deployments: "))
+		b.WriteString(s.CardLabel.Render("Deployments: "))
 		b.WriteString(s.CardValue.Render(fmt.Sprintf("%d", project.DeploymentCount)))
 		b.WriteString("  ")
 		b.WriteString(s.CardLabel.Render("Incidents: "))
@@ -684,7 +694,7 @@ func formatPhase(phase string) string {
 	case "architecture", "anp":
 		return "Architecture & Planning"
 	case "testing", "tni":
-		return "Testing & Integration"
+		return "Testing & Implementation"
 	case "deployment", "dno":
 		return "Deployment & Operations"
 	case "initiated":

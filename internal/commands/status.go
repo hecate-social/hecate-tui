@@ -24,7 +24,7 @@ func (c *StatusCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		}
 
 		var b strings.Builder
-		b.WriteString(s.CardTitle.Render("Status"))
+		b.WriteString(s.CardTitle.Render("Daemon Status"))
 		b.WriteString("\n\n")
 
 		// Status indicator
@@ -36,22 +36,22 @@ func (c *StatusCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		case "error", "unhealthy":
 			statusStyle = s.StatusError
 		}
-		b.WriteString(s.CardLabel.Render("  Daemon:"))
+		b.WriteString(s.CardLabel.Render("Daemon: "))
 		b.WriteString(statusStyle.Render(statusIcon + " " + health.Status))
 		b.WriteString("\n")
 
-		b.WriteString(s.CardLabel.Render("  Version:"))
+		b.WriteString(s.CardLabel.Render("Version: "))
 		b.WriteString(s.CardValue.Render(health.Version))
 		b.WriteString("\n")
 
-		b.WriteString(s.CardLabel.Render("  Uptime:"))
+		b.WriteString(s.CardLabel.Render("Uptime: "))
 		b.WriteString(s.CardValue.Render(formatUptime(health.UptimeSeconds)))
 		b.WriteString("\n")
 
 		// Mesh status
 		identity, identErr := ctx.Client.GetIdentity()
 		if identErr == nil && identity != nil {
-			b.WriteString(s.CardLabel.Render("  Identity:"))
+			b.WriteString(s.CardLabel.Render("Identity: "))
 			b.WriteString(s.CardValue.Render(identity.Identity))
 			b.WriteString("\n")
 		}

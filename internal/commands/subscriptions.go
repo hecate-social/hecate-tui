@@ -36,11 +36,11 @@ func (c *SubscriptionsCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		for i, sub := range subs {
 			b.WriteString(s.Bold.Render(sub.ServiceMRI))
 			b.WriteString("\n")
-			b.WriteString(s.CardLabel.Render("  ID:"))
+			b.WriteString(s.CardLabel.Render("ID: "))
 			b.WriteString(" ")
 			b.WriteString(s.CardValue.Render(sub.SubscriptionID))
 			b.WriteString("\n")
-			b.WriteString(s.CardLabel.Render("  Since:"))
+			b.WriteString(s.CardLabel.Render("Since: "))
 			b.WriteString(" ")
 			b.WriteString(s.CardValue.Render(sub.SubscribedAt))
 			if i < len(subs)-1 {

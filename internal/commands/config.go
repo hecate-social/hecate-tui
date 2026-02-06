@@ -36,7 +36,7 @@ func (c *ConfigCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		}
 
 		if socketPath != "" {
-			b.WriteString(s.CardLabel.Render("  Socket:     "))
+			b.WriteString(s.CardLabel.Render("Socket: "))
 			if _, err := os.Stat(socketPath); err == nil {
 				b.WriteString(s.StatusOK.Render(socketPath))
 			} else {
@@ -49,20 +49,20 @@ func (c *ConfigCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		if hecateURL == "" {
 			hecateURL = "http://localhost:4444"
 		}
-		b.WriteString(s.CardLabel.Render("  Daemon URL: "))
+		b.WriteString(s.CardLabel.Render("Daemon URL: "))
 		b.WriteString(s.CardValue.Render(hecateURL))
 		b.WriteString("\n")
 
 		// Daemon health
 		health, err := ctx.Client.GetHealth()
 		if err != nil {
-			b.WriteString(s.CardLabel.Render("  Status:     "))
+			b.WriteString(s.CardLabel.Render("Status: "))
 			b.WriteString(s.Error.Render("unreachable"))
 		} else {
-			b.WriteString(s.CardLabel.Render("  Status:     "))
+			b.WriteString(s.CardLabel.Render("Status: "))
 			b.WriteString(s.StatusOK.Render(health.Status))
 			b.WriteString("\n")
-			b.WriteString(s.CardLabel.Render("  Version:    "))
+			b.WriteString(s.CardLabel.Render("Version: "))
 			b.WriteString(s.CardValue.Render(health.Version))
 		}
 		b.WriteString("\n\n")
@@ -70,31 +70,31 @@ func (c *ConfigCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		// Theme
 		b.WriteString(s.Bold.Render("Theme"))
 		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  Active: "))
+		b.WriteString(s.CardLabel.Render("Active: "))
 		b.WriteString(s.CardValue.Render(ctx.Theme.Name))
 		b.WriteString("\n\n")
 
 		// Terminal
 		b.WriteString(s.Bold.Render("Terminal"))
 		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  Size:   "))
+		b.WriteString(s.CardLabel.Render("Size: "))
 		b.WriteString(s.CardValue.Render(fmt.Sprintf("%dx%d", ctx.Width, ctx.Height)))
 		b.WriteString("\n")
 		term := os.Getenv("TERM")
 		if term != "" {
-			b.WriteString(s.CardLabel.Render("  TERM:   "))
+			b.WriteString(s.CardLabel.Render("TERM: "))
 			b.WriteString(s.CardValue.Render(term))
 			b.WriteString("\n")
 		}
 		termProg := os.Getenv("TERM_PROGRAM")
 		if termProg != "" {
-			b.WriteString(s.CardLabel.Render("  App:    "))
+			b.WriteString(s.CardLabel.Render("App: "))
 			b.WriteString(s.CardValue.Render(termProg))
 			b.WriteString("\n")
 		}
 		colorTerm := os.Getenv("COLORTERM")
 		if colorTerm != "" {
-			b.WriteString(s.CardLabel.Render("  Color:  "))
+			b.WriteString(s.CardLabel.Render("Color: "))
 			b.WriteString(s.CardValue.Render(colorTerm))
 			b.WriteString("\n")
 		}
@@ -103,7 +103,7 @@ func (c *ConfigCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		b.WriteString("\n")
 		b.WriteString(s.Bold.Render("Config File"))
 		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  Path:   "))
+		b.WriteString(s.CardLabel.Render("Path: "))
 		b.WriteString(s.CardValue.Render(config.DefaultPath()))
 
 		return InjectSystemMsg{Content: b.String()}
