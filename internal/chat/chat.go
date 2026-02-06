@@ -642,14 +642,29 @@ func (m *Model) resize() {
 		inputHeight = 5
 	}
 	statsHeight := 1
+
+	// Dynamic padding based on terminal height
 	padding := 4
+	if m.height < 30 {
+		padding = 2
+	} else if m.height < 20 {
+		padding = 1
+	}
 
 	vpHeight := m.height - inputHeight - statsHeight - padding
 	if vpHeight < 5 {
 		vpHeight = 5
 	}
 
-	vpWidth := m.width - 4
+	// Dynamic horizontal padding based on terminal width
+	hPadding := 4
+	if m.width < 80 {
+		hPadding = 2
+	} else if m.width < 60 {
+		hPadding = 1
+	}
+
+	vpWidth := m.width - hPadding
 	if vpWidth < 40 {
 		vpWidth = 40
 	}
@@ -658,13 +673,36 @@ func (m *Model) resize() {
 	m.viewport.Height = vpHeight
 	m.input.SetWidth(vpWidth - 2)
 
-	m.updateViewport()
+	m.updateViewportPreserveScroll()
 }
 
 func (m *Model) updateViewport() {
 	content := m.renderMessages()
 	m.viewport.SetContent(content)
 	m.viewport.GotoBottom()
+}
+
+func (m *Model) updateViewportPreserveScroll() {
+	// Preserve scroll position as percentage
+	oldTotal := m.viewport.TotalLineCount()
+	oldOffset := m.viewport.YOffset
+	scrollPercent := 0.0
+	if oldTotal > 0 {
+		scrollPercent = float64(oldOffset) / float64(oldTotal)
+	}
+	atBottom := m.viewport.AtBottom()
+
+	content := m.renderMessages()
+	m.viewport.SetContent(content)
+
+	// Restore scroll position
+	if atBottom {
+		m.viewport.GotoBottom()
+	} else {
+		newTotal := m.viewport.TotalLineCount()
+		newOffset := int(scrollPercent * float64(newTotal))
+		m.viewport.SetYOffset(newOffset)
+	}
 }
 
 func (m *Model) updateStreamingMessage() {
