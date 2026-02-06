@@ -18,15 +18,17 @@ func RenderMarkdown(text string, t *theme.Theme, width int) string {
 	codeLang := ""
 
 	codeBlockStyle := lipgloss.NewStyle().
-		Foreground(t.Text).
-		Background(t.BgCard).
-		Padding(0, 1)
+		Foreground(t.CodeText).
+		Background(t.CodeBg).
+		BorderLeft(true).
+		BorderStyle(lipgloss.ThickBorder()).
+		BorderForeground(t.Primary).
+		PaddingLeft(1).
+		PaddingRight(1)
 
 	codeLabelStyle := lipgloss.NewStyle().
 		Foreground(t.TextMuted).
-		Background(t.BgCard).
-		Italic(true).
-		Padding(0, 1)
+		Bold(true)
 
 	inlineCodeStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
@@ -74,13 +76,14 @@ func RenderMarkdown(text string, t *theme.Theme, width int) string {
 					codeW = 20
 				}
 
-				var block string
+				// Combine label and code inside single styled block
+				var content string
 				if codeLang != "" {
-					block = codeLabelStyle.Width(codeW).Render(codeLang) + "\n" +
-						codeBlockStyle.Width(codeW).Render(code)
+					content = codeLabelStyle.Render(codeLang) + "\n" + code
 				} else {
-					block = codeBlockStyle.Width(codeW).Render(code)
+					content = code
 				}
+				block := codeBlockStyle.Width(codeW).Render(content)
 				result = append(result, block)
 				codeLines = nil
 				codeLang = ""

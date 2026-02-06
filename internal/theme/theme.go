@@ -53,6 +53,10 @@ type Theme struct {
 	StreamingColor lipgloss.Color
 	ThinkingColor  lipgloss.Color
 
+	// Code blocks
+	CodeBg   lipgloss.Color
+	CodeText lipgloss.Color
+
 	// Accents for special elements
 	KeyColor   lipgloss.Color
 	TorchColor lipgloss.Color

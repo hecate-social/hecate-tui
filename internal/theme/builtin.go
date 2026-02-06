@@ -45,6 +45,9 @@ func HecateDark() *Theme {
 		StreamingColor: lipgloss.Color("#06B6D4"),
 		ThinkingColor:  lipgloss.Color("#EAB308"),
 
+		CodeBg:   lipgloss.Color("#0D1117"),
+		CodeText: lipgloss.Color("#E6EDF3"),
+
 		KeyColor:   lipgloss.Color("#FCD34D"),
 		TorchColor: lipgloss.Color("#F97316"),
 		EyeColor:   lipgloss.Color("#F59E0B"),
@@ -94,6 +97,9 @@ func HecateLight() *Theme {
 		StreamingColor: lipgloss.Color("#0891B2"),
 		ThinkingColor:  lipgloss.Color("#CA8A04"),
 
+		CodeBg:   lipgloss.Color("#F6F8FA"),
+		CodeText: lipgloss.Color("#24292F"),
+
 		KeyColor:   lipgloss.Color("#D97706"),
 		TorchColor: lipgloss.Color("#EA580C"),
 		EyeColor:   lipgloss.Color("#D97706"),
@@ -142,6 +148,9 @@ func Monochrome() *Theme {
 
 		StreamingColor: lipgloss.Color("#D4D4D4"),
 		ThinkingColor:  lipgloss.Color("#A3A3A3"),
+
+		CodeBg:   lipgloss.Color("#0A0A0A"),
+		CodeText: lipgloss.Color("#D4D4D4"),
 
 		KeyColor:   lipgloss.Color("#FFFFFF"),
 		TorchColor: lipgloss.Color("#D4D4D4"),

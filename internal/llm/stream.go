@@ -44,6 +44,11 @@ func (p *StreamParser) Next() (*ChatResponse, error) {
 			continue
 		}
 
+		// Handle SSE end signal
+		if line == "[DONE]" {
+			return nil, io.EOF
+		}
+
 		// Parse JSON
 		var resp ChatResponse
 		if err := json.Unmarshal([]byte(line), &resp); err != nil {

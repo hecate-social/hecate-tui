@@ -254,8 +254,21 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	case streamErrorMsg:
 		m.streaming = false
-		m.err = msg.err
-		m.streamBuf.Reset()
+		// If we have partial content, save it before showing error
+		if m.streamBuf.Len() > 0 {
+			m.messages = append(m.messages, Message{
+				Role:    "assistant",
+				Content: m.streamBuf.String(),
+				Time:    time.Now(),
+			})
+			m.streamBuf.Reset()
+			m.updateViewport()
+		}
+		// Only show error if it's not a normal EOF
+		errStr := msg.err.Error()
+		if errStr != "EOF" && errStr != "unexpected EOF" {
+			m.err = msg.err
+		}
 		return m, nil
 
 	case thinkingTickMsg:
