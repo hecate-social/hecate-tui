@@ -59,6 +59,11 @@ type App struct {
 	cmdHistIdx int    // -1 = new input, 0..N = browsing history
 	cmdDraft   string // save draft when browsing history
 
+	// Chat input history (for Insert mode up/down arrow)
+	msgHistory []string
+	msgHistIdx int    // -1 = new input, 0..N = browsing history
+	msgDraft   string // save draft when browsing history
+
 	// System prompt for LLM
 	systemPrompt string
 
@@ -299,9 +304,21 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.KeyMsg:
+		// Track mode before handling key to detect mode-switching keys
+		modeBefore := a.mode
 		cmd := a.handleKey(msg)
 		if cmd != nil {
 			cmds = append(cmds, cmd)
+		}
+		// If we just switched INTO Insert mode, don't forward the key to chat
+		// (prevents 'i' from appearing in the input box when entering Insert mode)
+		if modeBefore != modes.Insert && a.mode == modes.Insert {
+			a.statusBar.ModelName = a.chat.ActiveModelName()
+			a.statusBar.ModelProvider = a.chat.ActiveModelProvider()
+			a.statusBar.Mode = a.mode
+			a.statusBar.InputLen = a.chat.InputLen()
+			a.statusBar.SessionTokens = a.chat.SessionTokenCount()
+			return a, tea.Batch(cmds...)
 		}
 		a.statusBar.ModelName = a.chat.ActiveModelName()
 		a.statusBar.ModelProvider = a.chat.ActiveModelProvider()
@@ -399,8 +416,20 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	a.chat, chatCmd = a.chat.Update(msg)
 	cmds = append(cmds, chatCmd)
 
-	// Auto-save when streaming completes (assistant response finished)
-	if wasStreaming && !a.chat.IsStreaming() {
+	// Update model status LED based on streaming state
+	if a.chat.IsStreaming() {
+		a.statusBar.ModelStatus = "loading"
+		a.statusBar.ModelError = ""
+	} else if wasStreaming && !a.chat.IsStreaming() {
+		// Streaming just completed
+		if a.chat.HasError() {
+			a.statusBar.ModelStatus = "error"
+			a.statusBar.ModelError = a.chat.LastError()
+		} else {
+			a.statusBar.ModelStatus = "ready"
+			a.statusBar.ModelError = ""
+		}
+		// Auto-save conversation
 		a.saveConversation()
 	}
 
@@ -536,10 +565,22 @@ func (a *App) handleInsertKey(key string) tea.Cmd {
 			a.chat.CancelStreaming()
 			return nil
 		}
+		a.msgHistIdx = -1
 		a.setMode(modes.Normal)
 	case "enter":
+		// Save message to history before sending
+		content := a.chat.InputValue()
+		if content != "" {
+			a.msgHistory = append(a.msgHistory, content)
+		}
+		a.msgHistIdx = -1
+		a.msgDraft = ""
 		cmd := a.chat.SendCurrentInput()
 		if cmd != nil {
+			// Set model status to loading and clear any previous error
+			a.statusBar.ModelStatus = "loading"
+			a.statusBar.ModelError = ""
+			a.chat.ClearError()
 			a.saveConversation()
 		}
 		return cmd
@@ -553,6 +594,32 @@ func (a *App) handleInsertKey(key string) tea.Cmd {
 		a.chat.CycleModelReverse()
 		a.statusBar.ModelName = a.chat.ActiveModelName()
 		a.statusBar.ModelProvider = a.chat.ActiveModelProvider()
+	case "up":
+		// Navigate back in message history
+		if len(a.msgHistory) == 0 {
+			return nil
+		}
+		if a.msgHistIdx == -1 {
+			// Save current input as draft before entering history
+			a.msgDraft = a.chat.InputValue()
+			a.msgHistIdx = len(a.msgHistory) - 1
+		} else if a.msgHistIdx > 0 {
+			a.msgHistIdx--
+		}
+		a.chat.SetInputValue(a.msgHistory[a.msgHistIdx])
+	case "down":
+		// Navigate forward in message history
+		if a.msgHistIdx == -1 {
+			return nil
+		}
+		if a.msgHistIdx < len(a.msgHistory)-1 {
+			a.msgHistIdx++
+			a.chat.SetInputValue(a.msgHistory[a.msgHistIdx])
+		} else {
+			// Reached end of history, restore draft
+			a.msgHistIdx = -1
+			a.chat.SetInputValue(a.msgDraft)
+		}
 	}
 	return nil
 }

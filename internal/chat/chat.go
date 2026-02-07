@@ -440,6 +440,16 @@ func (m Model) InputLen() int {
 	return len(m.input.Value())
 }
 
+// InputValue returns the current input text.
+func (m Model) InputValue() string {
+	return m.input.Value()
+}
+
+// SetInputValue sets the input text (for history navigation).
+func (m *Model) SetInputValue(v string) {
+	m.input.SetValue(v)
+}
+
 // RetryLast re-sends the last user message. Removes the last assistant response
 // if it immediately follows the last user message, then re-triggers streaming.
 func (m *Model) RetryLast() tea.Cmd {
@@ -591,6 +601,24 @@ func (m Model) IsPaidProvider() bool {
 // IsStreaming returns whether a response is being streamed.
 func (m Model) IsStreaming() bool {
 	return m.streaming
+}
+
+// HasError returns whether there was an error in the last operation.
+func (m Model) HasError() bool {
+	return m.err != nil
+}
+
+// LastError returns the last error message, if any.
+func (m Model) LastError() string {
+	if m.err == nil {
+		return ""
+	}
+	return m.err.Error()
+}
+
+// ClearError clears the last error.
+func (m *Model) ClearError() {
+	m.err = nil
 }
 
 // ExportMessages returns all messages for export.

@@ -20,6 +20,8 @@ type Model struct {
 	ModelProvider string // "ollama", "openai", "anthropic", etc.
 	MeshStatus    string // "connected", "disconnected", "unknown"
 	DaemonStatus  string // "healthy", "degraded", "error", "unknown"
+	ModelStatus   string // "ready", "loading", "error"
+	ModelError    string // error message when ModelStatus is "error"
 	InputLen      int    // character count for Insert mode
 	SessionTokens int    // cumulative tokens for session
 }
@@ -49,12 +51,23 @@ func (m Model) View() string {
 	modeStyle := m.modeStyle()
 	modeLabel := modeStyle.Render(" " + m.Mode.String() + " ")
 
-	// Model indicator with provider
+	// Model indicator with provider and status LED
 	modelSection := ""
 	if m.ModelName != "" {
 		name := m.ModelName
 		if len(name) > 20 {
 			name = name[:17] + "..."
+		}
+
+		// Model status LED (shows loading/ready/error)
+		modelLED := ""
+		switch m.ModelStatus {
+		case "loading":
+			modelLED = m.styles.StatusWarning.Render("◐") + " " // half-filled = loading
+		case "error":
+			modelLED = m.styles.StatusError.Render("●") + " " // red = error
+		default:
+			modelLED = m.styles.StatusOK.Render("●") + " " // green = ready
 		}
 
 		// Show provider in brackets, with $ for paid providers
@@ -66,7 +79,7 @@ func (m Model) View() string {
 				providerLabel = m.styles.Subtle.Render(" [" + m.ModelProvider + "]")
 			}
 		}
-		modelSection = m.styles.Subtle.Render("  " + name) + providerLabel
+		modelSection = "  " + modelLED + m.styles.Subtle.Render(name) + providerLabel
 	}
 
 	// Daemon status
@@ -88,12 +101,24 @@ func (m Model) View() string {
 		tokenSection = m.styles.Subtle.Render(fmt.Sprintf("  %s tok", formatTokenCount(m.SessionTokens)))
 	}
 
-	// Contextual hints
-	hintsText := m.Mode.Hints()
-	if m.Mode == modes.Insert && m.InputLen > 0 {
-		hintsText = fmt.Sprintf("%d chars  %s", m.InputLen, hintsText)
+	// Contextual hints (or error message if model failed)
+	var hints string
+	if m.ModelStatus == "error" && m.ModelError != "" {
+		// Truncate long errors to fit in status bar
+		errMsg := m.ModelError
+		if len(errMsg) > 40 {
+			errMsg = errMsg[:37] + "..."
+		}
+		hints = m.styles.StatusError.Render("  ✗ " + errMsg)
+	} else if m.ModelStatus == "loading" {
+		hints = m.styles.StatusWarning.Render("  ◐ Loading model...")
+	} else {
+		hintsText := m.Mode.Hints()
+		if m.Mode == modes.Insert && m.InputLen > 0 {
+			hintsText = fmt.Sprintf("%d chars  %s", m.InputLen, hintsText)
+		}
+		hints = m.styles.Subtle.Render("  " + hintsText)
 	}
-	hints := m.styles.Subtle.Render("  " + hintsText)
 
 	// Left side: mode + model + daemon + tokens
 	left := modeLabel + modelSection + daemonSection + tokenSection
