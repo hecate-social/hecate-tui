@@ -543,6 +543,13 @@ func (m *Model) CycleModel() {
 	}
 }
 
+// CycleModelReverse cycles to the previous available model.
+func (m *Model) CycleModelReverse() {
+	if len(m.models) > 0 {
+		m.activeModel = (m.activeModel - 1 + len(m.models)) % len(m.models)
+	}
+}
+
 // ActiveModelName returns the name of the currently active model.
 func (m Model) ActiveModelName() string {
 	if len(m.models) == 0 {

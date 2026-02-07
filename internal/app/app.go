@@ -533,6 +533,10 @@ func (a *App) handleInsertKey(key string) tea.Cmd {
 		a.chat.CycleModel()
 		a.statusBar.ModelName = a.chat.ActiveModelName()
 		a.statusBar.ModelProvider = a.chat.ActiveModelProvider()
+	case "shift+tab":
+		a.chat.CycleModelReverse()
+		a.statusBar.ModelName = a.chat.ActiveModelName()
+		a.statusBar.ModelProvider = a.chat.ActiveModelProvider()
 	}
 	return nil
 }
