@@ -37,6 +37,12 @@ type Context struct {
 	// Tool system access
 	GetToolExecutor func() *llmtools.Executor
 	ToolsEnabled    func() bool
+
+	// Config access for personality/roles
+	GetActiveRole    func() string
+	SetActiveRole    func(role string) error
+	GetRoleNames     func() []string
+	RebuildPrompt    func() string // rebuilds system prompt from config
 }
 
 // Ctx returns a background context. Used for tool execution.
@@ -82,4 +88,9 @@ type NewConversationMsg struct{}
 // LoadConversationMsg tells the app to load a specific conversation.
 type LoadConversationMsg struct {
 	ID string
+}
+
+// SwitchRoleMsg tells the app to switch to a different ALC role.
+type SwitchRoleMsg struct {
+	Role string // dna, anp, tni, dno
 }

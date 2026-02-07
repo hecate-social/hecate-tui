@@ -104,9 +104,10 @@ func New(hecateURL string) *App {
 
 	chatModel := chat.New(c, t, s)
 
-	// Apply saved system prompt
-	if cfg.SystemPrompt != "" {
-		chatModel.SetSystemPrompt(cfg.SystemPrompt)
+	// Build and apply system prompt (combines personality, role, and custom prompt)
+	systemPrompt := cfg.BuildSystemPrompt()
+	if systemPrompt != "" {
+		chatModel.SetSystemPrompt(systemPrompt)
 	}
 
 	// Apply saved model preference
@@ -158,7 +159,7 @@ func New(hecateURL string) *App {
 		conversationTitle: convTitle,
 		mode:              modes.Normal,
 		chat:              chatModel,
-		systemPrompt:      cfg.SystemPrompt,
+		systemPrompt:      systemPrompt,
 		statusBar:         sb,
 		cmdInput:          ci,
 		registry:          commands.NewRegistry(),
@@ -192,8 +193,10 @@ func NewWithSocket(socketPath string) *App {
 
 	chatModel := chat.New(c, t, s)
 
-	if cfg.SystemPrompt != "" {
-		chatModel.SetSystemPrompt(cfg.SystemPrompt)
+	// Build and apply system prompt (combines personality, role, and custom prompt)
+	systemPrompt := cfg.BuildSystemPrompt()
+	if systemPrompt != "" {
+		chatModel.SetSystemPrompt(systemPrompt)
 	}
 
 	if cfg.Model != "" {
@@ -242,7 +245,7 @@ func NewWithSocket(socketPath string) *App {
 		conversationTitle: convTitle,
 		mode:              modes.Normal,
 		chat:              chatModel,
-		systemPrompt:      cfg.SystemPrompt,
+		systemPrompt:      systemPrompt,
 		statusBar:         sb,
 		cmdInput:          ci,
 		registry:          commands.NewRegistry(),
@@ -375,6 +378,19 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Persist model selection
 		a.cfg.Model = msg.ModelName
 		_ = a.cfg.Save()
+
+	case commands.SwitchRoleMsg:
+		a.cfg.Personality.ActiveRole = msg.Role
+		_ = a.cfg.Save()
+		// Rebuild and apply system prompt
+		newPrompt := a.cfg.BuildSystemPrompt()
+		a.systemPrompt = newPrompt
+		a.chat.SetSystemPrompt(newPrompt)
+		roleName := a.cfg.ActiveRoleDisplayName()
+		if roleName == "" {
+			roleName = msg.Role
+		}
+		a.chat.InjectSystemMessage("Role switched to: " + roleName)
 	}
 
 	// Forward to chat for streaming updates
@@ -837,6 +853,19 @@ func (a *App) commandContext() *commands.Context {
 		},
 		ToolsEnabled: func() bool {
 			return a.chat.ToolsEnabled()
+		},
+		GetActiveRole: func() string {
+			return a.cfg.Personality.ActiveRole
+		},
+		SetActiveRole: func(role string) error {
+			a.cfg.Personality.ActiveRole = role
+			return a.cfg.Save()
+		},
+		GetRoleNames: func() []string {
+			return []string{"dna", "anp", "tni", "dno"}
+		},
+		RebuildPrompt: func() string {
+			return a.cfg.BuildSystemPrompt()
 		},
 	}
 }

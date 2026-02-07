@@ -49,6 +49,7 @@ func NewRegistry() *Registry {
 	r.Register(&LLMToolsCmd{})
 	r.Register(&ALCCmd{})
 	r.Register(&ProviderCmd{})
+	r.Register(&RoleCmd{})
 
 	return r
 }

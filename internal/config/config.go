@@ -27,6 +27,21 @@ type Config struct {
 
 	// UI preferences
 	UI UIConfig `toml:"ui"`
+
+	// Personality settings
+	Personality PersonalityConfig `toml:"personality"`
+}
+
+// PersonalityConfig holds agent personality and role settings.
+type PersonalityConfig struct {
+	// Path to personality markdown file (defines agent traits)
+	PersonalityFile string `toml:"personality_file,omitempty"`
+
+	// Directory containing role files (DnA.md, AnP.md, TnI.md, DnO.md)
+	RolesDir string `toml:"roles_dir,omitempty"`
+
+	// Current active role (dna, anp, tni, dno)
+	ActiveRole string `toml:"active_role,omitempty"`
 }
 
 // ConnectionConfig holds daemon connection settings.
@@ -238,4 +253,105 @@ func defaultSocketPath() string {
 		dir = filepath.Join(os.Getenv("HOME"), ".config")
 	}
 	return filepath.Join(dir, "hecate", "connectors", "tui.sock")
+}
+
+// RoleInfo maps role codes to file names and display names.
+var RoleInfo = map[string]struct {
+	FileName    string
+	DisplayName string
+}{
+	"dna": {"HECATE_DISCOVERY_N_ANALYSIS.md", "Discovery & Analysis"},
+	"anp": {"HECATE_ARCHITECTURE_N_PLANNING.md", "Architecture & Planning"},
+	"tni": {"HECATE_TESTING_N_IMPLEMENTATION.md", "Testing & Implementation"},
+	"dno": {"HECATE_DEPLOYMENT_N_OPERATIONS.md", "Deployment & Operations"},
+}
+
+// LoadPersonality reads the personality file if configured.
+func (c Config) LoadPersonality() (string, error) {
+	if c.Personality.PersonalityFile == "" {
+		return "", nil
+	}
+	path := expandPath(c.Personality.PersonalityFile)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+// LoadRole reads the role file for the given role code.
+func (c Config) LoadRole(role string) (string, error) {
+	if c.Personality.RolesDir == "" || role == "" {
+		return "", nil
+	}
+	info, ok := RoleInfo[role]
+	if !ok {
+		return "", nil
+	}
+	path := filepath.Join(expandPath(c.Personality.RolesDir), info.FileName)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+// LoadActiveRole reads the currently active role file.
+func (c Config) LoadActiveRole() (string, error) {
+	return c.LoadRole(c.Personality.ActiveRole)
+}
+
+// ActiveRoleDisplayName returns the display name of the active role.
+func (c Config) ActiveRoleDisplayName() string {
+	if info, ok := RoleInfo[c.Personality.ActiveRole]; ok {
+		return info.DisplayName
+	}
+	return ""
+}
+
+// BuildSystemPrompt combines personality, role, and custom system prompt.
+func (c Config) BuildSystemPrompt() string {
+	var parts []string
+
+	// Load personality if configured
+	if personality, err := c.LoadPersonality(); err == nil && personality != "" {
+		parts = append(parts, personality)
+	}
+
+	// Load active role if configured
+	if role, err := c.LoadActiveRole(); err == nil && role != "" {
+		parts = append(parts, role)
+	}
+
+	// Add custom system prompt if set
+	if c.SystemPrompt != "" {
+		parts = append(parts, c.SystemPrompt)
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+
+	return joinWithSeparator(parts, "\n\n---\n\n")
+}
+
+func expandPath(path string) string {
+	if len(path) > 0 && path[0] == '~' {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			path = filepath.Join(home, path[1:])
+		}
+	}
+	return path
+}
+
+func joinWithSeparator(parts []string, sep string) string {
+	if len(parts) == 0 {
+		return ""
+	}
+	result := parts[0]
+	for i := 1; i < len(parts); i++ {
+		result += sep + parts[i]
+	}
+	return result
 }
