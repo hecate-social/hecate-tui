@@ -121,19 +121,24 @@ func (m Model) View() string {
 		hints = m.styles.Subtle.Render("  " + hintsText)
 	}
 
-	// Version indicator
+	// Left side: mode + model + daemon + tokens
+	left := modeLabel + modelSection + daemonSection + tokenSection
+
+	// Right side: hints + clickable donate link + version
+	// OSC 8 hyperlink format: \x1b]8;;URL\x1b\\TEXT\x1b]8;;\x1b\\
+	donateURL := "https://" + version.DonateURL
+	donateText := m.styles.Subtle.Render("☕ donate")
+	donateLink := fmt.Sprintf("  \x1b]8;;%s\x1b\\%s\x1b]8;;\x1b\\", donateURL, donateText)
 	versionSection := m.styles.Subtle.Render("  v" + version.Version)
+	right := hints + donateLink + versionSection
 
-	// Left side: mode + model + daemon + tokens + version
-	left := modeLabel + modelSection + daemonSection + tokenSection + versionSection
-
-	// Right side: hints + donate link
-	donateLink := m.styles.Subtle.Render("  ☕ " + version.DonateURL)
-	right := hints + donateLink
-
-	// Calculate spacing
+	// Calculate spacing (use visual width for donate, not including escape sequences)
 	leftWidth := lipgloss.Width(left)
-	rightWidth := lipgloss.Width(right)
+	// For right side, calculate visual width manually since OSC 8 escapes confuse lipgloss.Width
+	hintsWidth := lipgloss.Width(hints)
+	donateVisualWidth := 2 + lipgloss.Width(donateText) // "  " + text
+	versionWidth := lipgloss.Width(versionSection)
+	rightWidth := hintsWidth + donateVisualWidth + versionWidth
 	spacerWidth := m.width - leftWidth - rightWidth
 	if spacerWidth < 1 {
 		spacerWidth = 1
