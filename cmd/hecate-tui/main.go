@@ -47,9 +47,10 @@ func main() {
 // resolveConnection determines whether to use Unix socket or TCP.
 // Priority:
 //  1. HECATE_SOCKET env var (explicit socket path)
-//  2. Default socket at ~/.config/hecate/connectors/tui.sock
-//  3. HECATE_URL env var (TCP)
-//  4. http://localhost:4444 (TCP default)
+//  2. /run/hecate/daemon.sock (system-level, k8s deployment)
+//  3. ~/.config/hecate/connectors/tui.sock (user-level, local dev)
+//  4. HECATE_URL env var (TCP)
+//  5. http://localhost:4444 (TCP default - DEPRECATED)
 //
 // Returns (socketPath, hecateURL) — one will be empty.
 func resolveConnection() (string, string) {
@@ -59,16 +60,22 @@ func resolveConnection() (string, string) {
 			return socketEnv, ""
 		}
 		// Socket specified but doesn't exist — warn and fall through
-		fmt.Fprintf(os.Stderr, "Warning: HECATE_SOCKET=%s not found, falling back to TCP\n", socketEnv)
+		fmt.Fprintf(os.Stderr, "Warning: HECATE_SOCKET=%s not found, falling back\n", socketEnv)
 	}
 
-	// 2. Default socket path
-	defaultSocket := defaultSocketPath()
-	if defaultSocket != "" && fileExists(defaultSocket) {
-		return defaultSocket, ""
+	// 2. System-level socket (k8s/daemonset deployment)
+	systemSocket := "/run/hecate/daemon.sock"
+	if fileExists(systemSocket) {
+		return systemSocket, ""
 	}
 
-	// 3. TCP from env or default
+	// 3. User-level socket (local development)
+	userSocket := userSocketPath()
+	if userSocket != "" && fileExists(userSocket) {
+		return userSocket, ""
+	}
+
+	// 4. TCP from env or default (deprecated - socket preferred)
 	hecateURL := os.Getenv("HECATE_URL")
 	if hecateURL == "" {
 		hecateURL = "http://localhost:4444"
@@ -77,8 +84,8 @@ func resolveConnection() (string, string) {
 	return "", hecateURL
 }
 
-// defaultSocketPath returns ~/.config/hecate/connectors/tui.sock
-func defaultSocketPath() string {
+// userSocketPath returns ~/.config/hecate/connectors/tui.sock
+func userSocketPath() string {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		home := os.Getenv("HOME")
@@ -112,9 +119,10 @@ ENVIRONMENT:
 CONNECTION:
     The TUI connects to the daemon in this priority order:
     1. HECATE_SOCKET env var (explicit socket path)
-    2. ~/.config/hecate/connectors/tui.sock (auto-created by daemon)
-    3. HECATE_URL env var (TCP connection)
-    4. http://localhost:4444 (TCP default)
+    2. /run/hecate/daemon.sock (system socket, k8s deployment)
+    3. ~/.config/hecate/connectors/tui.sock (user socket, local dev)
+    4. HECATE_URL env var (TCP connection, deprecated)
+    5. http://localhost:4444 (TCP default, deprecated)
 
 MODES:
     Normal           Default. Scroll chat, access commands.
