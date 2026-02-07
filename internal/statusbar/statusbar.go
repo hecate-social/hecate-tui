@@ -49,19 +49,24 @@ func (m Model) View() string {
 	modeStyle := m.modeStyle()
 	modeLabel := modeStyle.Render(" " + m.Mode.String() + " ")
 
-	// Model indicator with provider badge
+	// Model indicator with provider
 	modelSection := ""
 	if m.ModelName != "" {
 		name := m.ModelName
 		if len(name) > 20 {
 			name = name[:17] + "..."
 		}
-		modelSection = m.styles.Subtle.Render("  " + name)
 
-		// Show provider badge for paid providers
-		if m.isPaidProvider() {
-			modelSection += m.styles.StatusWarning.Render(" $")
+		// Show provider in brackets, with $ for paid providers
+		providerLabel := ""
+		if m.ModelProvider != "" {
+			if m.isPaidProvider() {
+				providerLabel = m.styles.StatusWarning.Render(" [" + m.ModelProvider + " $]")
+			} else {
+				providerLabel = m.styles.Subtle.Render(" [" + m.ModelProvider + "]")
+			}
 		}
+		modelSection = m.styles.Subtle.Render("  " + name) + providerLabel
 	}
 
 	// Daemon status
