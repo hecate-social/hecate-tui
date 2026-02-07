@@ -819,7 +819,7 @@ func (m Model) renderMessages() string {
 		}
 	}
 
-	return strings.Join(parts, "\n")
+	return strings.Join(parts, "\n\n")
 }
 
 // -- Commands (streaming) --
