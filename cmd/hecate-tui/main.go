@@ -5,15 +5,14 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/hecate-social/hecate-tui/internal/app"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/hecate-social/hecate-tui/internal/app"
+	"github.com/hecate-social/hecate-tui/internal/version"
 )
-
-const version = "0.4.0"
 
 func main() {
 	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
-		fmt.Printf("hecate v%s\n", version)
+		fmt.Printf("hecate v%s\n", version.Version)
 		os.Exit(0)
 	}
 

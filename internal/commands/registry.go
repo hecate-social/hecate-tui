@@ -50,6 +50,7 @@ func NewRegistry() *Registry {
 	r.Register(&ALCCmd{})
 	r.Register(&ProviderCmd{})
 	r.Register(&RoleCmd{})
+	r.Register(&AboutCmd{})
 
 	return r
 }

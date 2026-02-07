@@ -310,21 +310,20 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}
-		// If we just switched INTO Insert mode, don't forward the key to chat
-		// (prevents 'i' from appearing in the input box when entering Insert mode)
-		if modeBefore != modes.Insert && a.mode == modes.Insert {
-			a.statusBar.ModelName = a.chat.ActiveModelName()
-			a.statusBar.ModelProvider = a.chat.ActiveModelProvider()
-			a.statusBar.Mode = a.mode
-			a.statusBar.InputLen = a.chat.InputLen()
-			a.statusBar.SessionTokens = a.chat.SessionTokenCount()
-			return a, tea.Batch(cmds...)
-		}
 		a.statusBar.ModelName = a.chat.ActiveModelName()
 		a.statusBar.ModelProvider = a.chat.ActiveModelProvider()
 		a.statusBar.Mode = a.mode
 		a.statusBar.InputLen = a.chat.InputLen()
 		a.statusBar.SessionTokens = a.chat.SessionTokenCount()
+		// If we just switched INTO Insert mode, don't forward the key to chat
+		// (prevents 'i' from appearing in the input box when entering Insert mode)
+		if modeBefore != modes.Insert && a.mode == modes.Insert {
+			return a, tea.Batch(cmds...)
+		}
+		// Also skip forwarding if we switched OUT of Insert mode (esc key)
+		if modeBefore == modes.Insert && a.mode != modes.Insert {
+			return a, tea.Batch(cmds...)
+		}
 
 	case healthMsg:
 		a.daemonStatus = msg.status

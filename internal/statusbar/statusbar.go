@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/hecate-social/hecate-tui/internal/modes"
 	"github.com/hecate-social/hecate-tui/internal/theme"
+	"github.com/hecate-social/hecate-tui/internal/version"
 )
 
 // Model is the status bar — always visible at the bottom.
@@ -120,11 +121,15 @@ func (m Model) View() string {
 		hints = m.styles.Subtle.Render("  " + hintsText)
 	}
 
-	// Left side: mode + model + daemon + tokens
-	left := modeLabel + modelSection + daemonSection + tokenSection
+	// Version indicator
+	versionSection := m.styles.Subtle.Render("  v" + version.Version)
 
-	// Right side: hints
-	right := hints
+	// Left side: mode + model + daemon + tokens + version
+	left := modeLabel + modelSection + daemonSection + tokenSection + versionSection
+
+	// Right side: hints + donate link
+	donateLink := m.styles.Subtle.Render("  ☕ " + version.DonateURL)
+	right := hints + donateLink
 
 	// Calculate spacing
 	leftWidth := lipgloss.Width(left)
