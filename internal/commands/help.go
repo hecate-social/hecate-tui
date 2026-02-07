@@ -88,7 +88,8 @@ func (c *HelpCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		b.WriteString(row("/alc", "(lifecycle, lc)", "Application lifecycle"))
 		b.WriteString(row("/pair", "", "Pair programming mode"))
 		b.WriteString(row("/find", "", "Find in codebase"))
-		b.WriteString(row("/tools", "", "Manage tools"))
+		b.WriteString(row("/tools", "", "Detect developer tools"))
+		b.WriteString(row("/fn", "(on|off)", "LLM function calling"))
 		b.WriteString("\n")
 
 		// 🎨 Appearance

@@ -121,7 +121,9 @@ func New(hecateURL string) *App {
 
 	// Wire up tool executor to chat
 	chatModel.SetToolExecutor(toolExecutor)
-	chatModel.EnableTools(true) // Enable tools by default
+	// Tools disabled by default - most Ollama models don't support function calling.
+	// Use /tools enable to turn on for models that support it (Claude, GPT-4, etc.)
+	chatModel.EnableTools(false)
 
 	// Set mesh client for mesh tools
 	llmtools.SetMeshClient(c)
@@ -222,7 +224,8 @@ func NewWithSocket(socketPath string) *App {
 
 	// Wire up tool executor to chat
 	chatModel.SetToolExecutor(toolExecutor)
-	chatModel.EnableTools(true)
+	// Tools disabled by default - most Ollama models don't support function calling
+	chatModel.EnableTools(false)
 
 	// Set mesh client for mesh tools
 	llmtools.SetMeshClient(c)
@@ -353,6 +356,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			a.chat.InjectSystemMessage("Loaded conversation: " + msg.ID)
 		}
+
+	case commands.EnableToolsMsg:
+		a.chat.EnableTools(msg.Enabled)
+		status := "disabled"
+		if msg.Enabled {
+			status = "enabled"
+		}
+		a.chat.InjectSystemMessage("LLM function calling " + status)
 
 	case browse.SelectModelMsg:
 		// User selected an LLM model from browse
