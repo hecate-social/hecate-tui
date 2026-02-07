@@ -312,6 +312,10 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case thinkingTickMsg:
 		if m.streaming || m.executingTool {
 			m.thinkingFrame = (m.thinkingFrame + 1) % len(ThinkingFrames)
+			// Update the chat area to show the new animation frame
+			if m.streaming {
+				m.updateStreamingMessage()
+			}
 			return m, m.thinkingTick()
 		}
 		return m, nil
@@ -422,7 +426,8 @@ func (m *Model) SendCurrentInput() tea.Cmd {
 	m.lastDuration = 0
 	m.lastSpeed = 0
 	m.err = nil
-	m.updateViewport()
+	m.thinkingFrame = 0
+	m.updateStreamingMessage() // Show thinking animation immediately
 
 	return tea.Batch(
 		m.sendMessage(),
@@ -686,10 +691,19 @@ func (m Model) ViewInput() string {
 	return m.input.View()
 }
 
-// ViewStats renders the stats line (after streaming completes).
+// ViewStats renders the stats line (streaming status or post-completion stats).
 func (m Model) ViewStats() string {
 	if m.streaming {
-		return m.renderStreaming()
+		// Show model name, elapsed time, and cancel hint (thinking animation is now in chat)
+		subtleStyle := lipgloss.NewStyle().Foreground(m.theme.TextMuted)
+		modelPart := ""
+		if name := m.ActiveModelName(); name != "" {
+			modelPart = subtleStyle.Render("  via " + name)
+		}
+		elapsed := time.Since(m.streamStart)
+		elapsedPart := subtleStyle.Render(fmt.Sprintf("  %0.1fs", elapsed.Seconds()))
+		cancelHint := subtleStyle.Render("  (Esc to cancel)")
+		return modelPart + elapsedPart + cancelHint
 	}
 	if m.lastTokenCount > 0 {
 		return m.renderStats()
@@ -794,9 +808,19 @@ func (m *Model) updateViewportPreserveScroll() {
 
 func (m *Model) updateStreamingMessage() {
 	content := m.renderMessages()
+	// Always show assistant label when streaming
+	content += "\n\n" + m.styles.AssistantLabel.Render("◆ Hecate") + "\n"
 	if m.streamBuf.Len() > 0 {
-		content += "\n" + m.styles.AssistantLabel.Render("✦ Hecate") + "\n"
+		// Show streamed content with cursor
 		bubble := m.styles.AssistantBubble.Width(m.viewport.Width - 8).Render(m.streamBuf.String() + "▊")
+		content += bubble
+	} else {
+		// Show thinking animation in the chat area while waiting for content
+		frame := ThinkingFrames[m.thinkingFrame]
+		sparkle := Sparkles[m.thinkingFrame%len(Sparkles)]
+		thinkingStyle := lipgloss.NewStyle().Foreground(m.theme.StreamingColor)
+		thinking := thinkingStyle.Render(sparkle + " " + frame + " " + sparkle)
+		bubble := m.styles.AssistantBubble.Width(m.viewport.Width - 8).Render(thinking)
 		content += bubble
 	}
 	m.viewport.SetContent(content)
