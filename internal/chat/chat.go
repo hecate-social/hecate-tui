@@ -962,13 +962,11 @@ func pollStreamCmd() tea.Msg {
 			return toolUseCompleteMsg{call: *resp.ToolUse}
 		}
 
-		// Check stop reason for tool_use
-		if resp.Done && resp.StopReason == "tool_use" {
-			// LLM wants to use a tool but we need to check Message.ToolCalls
-			if resp.Message != nil && len(resp.Message.ToolCalls) > 0 {
-				// Return the first tool call (we'll handle multiple later)
-				return toolUseCompleteMsg{call: resp.Message.ToolCalls[0]}
-			}
+		// Check for tool calls - Anthropic uses stop_reason="tool_use",
+		// but Ollama uses "stop" with tool_calls present
+		if resp.Done && resp.Message != nil && len(resp.Message.ToolCalls) > 0 {
+			// Return the first tool call (we'll handle multiple later)
+			return toolUseCompleteMsg{call: resp.Message.ToolCalls[0]}
 		}
 
 		if resp.Done {
