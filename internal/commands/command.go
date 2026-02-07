@@ -19,11 +19,13 @@ type Command interface {
 
 // Context provides commands access to the app's resources.
 type Context struct {
-	Client *client.Client
-	Theme  *theme.Theme
-	Styles *theme.Styles
-	Width  int
-	Height int
+	Client     *client.Client
+	SocketPath string // Unix socket path (if connected via socket)
+	HTTPUrl    string // HTTP URL (if connected via TCP)
+	Theme      *theme.Theme
+	Styles     *theme.Styles
+	Width      int
+	Height     int
 
 	// Callbacks for commands that need to affect app state
 	SetMode    func(mode int) // triggers mode change (use app.Mode* constants via int)

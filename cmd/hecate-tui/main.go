@@ -7,6 +7,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/hecate-social/hecate-tui/internal/app"
+	"github.com/hecate-social/hecate-tui/internal/geo"
+	"github.com/hecate-social/hecate-tui/internal/ui"
 	"github.com/hecate-social/hecate-tui/internal/version"
 )
 
@@ -19,6 +21,12 @@ func main() {
 	if len(os.Args) > 1 && (os.Args[1] == "--help" || os.Args[1] == "-h") {
 		printHelp()
 		os.Exit(0)
+	}
+
+	// Check geo-restriction FIRST, before anything else
+	if blocked, countryCode, countryName := checkGeoRestriction(); blocked {
+		fmt.Fprint(os.Stderr, ui.RenderGeoBlockedMessage(countryCode, countryName))
+		os.Exit(1)
 	}
 
 	// Resolve daemon connection: socket preferred, TCP fallback
@@ -41,6 +49,41 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// checkGeoRestriction performs a geo-restriction check before starting the TUI.
+// Returns (blocked, countryCode, countryName).
+func checkGeoRestriction() (bool, string, string) {
+	// Skip geo check if explicitly disabled
+	if os.Getenv("HECATE_SKIP_GEO_CHECK") == "1" {
+		return false, "", ""
+	}
+
+	// Try local database check first
+	checker, err := geo.NewChecker()
+	if err == nil {
+		defer checker.Close()
+		result, err := checker.CheckPublicIP()
+		if err == nil && !result.Allowed {
+			return true, result.CountryCode, result.CountryName
+		}
+		// If allowed or error, continue
+		return false, "", ""
+	}
+
+	// Local database not available, try daemon API
+	socketPath, hecateURL := resolveConnection()
+	result, err := geo.CheckWithDaemon(socketPath, hecateURL)
+	if err != nil {
+		// Can't check - allow by default (daemon will enforce)
+		return false, "", ""
+	}
+
+	if !result.Allowed {
+		return true, result.CountryCode, result.CountryName
+	}
+
+	return false, "", ""
 }
 
 // resolveConnection determines whether to use Unix socket or TCP.
@@ -112,8 +155,9 @@ OPTIONS:
     -v, --version    Show version
 
 ENVIRONMENT:
-    HECATE_SOCKET    Path to Unix socket (preferred over TCP)
-    HECATE_URL       Hecate daemon URL (default: http://localhost:4444)
+    HECATE_SOCKET         Path to Unix socket (preferred over TCP)
+    HECATE_URL            Hecate daemon URL (default: http://localhost:4444)
+    HECATE_SKIP_GEO_CHECK Set to "1" to skip geo-restriction check
 
 CONNECTION:
     The TUI connects to the daemon in this priority order:
@@ -160,6 +204,7 @@ COMMANDS:
     /help            Show available commands
     /status          Daemon status
     /health          Quick health check
+    /geo             Show geo-restriction status
     /models          List LLM models
     /model <name>    Switch model
     /me              Show identity

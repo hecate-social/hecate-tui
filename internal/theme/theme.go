@@ -108,6 +108,8 @@ type Styles struct {
 	Error    lipgloss.Style
 	Divider  lipgloss.Style
 	Selected lipgloss.Style
+	Label    lipgloss.Style
+	Value    lipgloss.Style
 }
 
 // ComputeStyles generates all lipgloss styles from theme colors.
@@ -234,5 +236,9 @@ func (t *Theme) ComputeStyles() *Styles {
 		Selected: lipgloss.NewStyle().
 			Foreground(t.Text).
 			Background(t.Primary),
+		Label: lipgloss.NewStyle().
+			Foreground(t.TextMuted),
+		Value: lipgloss.NewStyle().
+			Foreground(t.Text),
 	}
 }

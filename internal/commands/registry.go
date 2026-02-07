@@ -29,6 +29,7 @@ func NewRegistry() *Registry {
 	r.Register(&QuitCmd{})
 	r.Register(&StatusCmd{})
 	r.Register(&HealthCmd{})
+	r.Register(&GeoCmd{})
 	r.Register(&ModelsCmd{})
 	r.Register(&ModelCmd{})
 	r.Register(&LoadCmd{})
