@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -26,24 +27,62 @@ func (c *ModelsCmd) Execute(args []string, ctx *Context) tea.Cmd {
 			return InjectSystemMsg{Content: s.Subtle.Render("No models available. Is Ollama running?\nUse /provider add <type> <key> to add a cloud provider.")}
 		}
 
+		// Calculate column widths
+		maxName := 4 // "Name"
+		maxSize := 4 // "Size"
+		maxProvider := 8 // "Provider"
+		for _, m := range models {
+			if len(m.Name) > maxName {
+				maxName = len(m.Name)
+			}
+			if len(m.ParameterSize) > maxSize {
+				maxSize = len(m.ParameterSize)
+			}
+			if len(m.Provider) > maxProvider {
+				maxProvider = len(m.Provider)
+			}
+		}
+
 		var b strings.Builder
 		b.WriteString(s.CardTitle.Render("Available Models"))
 		b.WriteString("\n\n")
 
+		// Header
+		header := fmt.Sprintf("  %-*s  %-*s  %-*s  %s",
+			maxName, "Name",
+			maxSize, "Size",
+			maxProvider, "Provider",
+			"Family")
+		b.WriteString(s.Subtle.Render(header))
+		b.WriteString("\n")
+
+		// Separator
+		b.WriteString(s.Subtle.Render("  " + strings.Repeat("─", maxName+maxSize+maxProvider+20)))
+		b.WriteString("\n")
+
+		// Rows
 		for _, m := range models {
-			name := m.Name
+			size := m.ParameterSize
+			if size == "" {
+				size = "-"
+			}
+			provider := m.Provider
+			if provider == "" {
+				provider = "local"
+			}
+			family := m.Family
+			if family == "" {
+				family = "-"
+			}
+
 			b.WriteString("  ")
-			b.WriteString(s.Bold.Render("● " + name))
-			if m.ParameterSize != "" {
-				b.WriteString(s.Subtle.Render(" (" + m.ParameterSize + ")"))
-			}
-			if m.Family != "" {
-				b.WriteString(s.Subtle.Render(" — " + m.Family))
-			}
-			if m.Provider != "" {
-				b.WriteString(" ")
-				b.WriteString(s.Subtle.Render("[" + m.Provider + "]"))
-			}
+			b.WriteString(s.Bold.Render(fmt.Sprintf("%-*s", maxName, m.Name)))
+			b.WriteString("  ")
+			b.WriteString(s.CardValue.Render(fmt.Sprintf("%-*s", maxSize, size)))
+			b.WriteString("  ")
+			b.WriteString(s.Subtle.Render(fmt.Sprintf("%-*s", maxProvider, provider)))
+			b.WriteString("  ")
+			b.WriteString(s.Subtle.Render(family))
 			b.WriteString("\n")
 		}
 

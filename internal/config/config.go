@@ -13,6 +13,9 @@ type Config struct {
 	// Theme name (dark, light, monochrome)
 	Theme string `toml:"theme,omitempty"`
 
+	// Last used LLM model
+	Model string `toml:"model,omitempty"`
+
 	// System prompt for LLM
 	SystemPrompt string `toml:"system_prompt,omitempty"`
 

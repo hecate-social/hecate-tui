@@ -75,10 +75,20 @@ func (c *Client) ChatStream(ctx context.Context, req llm.ChatRequest) (<-chan ll
 		httpReq.Header.Set("Content-Type", "application/json")
 		httpReq.Header.Set("Accept", "text/event-stream")
 
-		// Use a client without timeout for streaming, but reuse socket transport
-		streamClient := &http.Client{}
+		// Use a client without timeout for streaming
+		// Create transport with no idle timeout for long-running streams
+		streamTransport := &http.Transport{
+			IdleConnTimeout:       0,
+			ResponseHeaderTimeout: 0,
+			ExpectContinueTimeout: 0,
+		}
 		if c.transport != nil {
-			streamClient.Transport = c.transport
+			// Reuse socket transport settings for Unix sockets
+			streamTransport.DialContext = c.transport.DialContext
+		}
+		streamClient := &http.Client{
+			Transport: streamTransport,
+			Timeout:   0, // No timeout for streaming
 		}
 		httpResp, err := streamClient.Do(httpReq)
 		if err != nil {
@@ -182,6 +192,27 @@ func (c *Client) RemoveProvider(name string) error {
 	}
 
 	return nil
+}
+
+// ReloadProviders triggers the daemon to re-read provider config and re-detect env vars
+func (c *Client) ReloadProviders() ([]string, error) {
+	resp, err := c.post("/api/llm/providers/reload", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.Ok {
+		return nil, fmt.Errorf("reload providers failed: %s", resp.Error)
+	}
+
+	var result struct {
+		Providers []string `json:"providers"`
+	}
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse reload response: %w", err)
+	}
+
+	return result.Providers, nil
 }
 
 // Chat sends a non-streaming chat request

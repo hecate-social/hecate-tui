@@ -56,6 +56,9 @@ type Model struct {
 	// System prompt
 	systemPrompt string
 
+	// Preferred model (loaded from config, applied when models arrive)
+	preferredModel string
+
 	// Tool execution
 	toolExecutor    *llmtools.Executor
 	toolsEnabled    bool
@@ -86,6 +89,7 @@ type streamChunkMsg struct {
 type streamDoneMsg struct {
 	totalTokens int
 	duration    time.Duration
+	reason      string // debug: why stream ended
 }
 
 type streamErrorMsg struct {
@@ -133,18 +137,33 @@ func New(c *client.Client, t *theme.Theme, s *theme.Styles) Model {
 	ta.Placeholder = "Type your message..."
 	ta.CharLimit = 4096
 	ta.SetWidth(80)
-	ta.SetHeight(3)
+	ta.SetHeight(1)
 	ta.ShowLineNumbers = false
 	ta.FocusedStyle.CursorLine = lipgloss.NewStyle()
+	// Custom border with only top/bottom lines (no corners, no sides)
+	topBottomBorder := lipgloss.Border{
+		Top:         "─",
+		Bottom:      "─",
+		Left:        "",
+		Right:       "",
+		TopLeft:     "",
+		TopRight:    "",
+		BottomLeft:  "",
+		BottomRight: "",
+	}
 	ta.FocusedStyle.Base = lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
+		BorderStyle(topBottomBorder).
+		BorderTop(true).
+		BorderBottom(true).
 		BorderForeground(t.BorderFocus)
 	ta.BlurredStyle.Base = lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
+		BorderStyle(topBottomBorder).
+		BorderTop(true).
+		BorderBottom(true).
 		BorderForeground(t.Border)
 
 	vp := viewport.New(80, 20)
-	vp.Style = lipgloss.NewStyle().Padding(1, 2)
+	vp.Style = lipgloss.NewStyle().Padding(0, 1)
 
 	return Model{
 		client:       c,
@@ -207,6 +226,15 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case modelsMsg:
 		m.models = msg.models
 		m.err = msg.err
+		// Apply preferred model if set
+		if m.preferredModel != "" && len(m.models) > 0 {
+			for i, model := range m.models {
+				if model.Name == m.preferredModel {
+					m.activeModel = i
+					break
+				}
+			}
+		}
 		return m, nil
 
 	case streamChunkMsg:
@@ -221,6 +249,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			m.streamBuf.WriteString(content)
 			m.updateStreamingMessage()
 		}
+		// Debug: count chunks received
+		m.lastTokenCount++ // Repurpose as chunk counter for debug
 		return m, func() tea.Msg { return pollStreamCmd() }
 
 	case continueStreamMsg:
@@ -236,10 +266,18 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		if msg.duration > 0 {
 			m.lastSpeed = float64(msg.totalTokens) / msg.duration.Seconds()
 		}
-		if m.streamBuf.Len() > 0 {
+		bufContent := m.streamBuf.String()
+		if len(bufContent) > 0 {
 			m.messages = append(m.messages, Message{
 				Role:    "assistant",
-				Content: m.streamBuf.String(),
+				Content: bufContent,
+				Time:    time.Now(),
+			})
+		} else {
+			// Debug: no content received
+			m.messages = append(m.messages, Message{
+				Role:    "system",
+				Content: fmt.Sprintf("[Debug: Stream ended with no content. Reason: %s, Tokens: %d, Duration: %v]", msg.reason, msg.totalTokens, msg.duration),
 				Time:    time.Now(),
 			})
 		}
@@ -593,6 +631,11 @@ func (m Model) GetSystemPrompt() string {
 	return m.systemPrompt
 }
 
+// SetPreferredModel sets the preferred model to select when models are loaded.
+func (m *Model) SetPreferredModel(name string) {
+	m.preferredModel = name
+}
+
 // -- View rendering --
 
 // ViewChat renders just the chat area (messages + streaming).
@@ -659,21 +702,8 @@ func (m Model) renderStats() string {
 }
 
 func (m *Model) resize() {
-	inputHeight := 0
-	if m.inputVisible {
-		inputHeight = 5
-	}
-	statsHeight := 1
-
-	// Dynamic padding based on terminal height
-	padding := 4
-	if m.height < 30 {
-		padding = 2
-	} else if m.height < 20 {
-		padding = 1
-	}
-
-	vpHeight := m.height - inputHeight - statsHeight - padding
+	// m.height is already the chat area height (app subtracts header, statusbar, input, stats)
+	vpHeight := m.height
 	if vpHeight < 5 {
 		vpHeight = 5
 	}
@@ -767,9 +797,8 @@ func (m Model) renderMessages() string {
 		switch msg.Role {
 		case "user":
 			label := m.styles.UserLabel.Render("▸ You") + timestamp
-			bubble := m.styles.UserBubble.Width(bubbleWidth).Render(msg.Content)
-			aligned := lipgloss.PlaceHorizontal(m.viewport.Width, lipgloss.Right, bubble)
-			parts = append(parts, label+"\n"+aligned)
+			bubble := m.styles.UserBubble.Render(msg.Content)
+			parts = append(parts, label+"\n"+bubble)
 
 		case "assistant":
 			label := m.styles.AssistantLabel.Render("◆ Hecate") + timestamp
@@ -783,7 +812,7 @@ func (m Model) renderMessages() string {
 		}
 	}
 
-	return strings.Join(parts, "\n\n")
+	return strings.Join(parts, "\n")
 }
 
 // -- Commands (streaming) --
@@ -905,7 +934,7 @@ func (m *Model) buildToolSchemas() []llm.ToolSchema {
 
 func pollStreamCmd() tea.Msg {
 	if activeStream == nil {
-		return streamDoneMsg{totalTokens: 0, duration: 0}
+		return streamDoneMsg{totalTokens: 0, duration: 0, reason: "activeStream was nil"}
 	}
 
 	select {
@@ -914,7 +943,7 @@ func pollStreamCmd() tea.Msg {
 			duration := time.Since(activeStream.start)
 			tokens := activeStream.totalTokens
 			activeStream = nil
-			return streamDoneMsg{totalTokens: tokens, duration: duration}
+			return streamDoneMsg{totalTokens: tokens, duration: duration, reason: "channel closed"}
 		}
 		if resp.EvalCount > 0 {
 			activeStream.totalTokens = resp.EvalCount
@@ -939,18 +968,22 @@ func pollStreamCmd() tea.Msg {
 			duration := time.Since(activeStream.start)
 			tokens := activeStream.totalTokens
 			activeStream = nil
-			return streamDoneMsg{totalTokens: tokens, duration: duration}
+			return streamDoneMsg{totalTokens: tokens, duration: duration, reason: "resp.Done=true"}
 		}
 		return streamChunkMsg{chunk: resp}
 
-	case err := <-activeStream.errChan:
+	case err, ok := <-activeStream.errChan:
+		if !ok {
+			// errChan closed without error - stream ended normally, keep polling respChan
+			return continueStreamMsg{}
+		}
 		duration := time.Since(activeStream.start)
 		tokens := activeStream.totalTokens
 		activeStream = nil
 		if err != nil && err != context.Canceled {
 			return streamErrorMsg{err: err}
 		}
-		return streamDoneMsg{totalTokens: tokens, duration: duration}
+		return streamDoneMsg{totalTokens: tokens, duration: duration, reason: fmt.Sprintf("errChan: %v", err)}
 
 	default:
 		return continueStreamMsg{}

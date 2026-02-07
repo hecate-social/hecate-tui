@@ -109,6 +109,11 @@ func New(hecateURL string) *App {
 		chatModel.SetSystemPrompt(cfg.SystemPrompt)
 	}
 
+	// Apply saved model preference
+	if cfg.Model != "" {
+		chatModel.SetPreferredModel(cfg.Model)
+	}
+
 	// Initialize tool system
 	toolRegistry := llmtools.NewDefaultRegistry()
 	toolPermissions := llmtools.NewPermissions()
@@ -187,6 +192,10 @@ func NewWithSocket(socketPath string) *App {
 
 	if cfg.SystemPrompt != "" {
 		chatModel.SetSystemPrompt(cfg.SystemPrompt)
+	}
+
+	if cfg.Model != "" {
+		chatModel.SetPreferredModel(cfg.Model)
 	}
 
 	convID := config.NewConversationID()
@@ -314,6 +323,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case commands.SwitchModelMsg:
 		a.chat.SwitchModel(msg.Name)
+		a.statusBar.ModelName = a.chat.ActiveModelName()
+		a.statusBar.ModelProvider = a.chat.ActiveModelProvider()
+		// Persist model selection
+		a.cfg.Model = msg.Name
+		_ = a.cfg.Save()
 
 	case commands.SetModeMsg:
 		cmd := a.enterMode(modes.Mode(msg.Mode))
@@ -344,8 +358,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case browse.SelectModelMsg:
 		// User selected an LLM model from browse
 		a.chat.SwitchModel(msg.ModelName)
+		a.statusBar.ModelName = a.chat.ActiveModelName()
+		a.statusBar.ModelProvider = a.chat.ActiveModelProvider()
 		a.setMode(modes.Normal)
 		a.chat.InjectSystemMessage("Model switched to: " + msg.ModelName)
+		// Persist model selection
+		a.cfg.Model = msg.ModelName
+		_ = a.cfg.Save()
 	}
 
 	// Forward to chat for streaming updates
@@ -815,7 +834,7 @@ func (a *App) chatAreaHeight() int {
 
 	switch a.mode {
 	case modes.Insert:
-		inputHeight = 5
+		inputHeight = 3 // 1 row + border
 	case modes.Command:
 		inputHeight = 1
 	}

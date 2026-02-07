@@ -152,31 +152,18 @@ func (t *Theme) ComputeStyles() *Styles {
 
 		// Chat bubbles
 		UserBubble: lipgloss.NewStyle().
-			Foreground(t.UserBubbleFg).
-			Background(t.UserBubbleBg).
-			Padding(1, 2).
-			MarginTop(1).
-			MarginBottom(1).
-			MarginLeft(4),
+			Foreground(t.KeyColor).
+			Bold(true),
 		AssistantBubble: lipgloss.NewStyle().
-			Foreground(t.AssistantBubbleFg).
-			Background(t.AssistantBubbleBg).
-			Padding(1, 2).
-			MarginTop(1).
-			MarginBottom(1).
-			MarginRight(4),
+			Foreground(t.AssistantBubbleFg),
 		SystemBubble: lipgloss.NewStyle().
 			Foreground(t.SystemBubbleFg).
-			Background(t.SystemBubbleBg).
-			Padding(1, 2).
-			MarginTop(1).
-			MarginBottom(1).
+			PaddingLeft(1).
 			Border(lipgloss.Border{Left: "│"}).
 			BorderForeground(t.Primary),
 		UserLabel: lipgloss.NewStyle().
 			Foreground(t.PrimaryLight).
-			Bold(true).
-			MarginLeft(4),
+			Bold(true),
 		AssistantLabel: lipgloss.NewStyle().
 			Foreground(t.Secondary).
 			Bold(true),

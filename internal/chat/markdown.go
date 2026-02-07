@@ -31,8 +31,7 @@ func RenderMarkdown(text string, t *theme.Theme, width int) string {
 		Bold(true)
 
 	inlineCodeStyle := lipgloss.NewStyle().
-		Foreground(t.Secondary).
-		Background(t.BgCard)
+		Foreground(t.Secondary)
 
 	headerStyle := lipgloss.NewStyle().
 		Foreground(t.Primary).
@@ -164,13 +163,47 @@ func RenderMarkdown(text string, t *theme.Theme, width int) string {
 
 // formatInline handles inline formatting: `code`, **bold**, *italic*.
 func formatInline(text string, codeStyle, boldStyle, italicStyle lipgloss.Style) string {
-	// Process inline code first (backticks)
-	text = processDelimited(text, "`", "`", codeStyle)
+	// Process inline code first (backticks) - style unclosed as code
+	text = processDelimitedCode(text, "`", codeStyle)
 	// Then bold (double asterisk)
 	text = processDelimited(text, "**", "**", boldStyle)
 	// Then italic (single asterisk, but not double)
 	text = processItalic(text, italicStyle)
 	return text
+}
+
+// processDelimitedCode handles backtick code spans, styling unclosed ones to end of text.
+func processDelimitedCode(text, delim string, style lipgloss.Style) string {
+	var result strings.Builder
+	remaining := text
+
+	for {
+		start := strings.Index(remaining, delim)
+		if start == -1 {
+			result.WriteString(remaining)
+			break
+		}
+
+		after := remaining[start+len(delim):]
+		end := strings.Index(after, delim)
+
+		// Write text before the delimiter
+		result.WriteString(remaining[:start])
+
+		if end == -1 {
+			// Unclosed backtick - style rest of text as code
+			result.WriteString(style.Render(after))
+			break
+		}
+
+		// Write styled content
+		content := after[:end]
+		result.WriteString(style.Render(content))
+		// Move past the closing delimiter
+		remaining = after[end+len(delim):]
+	}
+
+	return result.String()
 }
 
 // processDelimited finds and styles text between delimiter pairs.
@@ -281,4 +314,35 @@ func parseNumberedList(s string) (string, string) {
 	num := s[:dotIdx+1]
 	content := strings.TrimSpace(s[dotIdx+1:])
 	return num, content
+}
+
+// wrapText wraps text to the specified width, breaking at word boundaries.
+func wrapText(text string, width int) string {
+	if width <= 0 {
+		width = 80
+	}
+	if len(text) <= width {
+		return text
+	}
+
+	var result strings.Builder
+	var lineLen int
+
+	words := strings.Fields(text)
+	for i, word := range words {
+		wordLen := len(word)
+
+		if lineLen+wordLen > width && lineLen > 0 {
+			result.WriteString("\n")
+			lineLen = 0
+		} else if i > 0 && lineLen > 0 {
+			result.WriteString(" ")
+			lineLen++
+		}
+
+		result.WriteString(word)
+		lineLen += wordLen
+	}
+
+	return result.String()
 }
