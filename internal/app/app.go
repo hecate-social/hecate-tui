@@ -251,7 +251,6 @@ func NewWithSocket(socketPath string) *App {
 // healthMsg carries daemon health check results.
 type healthMsg struct {
 	status string
-	model  string
 }
 
 // healthTickMsg triggers periodic health polling.
@@ -307,9 +306,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case healthMsg:
 		a.daemonStatus = msg.status
 		a.statusBar.DaemonStatus = msg.status
-		if msg.model != "" {
-			a.statusBar.ModelName = msg.model
-		}
+		// Sync status bar model from chat state (don't override with first model from list)
+		a.statusBar.ModelName = a.chat.ActiveModelName()
+		a.statusBar.ModelProvider = a.chat.ActiveModelProvider()
 
 	case healthTickMsg:
 		cmds = append(cmds, a.checkHealth, a.scheduleHealthTick())
@@ -1124,14 +1123,7 @@ func (a *App) checkHealth() tea.Msg {
 	if err != nil {
 		return healthMsg{status: "error"}
 	}
-
-	model := ""
-	models, modelsErr := a.client.ListModels()
-	if modelsErr == nil && len(models) > 0 {
-		model = models[0].Name
-	}
-
-	return healthMsg{status: health.Status, model: model}
+	return healthMsg{status: health.Status}
 }
 
 func (a *App) saveConversation() {
