@@ -25,6 +25,11 @@ type Model struct {
 	ModelError    string // error message when ModelStatus is "error"
 	InputLen      int    // character count for Insert mode
 	SessionTokens int    // cumulative tokens for session
+
+	// Torch context
+	TorchName   string // current torch name (empty if none)
+	ActivePhase string // current ALC phase: "dna", "anp", "tni", "dno"
+	AgentCount  int    // number of active agents
 }
 
 // New creates a new status bar.
@@ -96,6 +101,27 @@ func (m Model) View() string {
 		daemonSection += m.styles.Subtle.Render("○")
 	}
 
+	// Torch context: name + phase + agent count
+	torchSection := ""
+	if m.TorchName != "" {
+		name := m.TorchName
+		if len(name) > 15 {
+			name = name[:12] + "..."
+		}
+		torchSection = "  " + m.styles.Subtle.Render("🔥 "+name)
+
+		// Phase badge
+		if m.ActivePhase != "" {
+			phaseStyle := m.phaseStyle(m.ActivePhase)
+			torchSection += " " + phaseStyle.Render(strings.ToUpper(m.ActivePhase))
+		}
+
+		// Agent count
+		if m.AgentCount > 0 {
+			torchSection += m.styles.Subtle.Render(fmt.Sprintf(" 🤖×%d", m.AgentCount))
+		}
+	}
+
 	// Token count (only show if non-zero and using paid provider)
 	tokenSection := ""
 	if m.SessionTokens > 0 && m.isPaidProvider() {
@@ -121,8 +147,8 @@ func (m Model) View() string {
 		hints = m.styles.Subtle.Render("  " + hintsText)
 	}
 
-	// Left side: mode + model + daemon + tokens
-	left := modeLabel + modelSection + daemonSection + tokenSection
+	// Left side: mode + model + daemon + torch + tokens
+	left := modeLabel + modelSection + daemonSection + torchSection + tokenSection
 
 	// Right side: hints + clickable donate link + version
 	// OSC 8 hyperlink format: \x1b]8;;URL\x1b\\TEXT\x1b]8;;\x1b\\
@@ -165,6 +191,23 @@ func (m Model) modeStyle() lipgloss.Style {
 		return m.styles.EditMode
 	default:
 		return m.styles.NormalMode
+	}
+}
+
+// phaseStyle returns a style for ALC phase badges.
+func (m Model) phaseStyle(phase string) lipgloss.Style {
+	base := lipgloss.NewStyle().Padding(0, 1).Bold(true)
+	switch strings.ToLower(phase) {
+	case "dna":
+		return base.Foreground(lipgloss.Color("#7C3AED")) // Purple - Discovery
+	case "anp":
+		return base.Foreground(lipgloss.Color("#2563EB")) // Blue - Architecture
+	case "tni":
+		return base.Foreground(lipgloss.Color("#059669")) // Green - Testing
+	case "dno":
+		return base.Foreground(lipgloss.Color("#DC2626")) // Red - Deployment
+	default:
+		return base.Foreground(lipgloss.Color("#6B7280")) // Gray
 	}
 }
 

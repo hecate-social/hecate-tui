@@ -5,9 +5,9 @@ import (
 	"fmt"
 )
 
-// ALCProject represents a project in the Application Lifecycle.
-type ALCProject struct {
-	ProjectID             string `json:"project_id"`
+// Cartwheel represents a bounded context in the Application Lifecycle.
+type Cartwheel struct {
+	CartwheelID           string `json:"project_id"` // API still uses project_id
 	Name                  string `json:"name"`
 	Description           string `json:"description"`
 	CurrentPhase          string `json:"current_phase"`
@@ -27,40 +27,40 @@ type ALCProject struct {
 	CompletedAt           int64  `json:"completed_at"`
 }
 
-// ALCFinding represents a discovery finding.
-type ALCFinding struct {
-	FindingID  string `json:"finding_id"`
-	ProjectID  string `json:"project_id"`
-	Category   string `json:"category"`
-	Title      string `json:"title"`
-	Content    string `json:"content"`
-	Priority   string `json:"priority"`
-	RecordedAt int64  `json:"recorded_at"`
+// CartwheelFinding represents a discovery finding.
+type CartwheelFinding struct {
+	FindingID    string `json:"finding_id"`
+	CartwheelID  string `json:"project_id"`
+	Category     string `json:"category"`
+	Title        string `json:"title"`
+	Content      string `json:"content"`
+	Priority     string `json:"priority"`
+	RecordedAt   int64  `json:"recorded_at"`
 }
 
-// ALCTerm represents a ubiquitous language term.
-type ALCTerm struct {
-	TermID     string `json:"term_id"`
-	ProjectID  string `json:"project_id"`
-	Term       string `json:"term"`
-	Definition string `json:"definition"`
-	DefinedAt  int64  `json:"defined_at"`
+// CartwheelTerm represents a ubiquitous language term.
+type CartwheelTerm struct {
+	TermID      string `json:"term_id"`
+	CartwheelID string `json:"project_id"`
+	Term        string `json:"term"`
+	Definition  string `json:"definition"`
+	DefinedAt   int64  `json:"defined_at"`
 }
 
-// ALCDossier represents an architecture dossier (bounded context).
-type ALCDossier struct {
+// CartwheelDossier represents an architecture dossier (bounded context).
+type CartwheelDossier struct {
 	DossierID     string `json:"dossier_id"`
-	ProjectID     string `json:"project_id"`
+	CartwheelID   string `json:"project_id"`
 	DossierName   string `json:"dossier_name"`
 	StreamPattern string `json:"stream_pattern"`
 	Description   string `json:"description"`
 	DefinedAt     int64  `json:"defined_at"`
 }
 
-// ALCSpoke represents an inventoried vertical slice.
-type ALCSpoke struct {
+// CartwheelSpoke represents an inventoried vertical slice.
+type CartwheelSpoke struct {
 	SpokeID       string `json:"spoke_id"`
-	ProjectID     string `json:"project_id"`
+	CartwheelID   string `json:"project_id"`
 	SpokeName     string `json:"spoke_name"`
 	SpokeType     string `json:"spoke_type"`
 	Priority      string `json:"priority"`
@@ -69,38 +69,38 @@ type ALCSpoke struct {
 	InventoriedAt int64  `json:"inventoried_at"`
 }
 
-// ALCImplementation represents a spoke implementation record.
-type ALCImplementation struct {
+// CartwheelImplementation represents a spoke implementation record.
+type CartwheelImplementation struct {
 	ImplementationID    string `json:"implementation_id"`
-	ProjectID           string `json:"project_id"`
+	CartwheelID         string `json:"project_id"`
 	SpokeID             string `json:"spoke_id"`
 	ImplementationNotes string `json:"implementation_notes"`
 	ImplementedAt       int64  `json:"implemented_at"`
 }
 
-// ALCBuild represents a build verification record.
-type ALCBuild struct {
-	BuildID    string `json:"build_id"`
-	ProjectID  string `json:"project_id"`
-	Result     string `json:"result"`
-	Notes      string `json:"notes"`
-	VerifiedAt int64  `json:"verified_at"`
+// CartwheelBuild represents a build verification record.
+type CartwheelBuild struct {
+	BuildID     string `json:"build_id"`
+	CartwheelID string `json:"project_id"`
+	Result      string `json:"result"`
+	Notes       string `json:"notes"`
+	VerifiedAt  int64  `json:"verified_at"`
 }
 
-// ALCDeployment represents a deployment record.
-type ALCDeployment struct {
+// CartwheelDeployment represents a deployment record.
+type CartwheelDeployment struct {
 	DeploymentID string `json:"deployment_id"`
-	ProjectID    string `json:"project_id"`
+	CartwheelID  string `json:"project_id"`
 	Environment  string `json:"environment"`
 	Version      string `json:"version"`
 	Notes        string `json:"notes"`
 	DeployedAt   int64  `json:"deployed_at"`
 }
 
-// ALCIncident represents an operational incident.
-type ALCIncident struct {
+// CartwheelIncident represents an operational incident.
+type CartwheelIncident struct {
 	IncidentID  string `json:"incident_id"`
-	ProjectID   string `json:"project_id"`
+	CartwheelID string `json:"project_id"`
 	Severity    string `json:"severity"`
 	Description string `json:"description"`
 	Resolution  string `json:"resolution"`
@@ -108,160 +108,160 @@ type ALCIncident struct {
 	ResolvedAt  int64  `json:"resolved_at"`
 }
 
-// ListProjects returns all ALC projects.
-func (c *Client) ListProjects() ([]ALCProject, error) {
+// ListCartwheels returns all cartwheels.
+func (c *Client) ListCartwheels() ([]Cartwheel, error) {
 	resp, err := c.get("/alc/projects")
 	if err != nil {
 		return nil, err
 	}
 	if !resp.Ok {
-		return nil, fmt.Errorf("list projects failed: %s", resp.Error)
+		return nil, fmt.Errorf("list cartwheels failed: %s", resp.Error)
 	}
-	var projects []ALCProject
-	if err := json.Unmarshal(resp.Result, &projects); err != nil {
-		return nil, fmt.Errorf("failed to parse projects: %w", err)
+	var cartwheels []Cartwheel
+	if err := json.Unmarshal(resp.Result, &cartwheels); err != nil {
+		return nil, fmt.Errorf("failed to parse cartwheels: %w", err)
 	}
-	return projects, nil
+	return cartwheels, nil
 }
 
-// GetProject returns a single ALC project by ID.
-func (c *Client) GetProject(projectID string) (*ALCProject, error) {
-	resp, err := c.get("/alc/projects/" + projectID)
+// GetCartwheel returns a single cartwheel by ID.
+func (c *Client) GetCartwheel(cartwheelID string) (*Cartwheel, error) {
+	resp, err := c.get("/alc/projects/" + cartwheelID)
 	if err != nil {
 		return nil, err
 	}
 	if !resp.Ok {
-		return nil, fmt.Errorf("get project failed: %s", resp.Error)
+		return nil, fmt.Errorf("get cartwheel failed: %s", resp.Error)
 	}
-	var project ALCProject
-	if err := json.Unmarshal(resp.Result, &project); err != nil {
-		return nil, fmt.Errorf("failed to parse project: %w", err)
+	var cartwheel Cartwheel
+	if err := json.Unmarshal(resp.Result, &cartwheel); err != nil {
+		return nil, fmt.Errorf("failed to parse cartwheel: %w", err)
 	}
-	return &project, nil
+	return &cartwheel, nil
 }
 
-// ListFindings returns findings for a project's discovery phase.
-func (c *Client) ListFindings(projectID string) ([]ALCFinding, error) {
-	resp, err := c.get("/alc/projects/" + projectID + "/discovery/findings")
+// ListCartwheelFindings returns findings for a cartwheel's discovery phase.
+func (c *Client) ListCartwheelFindings(cartwheelID string) ([]CartwheelFinding, error) {
+	resp, err := c.get("/alc/projects/" + cartwheelID + "/discovery/findings")
 	if err != nil {
 		return nil, err
 	}
 	if !resp.Ok {
 		return nil, fmt.Errorf("list findings failed: %s", resp.Error)
 	}
-	var findings []ALCFinding
+	var findings []CartwheelFinding
 	if err := json.Unmarshal(resp.Result, &findings); err != nil {
 		return nil, fmt.Errorf("failed to parse findings: %w", err)
 	}
 	return findings, nil
 }
 
-// ListTerms returns terms for a project's discovery phase.
-func (c *Client) ListTerms(projectID string) ([]ALCTerm, error) {
-	resp, err := c.get("/alc/projects/" + projectID + "/discovery/terms")
+// ListCartwheelTerms returns terms for a cartwheel's discovery phase.
+func (c *Client) ListCartwheelTerms(cartwheelID string) ([]CartwheelTerm, error) {
+	resp, err := c.get("/alc/projects/" + cartwheelID + "/discovery/terms")
 	if err != nil {
 		return nil, err
 	}
 	if !resp.Ok {
 		return nil, fmt.Errorf("list terms failed: %s", resp.Error)
 	}
-	var terms []ALCTerm
+	var terms []CartwheelTerm
 	if err := json.Unmarshal(resp.Result, &terms); err != nil {
 		return nil, fmt.Errorf("failed to parse terms: %w", err)
 	}
 	return terms, nil
 }
 
-// ListDossiers returns dossiers for a project's architecture phase.
-func (c *Client) ListDossiers(projectID string) ([]ALCDossier, error) {
-	resp, err := c.get("/alc/projects/" + projectID + "/architecture/dossiers")
+// ListCartwheelDossiers returns dossiers for a cartwheel's architecture phase.
+func (c *Client) ListCartwheelDossiers(cartwheelID string) ([]CartwheelDossier, error) {
+	resp, err := c.get("/alc/projects/" + cartwheelID + "/architecture/dossiers")
 	if err != nil {
 		return nil, err
 	}
 	if !resp.Ok {
 		return nil, fmt.Errorf("list dossiers failed: %s", resp.Error)
 	}
-	var dossiers []ALCDossier
+	var dossiers []CartwheelDossier
 	if err := json.Unmarshal(resp.Result, &dossiers); err != nil {
 		return nil, fmt.Errorf("failed to parse dossiers: %w", err)
 	}
 	return dossiers, nil
 }
 
-// ListSpokes returns spokes for a project's architecture phase.
-func (c *Client) ListSpokes(projectID string) ([]ALCSpoke, error) {
-	resp, err := c.get("/alc/projects/" + projectID + "/architecture/spokes")
+// ListCartwheelSpokes returns spokes for a cartwheel's architecture phase.
+func (c *Client) ListCartwheelSpokes(cartwheelID string) ([]CartwheelSpoke, error) {
+	resp, err := c.get("/alc/projects/" + cartwheelID + "/architecture/spokes")
 	if err != nil {
 		return nil, err
 	}
 	if !resp.Ok {
 		return nil, fmt.Errorf("list spokes failed: %s", resp.Error)
 	}
-	var spokes []ALCSpoke
+	var spokes []CartwheelSpoke
 	if err := json.Unmarshal(resp.Result, &spokes); err != nil {
 		return nil, fmt.Errorf("failed to parse spokes: %w", err)
 	}
 	return spokes, nil
 }
 
-// ListImplementations returns implementations for a project's testing phase.
-func (c *Client) ListImplementations(projectID string) ([]ALCImplementation, error) {
-	resp, err := c.get("/alc/projects/" + projectID + "/testing/implementations")
+// ListCartwheelImplementations returns implementations for a cartwheel's testing phase.
+func (c *Client) ListCartwheelImplementations(cartwheelID string) ([]CartwheelImplementation, error) {
+	resp, err := c.get("/alc/projects/" + cartwheelID + "/testing/implementations")
 	if err != nil {
 		return nil, err
 	}
 	if !resp.Ok {
 		return nil, fmt.Errorf("list implementations failed: %s", resp.Error)
 	}
-	var impls []ALCImplementation
+	var impls []CartwheelImplementation
 	if err := json.Unmarshal(resp.Result, &impls); err != nil {
 		return nil, fmt.Errorf("failed to parse implementations: %w", err)
 	}
 	return impls, nil
 }
 
-// ListBuilds returns builds for a project's testing phase.
-func (c *Client) ListBuilds(projectID string) ([]ALCBuild, error) {
-	resp, err := c.get("/alc/projects/" + projectID + "/testing/builds")
+// ListCartwheelBuilds returns builds for a cartwheel's testing phase.
+func (c *Client) ListCartwheelBuilds(cartwheelID string) ([]CartwheelBuild, error) {
+	resp, err := c.get("/alc/projects/" + cartwheelID + "/testing/builds")
 	if err != nil {
 		return nil, err
 	}
 	if !resp.Ok {
 		return nil, fmt.Errorf("list builds failed: %s", resp.Error)
 	}
-	var builds []ALCBuild
+	var builds []CartwheelBuild
 	if err := json.Unmarshal(resp.Result, &builds); err != nil {
 		return nil, fmt.Errorf("failed to parse builds: %w", err)
 	}
 	return builds, nil
 }
 
-// ListDeployments returns deployments for a project's deployment phase.
-func (c *Client) ListDeployments(projectID string) ([]ALCDeployment, error) {
-	resp, err := c.get("/alc/projects/" + projectID + "/deployment/deployments")
+// ListCartwheelDeployments returns deployments for a cartwheel's deployment phase.
+func (c *Client) ListCartwheelDeployments(cartwheelID string) ([]CartwheelDeployment, error) {
+	resp, err := c.get("/alc/projects/" + cartwheelID + "/deployment/deployments")
 	if err != nil {
 		return nil, err
 	}
 	if !resp.Ok {
 		return nil, fmt.Errorf("list deployments failed: %s", resp.Error)
 	}
-	var deployments []ALCDeployment
+	var deployments []CartwheelDeployment
 	if err := json.Unmarshal(resp.Result, &deployments); err != nil {
 		return nil, fmt.Errorf("failed to parse deployments: %w", err)
 	}
 	return deployments, nil
 }
 
-// ListIncidents returns incidents for a project's deployment phase.
-func (c *Client) ListIncidents(projectID string) ([]ALCIncident, error) {
-	resp, err := c.get("/alc/projects/" + projectID + "/deployment/incidents")
+// ListCartwheelIncidents returns incidents for a cartwheel's deployment phase.
+func (c *Client) ListCartwheelIncidents(cartwheelID string) ([]CartwheelIncident, error) {
+	resp, err := c.get("/alc/projects/" + cartwheelID + "/deployment/incidents")
 	if err != nil {
 		return nil, err
 	}
 	if !resp.Ok {
 		return nil, fmt.Errorf("list incidents failed: %s", resp.Error)
 	}
-	var incidents []ALCIncident
+	var incidents []CartwheelIncident
 	if err := json.Unmarshal(resp.Result, &incidents); err != nil {
 		return nil, fmt.Errorf("failed to parse incidents: %w", err)
 	}
@@ -271,6 +271,7 @@ func (c *Client) ListIncidents(projectID string) ([]ALCIncident, error) {
 // ALCCommand sends a generic POST command to an ALC endpoint.
 // This covers all mutation endpoints (initiate, start phases, record artifacts,
 // complete phases, transition). The caller constructs the right path and body.
+// Note: API paths still use /alc/projects for backward compatibility.
 func (c *Client) ALCCommand(path string, body map[string]interface{}) error {
 	resp, err := c.post(path, body)
 	if err != nil {

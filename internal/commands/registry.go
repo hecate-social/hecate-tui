@@ -48,10 +48,13 @@ func NewRegistry() *Registry {
 	r.Register(&ThemeCmd{})
 	r.Register(&ToolsCmd{})
 	r.Register(&LLMToolsCmd{})
-	r.Register(&ALCCmd{})
+	r.Register(&CartwheelCmd{})
 	r.Register(&ProviderCmd{})
 	r.Register(&RoleCmd{})
 	r.Register(&AboutCmd{})
+	r.Register(&TorchCmd{})
+	r.Register(&AgentsCmd{})
+	r.Register(&CostCmd{})
 
 	return r
 }
