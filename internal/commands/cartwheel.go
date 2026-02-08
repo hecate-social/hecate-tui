@@ -182,7 +182,7 @@ func (c *CartwheelCmd) initCartwheel(args []string, ctx *Context) tea.Cmd {
 			body["description"] = desc
 		}
 
-		err := ctx.Client.ALCCommand("/alc/projects/initiate", body)
+		err := ctx.Client.CartwheelCommand("/api/cartwheels/initiate", body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to initiate cartwheel: " + err.Error())}
 		}
@@ -285,8 +285,8 @@ func (c *CartwheelCmd) phaseAction(cartwheelID, phase string, args []string, ctx
 
 	return func() tea.Msg {
 		s := ctx.Styles
-		path := fmt.Sprintf("/alc/projects/%s/%s/start", cartwheelID, phase)
-		err := ctx.Client.ALCCommand(path, nil)
+		path := fmt.Sprintf("/api/cartwheels/%s/%s/start", cartwheelID, phase)
+		err := ctx.Client.CartwheelCommand(path, nil)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to start " + phase + ": " + err.Error())}
 		}
@@ -314,8 +314,8 @@ func (c *CartwheelCmd) recordFinding(cartwheelID string, args []string, ctx *Con
 			body["content"] = content
 		}
 
-		path := fmt.Sprintf("/alc/projects/%s/discovery/findings", cartwheelID)
-		err := ctx.Client.ALCCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/discovery/findings/record", cartwheelID)
+		err := ctx.Client.CartwheelCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to record finding: " + err.Error())}
 		}
@@ -337,8 +337,8 @@ func (c *CartwheelCmd) defineTerm(cartwheelID string, args []string, ctx *Contex
 		s := ctx.Styles
 		body := map[string]interface{}{"term": term, "definition": definition}
 
-		path := fmt.Sprintf("/alc/projects/%s/discovery/terms", cartwheelID)
-		err := ctx.Client.ALCCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/discovery/terms/define", cartwheelID)
+		err := ctx.Client.CartwheelCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to define term: " + err.Error())}
 		}
@@ -361,8 +361,8 @@ func (c *CartwheelCmd) transition(cartwheelID string, args []string, ctx *Contex
 		s := ctx.Styles
 		body := map[string]interface{}{"target_phase": targetPhase}
 
-		path := fmt.Sprintf("/alc/projects/%s/transition", cartwheelID)
-		err := ctx.Client.ALCCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/transition", cartwheelID)
+		err := ctx.Client.CartwheelCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to transition: " + err.Error())}
 		}
@@ -390,8 +390,8 @@ func (c *CartwheelCmd) defineDossier(cartwheelID string, args []string, ctx *Con
 			body["description"] = desc
 		}
 
-		path := fmt.Sprintf("/alc/projects/%s/architecture/dossiers", cartwheelID)
-		err := ctx.Client.ALCCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/architecture/dossiers/define", cartwheelID)
+		err := ctx.Client.CartwheelCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to define dossier: " + err.Error())}
 		}
@@ -427,8 +427,8 @@ func (c *CartwheelCmd) inventorySpoke(cartwheelID string, args []string, ctx *Co
 			body["description"] = desc
 		}
 
-		path := fmt.Sprintf("/alc/projects/%s/architecture/spokes", cartwheelID)
-		err := ctx.Client.ALCCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/architecture/spokes/inventory", cartwheelID)
+		err := ctx.Client.CartwheelCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to inventory spoke: " + err.Error())}
 		}
@@ -456,8 +456,8 @@ func (c *CartwheelCmd) draftPlan(cartwheelID string, args []string, ctx *Context
 			body["description"] = desc
 		}
 
-		path := fmt.Sprintf("/alc/projects/%s/architecture/plans", cartwheelID)
-		err := ctx.Client.ALCCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/architecture/plan", cartwheelID)
+		err := ctx.Client.CartwheelCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to draft plan: " + err.Error())}
 		}
@@ -478,8 +478,8 @@ func (c *CartwheelCmd) approvePlan(cartwheelID string, args []string, ctx *Conte
 		s := ctx.Styles
 		body := map[string]interface{}{"plan_id": planID}
 
-		path := fmt.Sprintf("/alc/projects/%s/architecture/plans/approve", cartwheelID)
-		err := ctx.Client.ALCCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/architecture/plan/approve", cartwheelID)
+		err := ctx.Client.CartwheelCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to approve plan: " + err.Error())}
 		}
@@ -490,8 +490,8 @@ func (c *CartwheelCmd) approvePlan(cartwheelID string, args []string, ctx *Conte
 func (c *CartwheelCmd) createSkeleton(cartwheelID string, ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
-		path := fmt.Sprintf("/alc/projects/%s/testing/skeleton", cartwheelID)
-		err := ctx.Client.ALCCommand(path, nil)
+		path := fmt.Sprintf("/api/cartwheels/%s/testing/skeleton", cartwheelID)
+		err := ctx.Client.CartwheelCommand(path, nil)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to create skeleton: " + err.Error())}
 		}
@@ -519,8 +519,8 @@ func (c *CartwheelCmd) implementSpoke(cartwheelID string, args []string, ctx *Co
 			body["implementation_notes"] = notes
 		}
 
-		path := fmt.Sprintf("/alc/projects/%s/testing/implementations", cartwheelID)
-		err := ctx.Client.ALCCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/testing/implement", cartwheelID)
+		err := ctx.Client.CartwheelCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to implement spoke: " + err.Error())}
 		}
@@ -545,8 +545,8 @@ func (c *CartwheelCmd) verifyBuild(cartwheelID string, args []string, ctx *Conte
 			body["notes"] = notes
 		}
 
-		path := fmt.Sprintf("/alc/projects/%s/testing/builds", cartwheelID)
-		err := ctx.Client.ALCCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/testing/verify", cartwheelID)
+		err := ctx.Client.CartwheelCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to verify build: " + err.Error())}
 		}
@@ -573,8 +573,8 @@ func (c *CartwheelCmd) deployAction(cartwheelID string, args []string, ctx *Cont
 	if sub == "start" {
 		return func() tea.Msg {
 			s := ctx.Styles
-			path := fmt.Sprintf("/alc/projects/%s/deployment/start", cartwheelID)
-			err := ctx.Client.ALCCommand(path, nil)
+			path := fmt.Sprintf("/api/cartwheels/%s/deployment/start", cartwheelID)
+			err := ctx.Client.CartwheelCommand(path, nil)
 			if err != nil {
 				return InjectSystemMsg{Content: s.Error.Render("Failed to start deployment phase: " + err.Error())}
 			}
@@ -608,8 +608,8 @@ func (c *CartwheelCmd) deployAction(cartwheelID string, args []string, ctx *Cont
 				body["notes"] = notes
 			}
 
-			path := fmt.Sprintf("/alc/projects/%s/deployment/deployments", cartwheelID)
-			err := ctx.Client.ALCCommand(path, body)
+			path := fmt.Sprintf("/api/cartwheels/%s/deployment/record", cartwheelID)
+			err := ctx.Client.CartwheelCommand(path, body)
 			if err != nil {
 				return InjectSystemMsg{Content: s.Error.Render("Failed to record deployment: " + err.Error())}
 			}
@@ -639,8 +639,8 @@ func (c *CartwheelCmd) reportIncident(cartwheelID string, args []string, ctx *Co
 		s := ctx.Styles
 		body := map[string]interface{}{"description": description}
 
-		path := fmt.Sprintf("/alc/projects/%s/deployment/incidents", cartwheelID)
-		err := ctx.Client.ALCCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/deployment/incident", cartwheelID)
+		err := ctx.Client.CartwheelCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to report incident: " + err.Error())}
 		}
@@ -665,8 +665,8 @@ func (c *CartwheelCmd) resolveIncident(cartwheelID string, args []string, ctx *C
 			"resolution":  resolution,
 		}
 
-		path := fmt.Sprintf("/alc/projects/%s/deployment/incidents/resolve", cartwheelID)
-		err := ctx.Client.ALCCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/deployment/incident/resolve", cartwheelID)
+		err := ctx.Client.CartwheelCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to resolve incident: " + err.Error())}
 		}
@@ -677,12 +677,34 @@ func (c *CartwheelCmd) resolveIncident(cartwheelID string, args []string, ctx *C
 func (c *CartwheelCmd) completePhase(cartwheelID string, ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
-		path := fmt.Sprintf("/alc/projects/%s/complete", cartwheelID)
-		err := ctx.Client.ALCCommand(path, nil)
+
+		// Fetch cartwheel to determine current phase
+		cartwheel, err := ctx.Client.GetCartwheel(cartwheelID)
+		if err != nil {
+			return InjectSystemMsg{Content: s.Error.Render("Failed to get cartwheel: " + err.Error())}
+		}
+
+		// Map phase to endpoint path segment
+		var phasePath string
+		switch strings.ToLower(cartwheel.CurrentPhase) {
+		case "discovery", "dna":
+			phasePath = "discovery"
+		case "architecture", "anp":
+			phasePath = "architecture"
+		case "testing", "tni":
+			phasePath = "testing"
+		case "deployment", "dno":
+			phasePath = "deployment"
+		default:
+			return InjectSystemMsg{Content: s.Error.Render("Cannot complete phase: " + cartwheel.CurrentPhase)}
+		}
+
+		path := fmt.Sprintf("/api/cartwheels/%s/%s/complete", cartwheelID, phasePath)
+		err = ctx.Client.CartwheelCommand(path, nil)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to complete phase: " + err.Error())}
 		}
-		return InjectSystemMsg{Content: s.StatusOK.Render("Phase completed for " + cartwheelID)}
+		return InjectSystemMsg{Content: s.StatusOK.Render("Completed " + phasePath + " phase for " + cartwheelID)}
 	}
 }
 

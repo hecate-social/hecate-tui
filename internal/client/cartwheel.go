@@ -110,7 +110,7 @@ type CartwheelIncident struct {
 
 // ListCartwheels returns all cartwheels.
 func (c *Client) ListCartwheels() ([]Cartwheel, error) {
-	resp, err := c.get("/alc/projects")
+	resp, err := c.get("/api/cartwheels")
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +126,7 @@ func (c *Client) ListCartwheels() ([]Cartwheel, error) {
 
 // GetCartwheel returns a single cartwheel by ID.
 func (c *Client) GetCartwheel(cartwheelID string) (*Cartwheel, error) {
-	resp, err := c.get("/alc/projects/" + cartwheelID)
+	resp, err := c.get("/api/cartwheels/" + cartwheelID)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ func (c *Client) GetCartwheel(cartwheelID string) (*Cartwheel, error) {
 
 // ListCartwheelFindings returns findings for a cartwheel's discovery phase.
 func (c *Client) ListCartwheelFindings(cartwheelID string) ([]CartwheelFinding, error) {
-	resp, err := c.get("/alc/projects/" + cartwheelID + "/discovery/findings")
+	resp, err := c.get("/api/cartwheels/" + cartwheelID + "/discovery/findings")
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +158,7 @@ func (c *Client) ListCartwheelFindings(cartwheelID string) ([]CartwheelFinding, 
 
 // ListCartwheelTerms returns terms for a cartwheel's discovery phase.
 func (c *Client) ListCartwheelTerms(cartwheelID string) ([]CartwheelTerm, error) {
-	resp, err := c.get("/alc/projects/" + cartwheelID + "/discovery/terms")
+	resp, err := c.get("/api/cartwheels/" + cartwheelID + "/discovery/terms")
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +174,7 @@ func (c *Client) ListCartwheelTerms(cartwheelID string) ([]CartwheelTerm, error)
 
 // ListCartwheelDossiers returns dossiers for a cartwheel's architecture phase.
 func (c *Client) ListCartwheelDossiers(cartwheelID string) ([]CartwheelDossier, error) {
-	resp, err := c.get("/alc/projects/" + cartwheelID + "/architecture/dossiers")
+	resp, err := c.get("/api/cartwheels/" + cartwheelID + "/architecture/dossiers")
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +190,7 @@ func (c *Client) ListCartwheelDossiers(cartwheelID string) ([]CartwheelDossier, 
 
 // ListCartwheelSpokes returns spokes for a cartwheel's architecture phase.
 func (c *Client) ListCartwheelSpokes(cartwheelID string) ([]CartwheelSpoke, error) {
-	resp, err := c.get("/alc/projects/" + cartwheelID + "/architecture/spokes")
+	resp, err := c.get("/api/cartwheels/" + cartwheelID + "/architecture/spokes")
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +206,7 @@ func (c *Client) ListCartwheelSpokes(cartwheelID string) ([]CartwheelSpoke, erro
 
 // ListCartwheelImplementations returns implementations for a cartwheel's testing phase.
 func (c *Client) ListCartwheelImplementations(cartwheelID string) ([]CartwheelImplementation, error) {
-	resp, err := c.get("/alc/projects/" + cartwheelID + "/testing/implementations")
+	resp, err := c.get("/api/cartwheels/" + cartwheelID + "/testing/implementations")
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +222,7 @@ func (c *Client) ListCartwheelImplementations(cartwheelID string) ([]CartwheelIm
 
 // ListCartwheelBuilds returns builds for a cartwheel's testing phase.
 func (c *Client) ListCartwheelBuilds(cartwheelID string) ([]CartwheelBuild, error) {
-	resp, err := c.get("/alc/projects/" + cartwheelID + "/testing/builds")
+	resp, err := c.get("/api/cartwheels/" + cartwheelID + "/testing/builds")
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +238,7 @@ func (c *Client) ListCartwheelBuilds(cartwheelID string) ([]CartwheelBuild, erro
 
 // ListCartwheelDeployments returns deployments for a cartwheel's deployment phase.
 func (c *Client) ListCartwheelDeployments(cartwheelID string) ([]CartwheelDeployment, error) {
-	resp, err := c.get("/alc/projects/" + cartwheelID + "/deployment/deployments")
+	resp, err := c.get("/api/cartwheels/" + cartwheelID + "/deployment/deployments")
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +254,7 @@ func (c *Client) ListCartwheelDeployments(cartwheelID string) ([]CartwheelDeploy
 
 // ListCartwheelIncidents returns incidents for a cartwheel's deployment phase.
 func (c *Client) ListCartwheelIncidents(cartwheelID string) ([]CartwheelIncident, error) {
-	resp, err := c.get("/alc/projects/" + cartwheelID + "/deployment/incidents")
+	resp, err := c.get("/api/cartwheels/" + cartwheelID + "/deployment/incidents")
 	if err != nil {
 		return nil, err
 	}
@@ -268,11 +268,10 @@ func (c *Client) ListCartwheelIncidents(cartwheelID string) ([]CartwheelIncident
 	return incidents, nil
 }
 
-// ALCCommand sends a generic POST command to an ALC endpoint.
+// CartwheelCommand sends a generic POST command to a cartwheel endpoint.
 // This covers all mutation endpoints (initiate, start phases, record artifacts,
 // complete phases, transition). The caller constructs the right path and body.
-// Note: API paths still use /alc/projects for backward compatibility.
-func (c *Client) ALCCommand(path string, body map[string]interface{}) error {
+func (c *Client) CartwheelCommand(path string, body map[string]interface{}) error {
 	resp, err := c.post(path, body)
 	if err != nil {
 		return err
