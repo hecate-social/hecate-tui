@@ -308,13 +308,21 @@ func (c Config) ActiveRoleDisplayName() string {
 	return ""
 }
 
-// BuildSystemPrompt combines personality, role, and custom system prompt.
+// BuildSystemPrompt combines personality, ALC overview, role, and custom system prompt.
 func (c Config) BuildSystemPrompt() string {
 	var parts []string
 
 	// Load personality if configured
 	if personality, err := c.LoadPersonality(); err == nil && personality != "" {
 		parts = append(parts, personality)
+	}
+
+	// Load ALC overview (always, so Hecate knows her own lifecycle framework)
+	if c.Personality.RolesDir != "" {
+		alcPath := filepath.Join(expandPath(c.Personality.RolesDir), "HECATE_ALC.md")
+		if data, err := os.ReadFile(alcPath); err == nil {
+			parts = append(parts, string(data))
+		}
 	}
 
 	// Load active role if configured
