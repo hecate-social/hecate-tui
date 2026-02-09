@@ -45,12 +45,12 @@ func (c *TorchCmd) Complete(args []string, ctx *Context) []string {
 
 	var torchMatches []string
 	for _, torch := range torches {
-		// Match against ID
+		// Match against ID (case-insensitive prefix match, preserve original case)
 		if strings.HasPrefix(strings.ToLower(torch.TorchID), prefix) {
 			torchMatches = append(torchMatches, torch.TorchID)
 		}
-		// Match against name
-		if strings.HasPrefix(strings.ToLower(torch.Name), prefix) {
+		// Match against name (case-insensitive prefix match, preserve original case)
+		if strings.HasPrefix(strings.ToLower(torch.Name), prefix) && torch.Name != torch.TorchID {
 			torchMatches = append(torchMatches, torch.Name)
 		}
 	}
@@ -395,9 +395,9 @@ func (c *TorchCmd) selectTorch(idOrName string, ctx *Context) tea.Cmd {
 		if idx := c.parseIndex(idOrName); idx > 0 && idx <= len(torches) {
 			selected = &torches[idx-1]
 		} else {
-			// Find by ID or name (case-insensitive for name)
+			// Find by ID (case-insensitive) or name (case-insensitive)
 			for i := range torches {
-				if torches[i].TorchID == idOrName || strings.EqualFold(torches[i].Name, idOrName) {
+				if strings.EqualFold(torches[i].TorchID, idOrName) || strings.EqualFold(torches[i].Name, idOrName) {
 					selected = &torches[i]
 					break
 				}
