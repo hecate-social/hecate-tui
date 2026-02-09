@@ -23,7 +23,7 @@ func (c *TorchCmd) Description() string { return "Manage business endeavors (Tor
 // Complete implements Completable for torch argument completion.
 func (c *TorchCmd) Complete(args []string, ctx *Context) []string {
 	// Subcommands
-	subcommands := []string{"init", "new", "list", "ls", "select", "clear", "exit", "archive", "help", "status"}
+	subcommands := []string{"init", "new", "list", "ls", "select", "clear", "exit", "archive", "refine-vision", "refine", "rv", "submit-vision", "submit", "sv", "help", "status"}
 
 	if len(args) == 0 {
 		return subcommands
@@ -130,6 +130,10 @@ func (c *TorchCmd) Execute(args []string, ctx *Context) tea.Cmd {
 			reason = strings.Join(args[2:], " ")
 		}
 		return c.archiveTorch(args[1], reason, ctx)
+	case "refine-vision", "refine", "rv":
+		return c.refineVision(args[1:], ctx)
+	case "submit-vision", "submit", "sv":
+		return c.submitVision(ctx)
 	case "help":
 		return c.showUsage(ctx)
 	default:
@@ -179,9 +183,15 @@ func (c *TorchCmd) showUsage(ctx *Context) tea.Cmd {
 		b.WriteString(row("/torch status", "Show current torch status"))
 		b.WriteString(row("/torch init <name> [brief]", "Initiate a new torch"))
 		b.WriteString(row("/torch archive <torch-id> [reason]", "Archive a torch (soft delete)"))
+		b.WriteString(row("/torch refine-vision", "Open VISION.md for editing"))
+		b.WriteString(row("/torch submit-vision", "Submit vision, complete DnA phase"))
 		b.WriteString(row("/torch list", "List active torches"))
 		b.WriteString(row("/torch list all", "List all torches (including archived)"))
 		b.WriteString(row("/torch <id>", "Show specific torch by ID"))
+		b.WriteString("\n")
+
+		// Aliases for vision commands
+		b.WriteString(s.Subtle.Render("Vision aliases: refine/rv, submit/sv"))
 		b.WriteString("\n")
 
 		// Aliases
@@ -256,16 +266,14 @@ func (c *TorchCmd) listTorches(ctx *Context, includeArchived bool) tea.Cmd {
 			if i > 0 {
 				b.WriteString("\n")
 			}
-			b.WriteString(s.CardLabel.Render("  ID: "))
+			b.WriteString(s.CardLabel.Render("    ID: "))
 			b.WriteString(s.CardValue.Render(torch.TorchID))
-			// Show archived badge if archived (status bit 32)
-			if torch.Status&32 != 0 {
-				b.WriteString(" ")
-				b.WriteString(s.Error.Render("[archived]"))
-			}
 			b.WriteString("\n")
-			b.WriteString(s.CardLabel.Render("Name: "))
+			b.WriteString(s.CardLabel.Render("  Name: "))
 			b.WriteString(s.CardValue.Render(torch.Name))
+			b.WriteString("\n")
+			b.WriteString(s.CardLabel.Render("Status: "))
+			b.WriteString(s.CardValue.Render(formatTorchStatusLabel(torch)))
 			b.WriteString("\n")
 			if torch.Brief != "" {
 				b.WriteString(s.Subtle.Render("      " + torch.Brief))
@@ -425,6 +433,12 @@ func (c *TorchCmd) doInitiateTorch(path, name, brief string, ctx *Context) tea.C
 			b.WriteString("\n")
 		}
 
+		if result.VisionCreated {
+			b.WriteString(s.StatusOK.Render("  ✓ "))
+			b.WriteString(s.Subtle.Render("VISION.md"))
+			b.WriteString("\n")
+		}
+
 		if result.GitInitialized {
 			b.WriteString(s.StatusOK.Render("  ✓ "))
 			b.WriteString(s.Subtle.Render("git init"))
@@ -479,6 +493,104 @@ func (c *TorchCmd) archiveTorch(torchID, reason string, ctx *Context) tea.Cmd {
 	}
 }
 
+// refineVision opens VISION.md for editing, scaffolding it first if needed.
+// The file IS the vision — no key=value API params.
+func (c *TorchCmd) refineVision(args []string, ctx *Context) tea.Cmd {
+	return func() tea.Msg {
+		s := ctx.Styles
+
+		// Need a torch in context
+		if ctx.GetALCContext == nil {
+			return InjectSystemMsg{Content: s.Error.Render("No torch selected. Use /torch to select one first.")}
+		}
+		state := ctx.GetALCContext()
+		if state == nil || state.Torch == nil {
+			return InjectSystemMsg{Content: s.Error.Render("No torch selected. Use /torch to select one first.")}
+		}
+
+		// Torch root = cwd (the TUI cds into the torch dir on init/select)
+		cwd, err := os.Getwd()
+		if err != nil {
+			return InjectSystemMsg{Content: s.Error.Render("Cannot determine working directory: " + err.Error())}
+		}
+
+		// Scaffold VISION.md if it doesn't exist
+		manifest := scaffold.TorchManifest{
+			Name:        state.Torch.Name,
+			Brief:       state.Torch.Brief,
+			InitiatedBy: userAtHost(),
+		}
+		created, err := scaffold.ScaffoldVision(cwd, manifest)
+		if err != nil {
+			return InjectSystemMsg{Content: s.Error.Render("Failed to scaffold VISION.md: " + err.Error())}
+		}
+
+		// Tell daemon vision refinement started
+		params := map[string]interface{}{
+			"refined_by": userAtHost(),
+		}
+		_ = ctx.Client.RefineVision(state.Torch.ID, params)
+
+		visionPath := scaffold.VisionPath(cwd)
+		if created {
+			return EditFileMsg{Path: visionPath}
+		}
+
+		// Already exists — just open it
+		return EditFileMsg{Path: visionPath}
+	}
+}
+
+// submitVision submits the torch vision, completing the DnA phase.
+// Validates that VISION.md exists before allowing submission.
+func (c *TorchCmd) submitVision(ctx *Context) tea.Cmd {
+	return func() tea.Msg {
+		s := ctx.Styles
+
+		// Need a torch in context
+		if ctx.GetALCContext == nil {
+			return InjectSystemMsg{Content: s.Error.Render("No torch selected. Use /torch to select one first.")}
+		}
+		state := ctx.GetALCContext()
+		if state == nil || state.Torch == nil {
+			return InjectSystemMsg{Content: s.Error.Render("No torch selected. Use /torch to select one first.")}
+		}
+
+		// Check VISION.md exists
+		cwd, err := os.Getwd()
+		if err != nil {
+			return InjectSystemMsg{Content: s.Error.Render("Cannot determine working directory: " + err.Error())}
+		}
+		if !scaffold.VisionExists(cwd) {
+			return InjectSystemMsg{Content: s.Error.Render("No VISION.md found. Use /torch refine-vision to create and edit it first.")}
+		}
+
+		err = ctx.Client.SubmitVision(state.Torch.ID, userAtHost())
+		if err != nil {
+			return InjectSystemMsg{Content: s.Error.Render("Failed to submit vision: " + err.Error())}
+		}
+
+		var b strings.Builder
+		b.WriteString(s.StatusOK.Render("Vision Submitted"))
+		b.WriteString("\n\n")
+		b.WriteString(s.Subtle.Render("DnA phase complete. Torch is ready for Architecture & Planning."))
+		return InjectSystemMsg{Content: b.String()}
+	}
+}
+
+// userAtHost returns "user@hostname" for attribution.
+func userAtHost() string {
+	user := os.Getenv("USER")
+	if user == "" {
+		user = "unknown"
+	}
+	hostname, _ := os.Hostname()
+	if hostname == "" {
+		hostname = "localhost"
+	}
+	return user + "@" + hostname
+}
+
 func (c *TorchCmd) renderTorchCard(torch *client.Torch, ctx *Context) string {
 	s := ctx.Styles
 	var b strings.Builder
@@ -498,7 +610,7 @@ func (c *TorchCmd) renderTorchCard(torch *client.Torch, ctx *Context) string {
 	}
 
 	b.WriteString(s.CardLabel.Render("      Status: "))
-	b.WriteString(s.CardValue.Render(formatTorchStatus(torch.Status)))
+	b.WriteString(s.CardValue.Render(formatTorchStatusLabel(*torch)))
 	b.WriteString("\n")
 
 	if torch.ActiveCartwheelID != "" {
@@ -520,26 +632,38 @@ func (c *TorchCmd) renderTorchCard(torch *client.Torch, ctx *Context) string {
 	return b.String()
 }
 
+// formatTorchStatusLabel returns the status label, preferring the daemon-provided
+// label (with emojis) and falling back to a local mapping.
+func formatTorchStatusLabel(torch client.Torch) string {
+	if torch.StatusLabel != "" {
+		return torch.StatusLabel
+	}
+	return formatTorchStatus(torch.Status)
+}
+
 // formatTorchStatus converts a status bit field to a human-readable string.
+// Matches torch_aggregate.erl bit flags.
 func formatTorchStatus(status int) string {
-	// Status bit flags (assumed based on typical patterns)
 	const (
-		statusInitiated = 1 << iota
-		statusActive
-		statusPaused
-		statusCompleted
-		statusArchived
+		statusInitiated    = 1  // 2^0
+		statusDNAActive    = 2  // 2^1
+		statusDNAComplete  = 4  // 2^2
+		statusImplementing = 8  // 2^3
+		statusCompleted    = 16 // 2^4
+		statusArchived     = 32 // 2^5
 	)
 
 	switch {
-	case status&statusCompleted != 0:
-		return "Completed"
 	case status&statusArchived != 0:
 		return "Archived"
-	case status&statusPaused != 0:
-		return "Paused"
-	case status&statusActive != 0:
-		return "Active"
+	case status&statusCompleted != 0:
+		return "Completed"
+	case status&statusImplementing != 0:
+		return "Implementing"
+	case status&statusDNAComplete != 0:
+		return "Discovery Done"
+	case status&statusDNAActive != 0:
+		return "Discovering"
 	case status&statusInitiated != 0:
 		return "Initiated"
 	default:

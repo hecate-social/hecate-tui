@@ -43,6 +43,8 @@ type DaemonClient interface {
 	ListAllTorches() ([]Torch, error)
 	InitiateTorch(name, brief string) (*Torch, error)
 	ArchiveTorch(torchID, reason string) error
+	RefineVision(torchID string, params map[string]interface{}) error
+	SubmitVision(torchID, submittedBy string) error
 
 	// Cartwheels
 	ListCartwheels() ([]Cartwheel, error)

@@ -82,6 +82,8 @@ func (a *App) handleNormalKey(key string) tea.Cmd {
 	case "?":
 		ctx := a.commandContext()
 		return commands.ModeHelp(int(a.mode), ctx)
+	case "t":
+		a.chat.ToggleThinking()
 	case "r":
 		return a.chat.RetryLast()
 	case "y":

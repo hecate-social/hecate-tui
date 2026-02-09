@@ -43,6 +43,9 @@ type Model struct {
 	streamStart       time.Time
 	sessionTokenCount int // Cumulative tokens for session
 
+	// Think tag state
+	thinkExpanded bool
+
 	// Error
 	err error
 
@@ -69,9 +72,10 @@ type Model struct {
 
 // Message represents a chat message (user, assistant, or system).
 type Message struct {
-	Role    string    // "user", "assistant", "system"
-	Content string
-	Time    time.Time // when the message was created
+	Role         string    // "user", "assistant", "system"
+	Content      string
+	ThinkContent string    // extracted <think>...</think> content, if any
+	Time         time.Time // when the message was created
 }
 
 // ExportMsg is a message suitable for export (no internal state).
@@ -270,10 +274,12 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		}
 		bufContent := m.streamBuf.String()
 		if len(bufContent) > 0 {
+			visible, thinking := StripThinkTags(bufContent)
 			m.messages = append(m.messages, Message{
-				Role:    "assistant",
-				Content: bufContent,
-				Time:    time.Now(),
+				Role:         "assistant",
+				Content:      visible,
+				ThinkContent: thinking,
+				Time:         time.Now(),
 			})
 		} else {
 			// Debug: no content received
@@ -393,6 +399,14 @@ func (m *Model) ClearError() {
 // SessionTokenCount returns the cumulative token count for this session.
 func (m Model) SessionTokenCount() int {
 	return m.sessionTokenCount
+}
+
+// -- Think toggle --
+
+// ToggleThinking toggles the visibility of think blocks in messages.
+func (m *Model) ToggleThinking() {
+	m.thinkExpanded = !m.thinkExpanded
+	m.updateViewportPreserveScroll()
 }
 
 // -- Scroll API --

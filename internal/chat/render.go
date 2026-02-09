@@ -113,6 +113,34 @@ func (m Model) renderMessages() string {
 
 		case "assistant":
 			label := m.styles.AssistantLabel.Render("◆ Hecate") + timestamp
+
+			// Show think block indicator if present
+			if msg.ThinkContent != "" {
+				thinkStyle := lipgloss.NewStyle().Foreground(m.theme.TextMuted).Italic(true)
+				if m.thinkExpanded {
+					thinkHeader := thinkStyle.Render("▼ Thinking")
+					thinkBody := thinkStyle.Render(msg.ThinkContent)
+					thinkBubble := m.styles.AssistantBubble.Width(bubbleWidth).Render(thinkBody)
+					parts = append(parts, label+"\n"+thinkHeader+"\n"+thinkBubble)
+					// Render visible content below the think block
+					if msg.Content != "" {
+						rendered := RenderMarkdown(msg.Content, m.theme, bubbleWidth-4)
+						bubble := m.styles.AssistantBubble.Width(bubbleWidth).Render(rendered)
+						parts = append(parts, bubble)
+					}
+					continue
+				}
+				// Collapsed: show indicator before message
+				thinkIndicator := thinkStyle.Render("▶ Thinking... (t to expand)")
+				parts = append(parts, label+"\n"+thinkIndicator)
+				if msg.Content != "" {
+					rendered := RenderMarkdown(msg.Content, m.theme, bubbleWidth-4)
+					bubble := m.styles.AssistantBubble.Width(bubbleWidth).Render(rendered)
+					parts = append(parts, bubble)
+				}
+				continue
+			}
+
 			rendered := RenderMarkdown(msg.Content, m.theme, bubbleWidth-4)
 			bubble := m.styles.AssistantBubble.Width(bubbleWidth).Render(rendered)
 			parts = append(parts, label+"\n"+bubble)
@@ -160,8 +188,23 @@ func (m *Model) updateStreamingMessage() {
 	// Always show assistant label when streaming
 	content += "\n\n" + m.styles.AssistantLabel.Render("◆ Hecate") + "\n"
 	if m.streamBuf.Len() > 0 {
+		// Strip think tags from display during streaming
+		bufText := m.streamBuf.String()
+		visible, _ := StripThinkTags(bufText)
+		// If there's an open think tag, show thinking indicator
+		if HasOpenThinkTag(bufText) {
+			before, _ := SplitAtOpenThink(bufText)
+			visible, _ = StripThinkTags(before)
+			thinkStyle := lipgloss.NewStyle().Foreground(m.theme.TextMuted).Italic(true)
+			thinkIndicator := thinkStyle.Render("thinking...")
+			if visible != "" {
+				visible += "\n" + thinkIndicator
+			} else {
+				visible = thinkIndicator
+			}
+		}
 		// Show streamed content with cursor
-		bubble := m.styles.AssistantBubble.Width(m.viewport.Width - 8).Render(m.streamBuf.String() + "▊")
+		bubble := m.styles.AssistantBubble.Width(m.viewport.Width - 8).Render(visible + "▊")
 		content += bubble
 	} else {
 		// Show thinking animation in the chat area while waiting for content

@@ -25,10 +25,11 @@ type TorchManifest struct {
 
 // TemplateData holds data for rendering templates.
 type TemplateData struct {
-	Name    string
-	Brief   string
-	RepoURL string
-	Date    string
+	Name        string
+	Brief       string
+	RepoURL     string
+	Date        string
+	InitiatedBy string
 }
 
 // Result holds the result of scaffolding.
@@ -38,6 +39,7 @@ type Result struct {
 	AgentsCloned     bool
 	ReadmeCreated    bool
 	ChangelogCreated bool
+	VisionCreated    bool
 	GitInitialized   bool
 	GitCommitted     bool
 	Warnings         []string
@@ -81,10 +83,11 @@ func Scaffold(root string, manifest TorchManifest) Result {
 
 	// 4. Prepare template data
 	data := TemplateData{
-		Name:    manifest.Name,
-		Brief:   manifest.Brief,
-		RepoURL: inferRepoURL(root),
-		Date:    time.Now().Format("2006-01-02"),
+		Name:        manifest.Name,
+		Brief:       manifest.Brief,
+		RepoURL:     inferRepoURL(root),
+		Date:        time.Now().Format("2006-01-02"),
+		InitiatedBy: manifest.InitiatedBy,
 	}
 
 	// 5. Generate README.md
@@ -101,18 +104,25 @@ func Scaffold(root string, manifest TorchManifest) Result {
 		result.ChangelogCreated = true
 	}
 
-	// 7. Create .gitignore
+	// 7. Generate VISION.md
+	if err := generateFromTemplate(root, agentsDir, "VISION.md", data); err != nil {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("Failed to create VISION.md: %v", err))
+	} else {
+		result.VisionCreated = true
+	}
+
+	// 8. Create .gitignore
 	if err := createGitignore(root); err != nil {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("Failed to create .gitignore: %v", err))
 	}
 
-	// 8. Initialize git repository
+	// 9. Initialize git repository
 	if err := gitInit(root); err != nil {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("Failed to git init: %v", err))
 	} else {
 		result.GitInitialized = true
 
-		// 9. Git add and commit
+		// 10. Git add and commit
 		if err := gitCommit(root, manifest.Name); err != nil {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("Failed to git commit: %v", err))
 		} else {
@@ -296,6 +306,52 @@ All notable changes to **%s** will be documented in this file.
 *Managed with [Hecate](https://github.com/hecate-social/hecate)*
 `, data.Name)
 
+	case "VISION.md":
+		brief := ""
+		if data.Brief != "" {
+			brief = data.Brief
+		}
+		return fmt.Sprintf(`# Vision: %s
+
+> %s
+
+## Problem
+
+What problem are we solving? Why does it matter?
+
+## Vision
+
+What does success look like?
+
+## Scope
+
+### In Scope
+
+-
+
+### Out of Scope
+
+-
+
+## Repositories
+
+| Repository | Role |
+|------------|------|
+| | |
+
+## Constraints
+
+-
+
+## Success Criteria
+
+- [ ]
+
+---
+
+*Initiated %s*
+`, data.Name, brief, data.Date)
+
 	default:
 		return ""
 	}
@@ -309,6 +365,41 @@ func inferRepoURL(root string) string {
 		return "https://github.com/your-org/" + filepath.Base(root)
 	}
 	return strings.TrimSpace(string(output))
+}
+
+// ScaffoldVision creates a VISION.md file in the given root directory if it doesn't exist.
+// Uses the template from .hecate/agents/templates/ if available, otherwise falls back to default.
+func ScaffoldVision(root string, manifest TorchManifest) (bool, error) {
+	visionPath := filepath.Join(root, "VISION.md")
+
+	// Already exists — nothing to do
+	if _, err := os.Stat(visionPath); err == nil {
+		return false, nil
+	}
+
+	agentsDir := filepath.Join(root, ".hecate", "agents")
+	data := TemplateData{
+		Name:        manifest.Name,
+		Brief:       manifest.Brief,
+		Date:        time.Now().Format("2006-01-02"),
+		InitiatedBy: manifest.InitiatedBy,
+	}
+
+	if err := generateFromTemplate(root, agentsDir, "VISION.md", data); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// VisionPath returns the path to VISION.md in the given torch root.
+func VisionPath(root string) string {
+	return filepath.Join(root, "VISION.md")
+}
+
+// VisionExists checks if VISION.md exists in the given torch root.
+func VisionExists(root string) bool {
+	_, err := os.Stat(VisionPath(root))
+	return err == nil
 }
 
 // RetryCloneAgents attempts to clone agents again after a failure.

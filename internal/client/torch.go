@@ -12,6 +12,7 @@ type Torch struct {
 	Name              string `json:"name"`
 	Brief             string `json:"brief"`
 	Status            int    `json:"status"`
+	StatusLabel       string `json:"status_label"`
 	ActiveCartwheelID string `json:"active_cartwheel_id"`
 	InitiatedAt       int64  `json:"initiated_at"`
 	InitiatedBy       string `json:"initiated_by"`
@@ -125,6 +126,33 @@ func (c *Client) ArchiveTorch(torchID, reason string) error {
 	}
 	if !resp.Ok {
 		return fmt.Errorf("archive torch failed: %s", resp.Error)
+	}
+	return nil
+}
+
+// RefineVision refines the vision of a torch (updates brief, repos, etc.).
+func (c *Client) RefineVision(torchID string, params map[string]interface{}) error {
+	resp, err := c.post("/api/torches/"+torchID+"/vision/refine", params)
+	if err != nil {
+		return err
+	}
+	if !resp.Ok {
+		return fmt.Errorf("refine vision failed: %s", resp.Error)
+	}
+	return nil
+}
+
+// SubmitVision submits the torch vision, completing the DnA phase.
+func (c *Client) SubmitVision(torchID, submittedBy string) error {
+	body := map[string]interface{}{
+		"submitted_by": submittedBy,
+	}
+	resp, err := c.post("/api/torches/"+torchID+"/vision/submit", body)
+	if err != nil {
+		return err
+	}
+	if !resp.Ok {
+		return fmt.Errorf("submit vision failed: %s", resp.Error)
 	}
 	return nil
 }

@@ -64,8 +64,9 @@ type EditorConfig struct {
 
 // UIConfig holds UI preferences.
 type UIConfig struct {
-	Animations  bool `toml:"animations"`
-	CompactMode bool `toml:"compact_mode"`
+	Animations   bool `toml:"animations"`
+	CompactMode  bool `toml:"compact_mode"`
+	ShowThinking bool `toml:"show_thinking"`
 }
 
 // configDir returns ~/.config/hecate-tui.

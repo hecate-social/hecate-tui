@@ -203,6 +203,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.editorView.SetSize(a.width, a.editorHeight())
 		}
 
+	case tea.MouseMsg:
+		switch msg.Button {
+		case tea.MouseButtonWheelUp:
+			a.chat.ScrollUp(3)
+		case tea.MouseButtonWheelDown:
+			a.chat.ScrollDown(3)
+		}
+
 	case tea.KeyMsg:
 		// Track mode before handling key to detect mode-switching keys
 		modeBefore := a.mode
