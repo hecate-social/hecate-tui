@@ -18,6 +18,48 @@ func (c *TorchCmd) Name() string        { return "torch" }
 func (c *TorchCmd) Aliases() []string   { return []string{"t"} }
 func (c *TorchCmd) Description() string { return "Manage business endeavors (Torches)" }
 
+// Complete implements Completable for torch argument completion.
+func (c *TorchCmd) Complete(args []string, ctx *Context) []string {
+	// Subcommands
+	subcommands := []string{"init", "new", "list", "ls", "select", "clear", "exit", "help", "status"}
+
+	if len(args) == 0 {
+		return subcommands
+	}
+
+	prefix := strings.ToLower(args[0])
+
+	// If first arg matches a subcommand prefix, complete subcommands
+	var subMatches []string
+	for _, sub := range subcommands {
+		if strings.HasPrefix(sub, prefix) {
+			subMatches = append(subMatches, sub)
+		}
+	}
+
+	// Also try to complete torch IDs/names
+	torches, err := ctx.Client.ListTorches()
+	if err != nil {
+		return subMatches
+	}
+
+	var torchMatches []string
+	for _, torch := range torches {
+		// Match against ID
+		if strings.HasPrefix(strings.ToLower(torch.TorchID), prefix) {
+			torchMatches = append(torchMatches, torch.TorchID)
+		}
+		// Match against name
+		if strings.HasPrefix(strings.ToLower(torch.Name), prefix) {
+			torchMatches = append(torchMatches, torch.Name)
+		}
+	}
+
+	// Combine and dedupe
+	all := append(subMatches, torchMatches...)
+	return all
+}
+
 func (c *TorchCmd) Execute(args []string, ctx *Context) tea.Cmd {
 	// No args → show current torch or list if none selected
 	if len(args) == 0 {

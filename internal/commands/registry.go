@@ -148,6 +148,54 @@ func (r *Registry) Complete(prefix string) []string {
 	return matches
 }
 
+// CompleteWithArgs returns completions for commands with arguments.
+// input is the full command line (e.g., "torch loc" or "t 1").
+// ctx is needed for commands that fetch data for completion.
+func (r *Registry) CompleteWithArgs(input string, ctx *Context) []string {
+	input = strings.TrimLeft(input, "/:")
+	parts := strings.Fields(input)
+
+	if len(parts) == 0 {
+		return r.ordered
+	}
+
+	cmdName := strings.ToLower(parts[0])
+
+	// If only command name typed (no space after), complete the command name
+	if len(parts) == 1 && !strings.HasSuffix(input, " ") {
+		return r.Complete(cmdName)
+	}
+
+	// Find the command
+	cmd, ok := r.commands[cmdName]
+	if !ok {
+		// Check aliases
+		if canonical, aliasOk := r.aliases[cmdName]; aliasOk {
+			cmd = r.commands[canonical]
+		}
+	}
+
+	if cmd == nil {
+		return nil
+	}
+
+	// Check if command supports completion
+	completable, ok := cmd.(Completable)
+	if !ok {
+		return nil
+	}
+
+	// Get the arguments (everything after command name)
+	args := parts[1:]
+
+	// If input ends with space, user is starting a new argument
+	if strings.HasSuffix(input, " ") {
+		args = append(args, "")
+	}
+
+	return completable.Complete(args, ctx)
+}
+
 // List returns all commands in sorted order.
 func (r *Registry) List() []Command {
 	var cmds []Command

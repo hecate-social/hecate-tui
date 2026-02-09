@@ -746,10 +746,24 @@ func (a *App) handleCommandKey(key string, msg tea.KeyMsg) tea.Cmd {
 		a.cmdInput.CursorEnd()
 		return nil
 	case "tab":
-		prefix := a.cmdInput.Value()
-		matches := a.registry.Complete(prefix)
+		input := a.cmdInput.Value()
+		ctx := a.commandContext()
+		matches := a.registry.CompleteWithArgs(input, ctx)
 		if len(matches) == 1 {
-			a.cmdInput.SetValue(matches[0])
+			// Single match - complete it
+			parts := strings.Fields(input)
+			if len(parts) <= 1 && !strings.Contains(input, " ") {
+				// Completing command name
+				a.cmdInput.SetValue(matches[0])
+			} else {
+				// Completing argument - replace last part
+				if len(parts) > 0 {
+					parts[len(parts)-1] = matches[0]
+					a.cmdInput.SetValue(strings.Join(parts, " "))
+				} else {
+					a.cmdInput.SetValue(matches[0])
+				}
+			}
 			a.cmdInput.CursorEnd()
 		}
 		return nil

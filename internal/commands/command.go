@@ -18,6 +18,14 @@ type Command interface {
 	Execute(args []string, ctx *Context) tea.Cmd
 }
 
+// Completable is an optional interface for commands that support argument completion.
+type Completable interface {
+	// Complete returns completion suggestions for the given arguments.
+	// args contains the arguments typed so far (may be empty).
+	// Returns a list of suggestions to replace the last argument (or add if args is empty).
+	Complete(args []string, ctx *Context) []string
+}
+
 // Context provides commands access to the app's resources.
 type Context struct {
 	Client     *client.Client
