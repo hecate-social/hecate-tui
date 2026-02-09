@@ -81,11 +81,21 @@ func (c *HelpCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		b.WriteString(row("/me", "", "Show identity"))
 		b.WriteString("\n")
 
+		// 🔥 Torch & Cartwheel (ALC)
+		b.WriteString(section("🔥", "Torch & Cartwheel"))
+		b.WriteString(row("/torch", "(t)", "Show/select torches"))
+		b.WriteString(row("/torches", "(ts)", "List all torches"))
+		b.WriteString(row("/cartwheel", "(cw)", "Manage cartwheels"))
+		b.WriteString(row("/cartwheels", "(cws)", "List cartwheels"))
+		b.WriteString(row("/back", "(b, ..)", "Navigate up context"))
+		b.WriteString(row("/chat", "", "Return to chat mode"))
+		b.WriteString(row("/roles", "", "Switch ALC role"))
+		b.WriteString("\n")
+
 		// 🛠️ Project & Tools
 		b.WriteString(section("🛠️", "Project & Tools"))
 		b.WriteString(row("/project", "(proj)", "Show workspace info"))
 		b.WriteString(row("/config", "", "Show configuration"))
-		b.WriteString(row("/alc", "(lifecycle, lc)", "Application lifecycle"))
 		b.WriteString(row("/pair", "", "Pair programming mode"))
 		b.WriteString(row("/find", "", "Find in codebase"))
 		b.WriteString(row("/tools", "", "Detect developer tools"))
