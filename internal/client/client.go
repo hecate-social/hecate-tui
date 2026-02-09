@@ -16,6 +16,7 @@ type Client struct {
 	baseURL    string
 	httpClient *http.Client
 	transport  *http.Transport // nil for default TCP, set for Unix socket
+	socketPath string          // Unix socket path (empty for TCP)
 }
 
 // New creates a new hecate client using TCP
@@ -43,7 +44,8 @@ func NewWithSocket(socketPath string) *Client {
 			Timeout:   10 * time.Second,
 			Transport: transport,
 		},
-		transport: transport,
+		transport:  transport,
+		socketPath: socketPath,
 	}
 }
 
@@ -51,6 +53,17 @@ func NewWithSocket(socketPath string) *Client {
 // Returns nil for default TCP clients.
 func (c *Client) Transport() *http.Transport {
 	return c.transport
+}
+
+// SocketPath returns the Unix socket path used by this client.
+// Returns empty string for TCP clients.
+func (c *Client) SocketPath() string {
+	return c.socketPath
+}
+
+// BaseURL returns the base URL used by this client.
+func (c *Client) BaseURL() string {
+	return c.baseURL
 }
 
 // Response is the standard hecate API response

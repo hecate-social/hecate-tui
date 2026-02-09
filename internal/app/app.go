@@ -13,6 +13,7 @@ import (
 	"github.com/hecate-social/hecate-tui/internal/commands"
 	"github.com/hecate-social/hecate-tui/internal/config"
 	"github.com/hecate-social/hecate-tui/internal/editor"
+	"github.com/hecate-social/hecate-tui/internal/factbus"
 	"github.com/hecate-social/hecate-tui/internal/llmtools"
 	"github.com/hecate-social/hecate-tui/internal/modes"
 	"github.com/hecate-social/hecate-tui/internal/pair"
@@ -78,6 +79,9 @@ type App struct {
 
 	// ALC context (Chat/Torch/Cartwheel)
 	alcState *alc.State
+
+	// Fact stream (SSE from daemon)
+	factConn *factbus.Connection
 }
 
 // New creates a new App with the modal chat interface.
@@ -153,6 +157,14 @@ func newApp(c *client.Client, cfg config.Config) *App {
 		chatModel.LoadMessages(msgs)
 	}
 
+	// Create factbus connection (uses same socket/URL as client)
+	var fc *factbus.Connection
+	if c.SocketPath() != "" {
+		fc = factbus.NewConnection(c.SocketPath(), "http://localhost")
+	} else {
+		fc = factbus.NewConnection("", c.BaseURL())
+	}
+
 	return &App{
 		client:            c,
 		theme:             t,
@@ -169,16 +181,18 @@ func newApp(c *client.Client, cfg config.Config) *App {
 		toolExecutor:      toolExecutor,
 		approvalPrompt:    approvalPrompt,
 		alcState:          alc.NewState(),
+		factConn:          fc,
 	}
 }
 
-// Init starts the app — fetch models, check health, start polling, detect torch.
+// Init starts the app — fetch models, check health, start polling, detect torch, subscribe to facts.
 func (a *App) Init() tea.Cmd {
 	return tea.Batch(
 		a.chat.Init(),
 		a.checkHealth,
 		a.scheduleHealthTick(),
 		a.detectTorch,
+		a.factConn.Subscribe(),
 	)
 }
 
@@ -366,6 +380,19 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}
+
+	// Fact stream messages (SSE from daemon)
+	case factbus.FactMsg:
+		cmd := a.handleFact(msg)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+
+	case factbus.FactContinueMsg:
+		cmds = append(cmds, a.scheduleFactPoll())
+
+	case factbus.FactDisconnectedMsg:
+		// Connection lost; factbus will auto-reconnect
 	}
 
 	// Forward to chat for streaming updates
