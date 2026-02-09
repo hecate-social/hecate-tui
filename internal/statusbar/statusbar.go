@@ -8,7 +8,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/hecate-social/hecate-tui/internal/modes"
 	"github.com/hecate-social/hecate-tui/internal/theme"
-	"github.com/hecate-social/hecate-tui/internal/version"
 )
 
 // Model is the status bar — always visible at the bottom.
@@ -49,22 +48,22 @@ func (m *Model) SetWidth(width int) {
 	m.width = width
 }
 
-// View renders the status bar.
+// Height returns the number of lines the status bar occupies.
+func (m Model) Height() int {
+	return 2
+}
+
+// View renders the status bar as two lines with consistent styling.
 func (m Model) View() string {
 	if m.width == 0 {
 		return ""
 	}
 
-	// Mode label — each mode gets its own color
+	barStyle := m.styles.StatusBar.Width(m.width)
+
+	// ── Line 1: mode + model + tokens ──
 	modeStyle := m.modeStyle()
 	modeLabel := modeStyle.Render(" " + m.Mode.String() + " ")
-
-	// Current working directory (shortened)
-	cwdSection := ""
-	if m.Cwd != "" {
-		cwd := shortenPath(m.Cwd, 30)
-		cwdSection = "  " + m.styles.Subtle.Render(cwd)
-	}
 
 	// Model indicator with provider and status LED
 	modelSection := ""
@@ -74,18 +73,16 @@ func (m Model) View() string {
 			name = name[:17] + "..."
 		}
 
-		// Model status LED (shows loading/ready/error)
 		modelLED := ""
 		switch m.ModelStatus {
 		case "loading":
-			modelLED = m.styles.StatusWarning.Render("◐") + " " // half-filled = loading
+			modelLED = m.styles.StatusWarning.Render("◐") + " "
 		case "error":
-			modelLED = m.styles.StatusError.Render("●") + " " // red = error
+			modelLED = m.styles.StatusError.Render("●") + " "
 		default:
-			modelLED = m.styles.StatusOK.Render("●") + " " // green = ready
+			modelLED = m.styles.StatusOK.Render("●") + " "
 		}
 
-		// Show provider in brackets, with $ for paid providers
 		providerLabel := ""
 		if m.ModelProvider != "" {
 			if m.isPaidProvider() {
@@ -97,73 +94,50 @@ func (m Model) View() string {
 		modelSection = "  " + modelLED + m.styles.Subtle.Render(name) + providerLabel
 	}
 
-	// Daemon status
-	daemonSection := "  "
-	switch m.DaemonStatus {
-	case "healthy", "ok":
-		daemonSection += m.styles.StatusOK.Render("●")
-	case "degraded":
-		daemonSection += m.styles.StatusWarning.Render("●")
-	case "error", "unhealthy":
-		daemonSection += m.styles.StatusError.Render("●")
-	default:
-		daemonSection += m.styles.Subtle.Render("○")
-	}
-
-	// Note: Torch context (name, phase, agents) is shown in the header breadcrumb
-	// when in Torch or Cartwheel mode, so we don't duplicate it here.
-
 	// Token count (only show if non-zero and using paid provider)
 	tokenSection := ""
 	if m.SessionTokens > 0 && m.isPaidProvider() {
 		tokenSection = m.styles.Subtle.Render(fmt.Sprintf("  %s tok", formatTokenCount(m.SessionTokens)))
 	}
 
+	line1 := modeLabel + modelSection + tokenSection
+
+	// ── Line 2: cwd + hints ──
+	cwdSection := ""
+	if m.Cwd != "" {
+		cwd := shortenPath(m.Cwd, 40)
+		cwdSection = " " + m.styles.Subtle.Render(cwd)
+	}
+
 	// Contextual hints (or error message if model failed)
 	var hints string
 	if m.ModelStatus == "error" && m.ModelError != "" {
-		// Truncate long errors to fit in status bar
 		errMsg := m.ModelError
-		if len(errMsg) > 40 {
-			errMsg = errMsg[:37] + "..."
+		if len(errMsg) > 50 {
+			errMsg = errMsg[:47] + "..."
 		}
-		hints = m.styles.StatusError.Render("  ✗ " + errMsg)
+		hints = m.styles.StatusError.Render(" ✗ " + errMsg)
 	} else if m.ModelStatus == "loading" {
-		hints = m.styles.StatusWarning.Render("  ◐ Loading model...")
+		hints = m.styles.StatusWarning.Render(" ◐ Loading model...")
 	} else {
 		hintsText := m.Mode.Hints()
 		if m.Mode == modes.Insert && m.InputLen > 0 {
 			hintsText = fmt.Sprintf("%d chars  %s", m.InputLen, hintsText)
 		}
-		hints = m.styles.Subtle.Render("  " + hintsText)
+		hints = m.styles.Subtle.Render(" " + hintsText)
 	}
 
-	// Left side: mode + cwd + model + daemon + tokens
-	left := modeLabel + cwdSection + modelSection + daemonSection + tokenSection
-
-	// Right side: hints + clickable donate link + version
-	// OSC 8 hyperlink format: \x1b]8;;URL\x1b\\TEXT\x1b]8;;\x1b\\
-	donateURL := "https://" + version.DonateURL
-	donateText := m.styles.Subtle.Render("☕ donate")
-	donateLink := fmt.Sprintf("  \x1b]8;;%s\x1b\\%s\x1b]8;;\x1b\\", donateURL, donateText)
-	versionSection := m.styles.Subtle.Render("  v" + version.Version)
-	right := hints + donateLink + versionSection
-
-	// Calculate spacing (use visual width for donate, not including escape sequences)
-	leftWidth := lipgloss.Width(left)
-	// For right side, calculate visual width manually since OSC 8 escapes confuse lipgloss.Width
-	hintsWidth := lipgloss.Width(hints)
-	donateVisualWidth := 2 + lipgloss.Width(donateText) // "  " + text
-	versionWidth := lipgloss.Width(versionSection)
-	rightWidth := hintsWidth + donateVisualWidth + versionWidth
-	spacerWidth := m.width - leftWidth - rightWidth
-	if spacerWidth < 1 {
-		spacerWidth = 1
+	line2Left := cwdSection
+	line2Right := hints
+	line2LeftWidth := lipgloss.Width(line2Left)
+	line2RightWidth := lipgloss.Width(line2Right)
+	spacer2 := m.width - line2LeftWidth - line2RightWidth
+	if spacer2 < 1 {
+		spacer2 = 1
 	}
+	line2 := line2Left + strings.Repeat(" ", spacer2) + line2Right
 
-	bar := left + strings.Repeat(" ", spacerWidth) + right
-
-	return m.styles.StatusBar.Width(m.width).Render(bar)
+	return barStyle.Render(line1) + "\n" + barStyle.Render(line2)
 }
 
 func (m Model) modeStyle() lipgloss.Style {

@@ -106,9 +106,10 @@ func (m Model) renderMessages() string {
 
 		switch msg.Role {
 		case "user":
-			label := m.styles.UserLabel.Render("▸ You") + timestamp
-			bubble := m.styles.UserBubble.Render(msg.Content)
-			parts = append(parts, label+"\n"+bubble)
+			// User messages: just the bullet + content, no header line
+			bullet := m.styles.UserLabel.Render("▸ ")
+			bubble := m.styles.UserBubble.Render(msg.Content) + timestamp
+			parts = append(parts, bullet+bubble)
 
 		case "assistant":
 			label := m.styles.AssistantLabel.Render("◆ Hecate") + timestamp
@@ -122,7 +123,7 @@ func (m Model) renderMessages() string {
 		}
 	}
 
-	return strings.Join(parts, "\n\n")
+	return strings.Join(parts, "\n")
 }
 
 func (m *Model) updateViewport() {

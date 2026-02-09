@@ -1,12 +1,14 @@
 package app
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/hecate-social/hecate-tui/internal/alc"
 	"github.com/hecate-social/hecate-tui/internal/llmtools"
 	"github.com/hecate-social/hecate-tui/internal/modes"
+	"github.com/hecate-social/hecate-tui/internal/version"
 )
 
 // View renders the entire TUI.
@@ -37,7 +39,7 @@ func (a *App) View() string {
 
 	var sections []string
 
-	// Header
+	// Header (3 lines: brand, context, separator)
 	sections = append(sections, a.renderHeader())
 
 	// Chat area (always visible)
@@ -284,20 +286,13 @@ func (a *App) renderFormLayout() string {
 }
 
 func (a *App) renderHeader() string {
-	// Context-aware header based on ALC state
-	if a.alcState != nil && a.alcState.Context != alc.Chat {
-		return a.renderContextHeader()
-	}
+	rowStyle := lipgloss.NewStyle().Width(a.width).Padding(0, 1)
 
-	// Default Chat mode header
+	// ── Row 1: brand + version + daemon LED + donate ──
 	logo := lipgloss.NewStyle().Foreground(a.theme.Primary).Bold(true).Render("🔥🗝️🔥 Hecate")
+	versionSection := a.styles.Subtle.Render(" v" + version.Version)
 
-	modelSection := ""
-	if modelName := a.chat.ActiveModelName(); modelName != "" {
-		modelSection = a.styles.Subtle.Render("  ·  " + modelName)
-	}
-
-	daemonSection := "  ·  "
+	daemonSection := "  "
 	switch a.daemonStatus {
 	case "healthy", "ok":
 		daemonSection += a.styles.StatusOK.Render("●") + a.styles.Subtle.Render(" daemon")
@@ -307,18 +302,36 @@ func (a *App) renderHeader() string {
 		daemonSection += a.styles.Subtle.Render("○ daemon")
 	}
 
-	titleSection := ""
-	if a.conversationTitle != "" {
-		titleSection = a.styles.Subtle.Render("  ·  ") + a.styles.CardValue.Render(a.conversationTitle)
+	row1Left := logo + versionSection + daemonSection
+
+	donateURL := "https://" + version.DonateURL
+	donateText := a.styles.Subtle.Render("☕ donate")
+	donateLink := fmt.Sprintf("\x1b]8;;%s\x1b\\%s\x1b]8;;\x1b\\", donateURL, donateText)
+
+	row1LeftWidth := lipgloss.Width(row1Left)
+	row1RightWidth := lipgloss.Width(donateText)
+	spacer := a.width - row1LeftWidth - row1RightWidth - 2 // -2 for left/right padding
+	if spacer < 1 {
+		spacer = 1
 	}
+	// Build row1 manually — lipgloss Width miscalculates OSC 8 escape sequences
+	row1 := " " + row1Left + strings.Repeat(" ", spacer) + donateLink + " "
 
-	left := logo + modelSection + daemonSection + titleSection
+	// ── Row 2: ALC context (or blank) ──
+	row2Content := ""
+	if a.alcState != nil && a.alcState.Context != alc.Chat {
+		row2Content = a.renderContextRow()
+	}
+	row2 := rowStyle.Render(row2Content)
 
-	return lipgloss.NewStyle().Width(a.width).Padding(0, 1).Render(left)
+	// ── Row 3: separator ──
+	sep := lipgloss.NewStyle().Foreground(a.theme.Border).Render(strings.Repeat("─", a.width))
+
+	return row1 + "\n" + row2 + "\n" + sep
 }
 
-// renderContextHeader renders the context-aware header for Torch/Cartwheel modes.
-func (a *App) renderContextHeader() string {
+// renderContextRow renders the ALC context line for Torch/Cartwheel modes.
+func (a *App) renderContextRow() string {
 	var parts []string
 
 	// Torch name (always present in non-Chat mode)
@@ -332,25 +345,13 @@ func (a *App) renderContextHeader() string {
 		cartwheelStyle := lipgloss.NewStyle().Foreground(a.theme.Secondary)
 		parts = append(parts, cartwheelStyle.Render("🎡 "+a.alcState.Cartwheel.Name))
 
-		// Phase badge
 		if phase := a.alcState.Cartwheel.CurrentPhase; phase != "" {
 			phaseStyle := a.phaseStyle(string(phase))
 			parts = append(parts, phaseStyle.Render("📍 "+strings.ToUpper(string(phase))))
 		}
-
-		// Model indicator moves to header in Cartwheel mode
-		if modelName := a.chat.ActiveModelName(); modelName != "" {
-			name := modelName
-			if len(name) > 15 {
-				name = name[:12] + "..."
-			}
-			parts = append(parts, a.styles.Subtle.Render("🤖 "+name))
-		}
 	}
 
-	left := strings.Join(parts, a.styles.Subtle.Render(" › "))
-
-	return lipgloss.NewStyle().Width(a.width).Padding(0, 1).Render(left)
+	return strings.Join(parts, a.styles.Subtle.Render(" › "))
 }
 
 // phaseStyle returns a style for ALC phase badges.
@@ -378,8 +379,8 @@ func (a *App) renderCommandLine() string {
 }
 
 func (a *App) chatAreaHeight() int {
-	headerHeight := 2
-	statusBarHeight := 1
+	headerHeight := 3
+	statusBarHeight := 2
 	inputHeight := 0
 
 	switch a.mode {

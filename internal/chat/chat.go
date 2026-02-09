@@ -222,11 +222,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		m.resize()
-		return m, nil
+	// NOTE: WindowSizeMsg is handled by App via SetSize() — do NOT handle here,
+	// as it would override the calculated chat area height with the full terminal height.
 
 	case modelsMsg:
 		m.models = msg.models
