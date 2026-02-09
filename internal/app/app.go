@@ -2,10 +2,7 @@ package app
 
 import (
 	"os"
-	"strings"
-	"time"
 
-	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -19,7 +16,6 @@ import (
 	"github.com/hecate-social/hecate-tui/internal/llmtools"
 	"github.com/hecate-social/hecate-tui/internal/modes"
 	"github.com/hecate-social/hecate-tui/internal/pair"
-	"github.com/hecate-social/hecate-tui/internal/scaffold"
 	"github.com/hecate-social/hecate-tui/internal/statusbar"
 	"github.com/hecate-social/hecate-tui/internal/theme"
 	"github.com/hecate-social/hecate-tui/internal/ui"
@@ -86,111 +82,20 @@ type App struct {
 
 // New creates a new App with the modal chat interface.
 func New(hecateURL string) *App {
-	// Load persistent config
 	cfg := config.Load()
-
-	// Config can override daemon URL
 	if cfg.DaemonURL() != "" && hecateURL == "http://localhost:4444" {
 		hecateURL = cfg.DaemonURL()
 	}
-
-	c := client.New(hecateURL)
-
-	// Apply saved theme or default
-	t := theme.HecateDark()
-	if cfg.Theme != "" {
-		if saved, ok := theme.BuiltinThemes()[cfg.Theme]; ok {
-			t = saved
-		}
-	}
-	s := t.ComputeStyles()
-
-	// Command line input
-	ci := textinput.New()
-	ci.Placeholder = "command..."
-	ci.Prompt = "/"
-	ci.PromptStyle = lipgloss.NewStyle().Foreground(t.Warning).Bold(true)
-	ci.TextStyle = lipgloss.NewStyle().Foreground(t.Text)
-	ci.CharLimit = 256
-
-	sb := statusbar.New(t, s)
-	if cwd, err := os.Getwd(); err == nil {
-		sb.Cwd = cwd
-	}
-
-	chatModel := chat.New(c, t, s)
-
-	// Build and apply system prompt (combines personality, role, and custom prompt)
-	systemPrompt := cfg.BuildSystemPrompt()
-	if systemPrompt != "" {
-		chatModel.SetSystemPrompt(systemPrompt)
-	}
-
-	// Apply saved model preference
-	if cfg.Model != "" {
-		chatModel.SetPreferredModel(cfg.Model)
-	}
-
-	// Initialize tool system
-	toolRegistry := llmtools.NewDefaultRegistry()
-	toolPermissions := llmtools.NewPermissions()
-	toolExecutor := llmtools.NewExecutor(toolRegistry, toolPermissions)
-
-	// Wire up tool executor to chat
-	chatModel.SetToolExecutor(toolExecutor)
-	// Tools disabled by default - most Ollama models don't support function calling.
-	// Use /tools enable to turn on for models that support it (Claude, GPT-4, etc.)
-	chatModel.EnableTools(false)
-
-	// Set mesh client for mesh tools
-	llmtools.SetMeshClient(c)
-
-	// Create approval prompt for tool authorization
-	approvalPrompt := ui.NewApprovalPrompt(t, s)
-
-	// Auto-load most recent conversation
-	convID := config.NewConversationID()
-	convTitle := ""
-	if convs := config.ListConversations(); len(convs) > 0 {
-		latest := convs[0]
-		convID = latest.ID
-		convTitle = latest.Title
-		var msgs []chat.Message
-		for _, m := range latest.Messages {
-			msgs = append(msgs, chat.Message{
-				Role:    m.Role,
-				Content: m.Content,
-				Time:    m.Time,
-			})
-		}
-		chatModel.LoadMessages(msgs)
-	}
-
-	return &App{
-		client:            c,
-		theme:             t,
-		styles:            s,
-		cfg:               cfg,
-		conversationID:    convID,
-		conversationTitle: convTitle,
-		mode:              modes.Normal,
-		chat:              chatModel,
-		systemPrompt:      systemPrompt,
-		statusBar:         sb,
-		cmdInput:          ci,
-		registry:          commands.NewRegistry(),
-		toolExecutor:      toolExecutor,
-		approvalPrompt:    approvalPrompt,
-		alcState:          alc.NewState(),
-	}
+	return newApp(client.New(hecateURL), cfg)
 }
 
 // NewWithSocket creates a new App connected via Unix domain socket.
 func NewWithSocket(socketPath string) *App {
-	cfg := config.Load()
+	return newApp(client.NewWithSocket(socketPath), config.Load())
+}
 
-	c := client.NewWithSocket(socketPath)
-
+// newApp builds the App with all shared initialization.
+func newApp(c *client.Client, cfg config.Config) *App {
 	t := theme.HecateDark()
 	if cfg.Theme != "" {
 		if saved, ok := theme.BuiltinThemes()[cfg.Theme]; ok {
@@ -213,7 +118,6 @@ func NewWithSocket(socketPath string) *App {
 
 	chatModel := chat.New(c, t, s)
 
-	// Build and apply system prompt (combines personality, role, and custom prompt)
 	systemPrompt := cfg.BuildSystemPrompt()
 	if systemPrompt != "" {
 		chatModel.SetSystemPrompt(systemPrompt)
@@ -222,6 +126,15 @@ func NewWithSocket(socketPath string) *App {
 	if cfg.Model != "" {
 		chatModel.SetPreferredModel(cfg.Model)
 	}
+
+	toolRegistry := llmtools.NewDefaultRegistry()
+	toolPermissions := llmtools.NewPermissions()
+	toolExecutor := llmtools.NewExecutor(toolRegistry, toolPermissions)
+	chatModel.SetToolExecutor(toolExecutor)
+	chatModel.EnableTools(false)
+	llmtools.SetMeshClient(c)
+
+	approvalPrompt := ui.NewApprovalPrompt(t, s)
 
 	convID := config.NewConversationID()
 	convTitle := ""
@@ -240,22 +153,6 @@ func NewWithSocket(socketPath string) *App {
 		chatModel.LoadMessages(msgs)
 	}
 
-	// Initialize tool system
-	toolRegistry := llmtools.NewDefaultRegistry()
-	toolPermissions := llmtools.NewPermissions()
-	toolExecutor := llmtools.NewExecutor(toolRegistry, toolPermissions)
-
-	// Wire up tool executor to chat
-	chatModel.SetToolExecutor(toolExecutor)
-	// Tools disabled by default - most Ollama models don't support function calling
-	chatModel.EnableTools(false)
-
-	// Set mesh client for mesh tools
-	llmtools.SetMeshClient(c)
-
-	// Create approval prompt for tool authorization
-	approvalPrompt := ui.NewApprovalPrompt(t, s)
-
 	return &App{
 		client:            c,
 		theme:             t,
@@ -273,20 +170,6 @@ func NewWithSocket(socketPath string) *App {
 		approvalPrompt:    approvalPrompt,
 		alcState:          alc.NewState(),
 	}
-}
-
-// healthMsg carries daemon health check results.
-type healthMsg struct {
-	status string
-}
-
-// healthTickMsg triggers periodic health polling.
-type healthTickMsg struct{}
-
-// torchDetectedMsg carries auto-detected torch info.
-type torchDetectedMsg struct {
-	torch  *alc.TorchInfo
-	source string
 }
 
 // Init starts the app — fetch models, check health, start polling, detect torch.
@@ -297,60 +180,6 @@ func (a *App) Init() tea.Cmd {
 		a.scheduleHealthTick(),
 		a.detectTorch,
 	)
-}
-
-// detectTorch attempts to auto-detect a torch from git remote or .hecate/torch.json.
-func (a *App) detectTorch() tea.Msg {
-	result := alc.DetectTorch()
-	if !result.Found {
-		return nil
-	}
-
-	// If detected from config, we have the torch ID directly
-	if result.Source == "config" && result.Config != nil && result.Config.TorchID != "" {
-		// Try to fetch full torch info from daemon
-		torch, err := a.client.GetTorchByID(result.Config.TorchID)
-		if err == nil && torch != nil {
-			return torchDetectedMsg{
-				torch: &alc.TorchInfo{
-					ID:    torch.TorchID,
-					Name:  torch.Name,
-					Brief: torch.Brief,
-				},
-				source: "config",
-			}
-		}
-	}
-
-	// If detected from git, try to match against known torches
-	if result.Source == "git" && result.Config != nil {
-		torches, err := a.client.ListTorches()
-		if err == nil {
-			// Match by name (the normalized git URL is stored in Name)
-			for _, t := range torches {
-				// TODO: Add git_remote field to torch for proper matching
-				// For now, just check if torch name is part of the git URL
-				if strings.Contains(result.Config.Name, t.Name) {
-					return torchDetectedMsg{
-						torch: &alc.TorchInfo{
-							ID:    t.TorchID,
-							Name:  t.Name,
-							Brief: t.Brief,
-						},
-						source: "git",
-					}
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
-func (a *App) scheduleHealthTick() tea.Cmd {
-	return tea.Tick(30*time.Second, func(t time.Time) tea.Msg {
-		return healthTickMsg{}
-	})
 }
 
 // Update is the main message loop.
@@ -426,7 +255,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.statusBar.ModelProvider = a.chat.ActiveModelProvider()
 		// Persist model selection
 		a.cfg.Model = msg.Name
-		_ = a.cfg.Save()
+		if err := a.cfg.Save(); err != nil {
+			a.chat.InjectSystemMessage("Warning: failed to save config: " + err.Error())
+		}
 
 	case commands.SetModeMsg:
 		cmd := a.enterMode(modes.Mode(msg.Mode))
@@ -471,11 +302,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.chat.InjectSystemMessage("Model switched to: " + msg.ModelName)
 		// Persist model selection
 		a.cfg.Model = msg.ModelName
-		_ = a.cfg.Save()
+		if err := a.cfg.Save(); err != nil {
+			a.chat.InjectSystemMessage("Warning: failed to save config: " + err.Error())
+		}
 
 	case commands.SwitchRoleMsg:
 		a.cfg.Personality.ActiveRole = msg.Role
-		_ = a.cfg.Save()
+		if err := a.cfg.Save(); err != nil {
+			a.chat.InjectSystemMessage("Warning: failed to save config: " + err.Error())
+		}
 		// Rebuild and apply system prompt
 		newPrompt := a.cfg.BuildSystemPrompt()
 		a.systemPrompt = newPrompt
@@ -585,507 +420,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return a, tea.Batch(cmds...)
 }
 
-// handleKey dispatches keys based on current mode.
-func (a *App) handleKey(msg tea.KeyMsg) tea.Cmd {
-	key := msg.String()
-
-	if key == "ctrl+c" {
-		return tea.Quit
-	}
-
-	switch a.mode {
-	case modes.Normal:
-		return a.handleNormalKey(key)
-	case modes.Insert:
-		return a.handleInsertKey(key)
-	case modes.Command:
-		return a.handleCommandKey(key, msg)
-	case modes.Browse:
-		return a.handleBrowseKey(key, msg)
-	case modes.Pair:
-		return a.handlePairKey(key, msg)
-	case modes.Edit:
-		return a.handleEditKey(key, msg)
-	case modes.Form:
-		return a.handleFormKey(key, msg)
-	default:
-		if key == "esc" {
-			a.setMode(modes.Normal)
-		}
-		return nil
-	}
-}
-
-func (a *App) handleNormalKey(key string) tea.Cmd {
-	// Handle tool approval keys when there's a pending approval
-	if a.chat.HasPendingApproval() {
-		switch key {
-		case "y": // Allow this time
-			return a.chat.ApproveToolCall(false)
-		case "n": // Deny
-			return a.chat.DenyToolCall()
-		case "a": // Allow all for session
-			return a.chat.ApproveToolCall(true)
-		case "esc": // Cancel (same as deny)
-			return a.chat.DenyToolCall()
-		}
-		// Block other keys while approval is pending
-		return nil
-	}
-
-	switch key {
-	case "i":
-		a.setMode(modes.Insert)
-	case "/", ":":
-		a.setMode(modes.Command)
-		if key == ":" {
-			a.cmdInput.Prompt = ":"
-		} else {
-			a.cmdInput.Prompt = "/"
-		}
-	case "j", "down":
-		a.chat.ScrollDown(1)
-	case "k", "up":
-		a.chat.ScrollUp(1)
-	case "ctrl+d":
-		a.chat.HalfPageDown()
-	case "ctrl+u":
-		a.chat.HalfPageUp()
-	case "g":
-		a.chat.GotoTop()
-	case "G":
-		a.chat.GotoBottom()
-	case "?":
-		ctx := a.commandContext()
-		return commands.ModeHelp(int(a.mode), ctx)
-	case "r":
-		return a.chat.RetryLast()
-	case "y":
-		return a.yankLastResponse()
-	case "q":
-		return tea.Quit
-	}
-	return nil
-}
-
-func (a *App) handleInsertKey(key string) tea.Cmd {
-	// Handle tool approval keys when there's a pending approval
-	if a.chat.HasPendingApproval() {
-		switch key {
-		case "y": // Allow this time
-			return a.chat.ApproveToolCall(false)
-		case "n": // Deny
-			return a.chat.DenyToolCall()
-		case "a": // Allow all for session
-			return a.chat.ApproveToolCall(true)
-		case "esc": // Cancel (same as deny)
-			return a.chat.DenyToolCall()
-		}
-		// Block other keys while approval is pending
-		return nil
-	}
-
-	switch key {
-	case "esc":
-		if a.chat.IsStreaming() {
-			a.chat.CancelStreaming()
-			return nil
-		}
-		a.msgHistIdx = -1
-		a.setMode(modes.Normal)
-	case "enter":
-		// Save message to history before sending
-		content := a.chat.InputValue()
-		if content != "" {
-			a.msgHistory = append(a.msgHistory, content)
-		}
-		a.msgHistIdx = -1
-		a.msgDraft = ""
-		cmd := a.chat.SendCurrentInput()
-		if cmd != nil {
-			// Set model status to loading and clear any previous error
-			a.statusBar.ModelStatus = "loading"
-			a.statusBar.ModelError = ""
-			a.chat.ClearError()
-			a.saveConversation()
-		}
-		return cmd
-	case "alt+enter":
-		a.chat.InsertNewline()
-	case "tab":
-		a.chat.CycleModel()
-		a.statusBar.ModelName = a.chat.ActiveModelName()
-		a.statusBar.ModelProvider = a.chat.ActiveModelProvider()
-	case "shift+tab":
-		a.chat.CycleModelReverse()
-		a.statusBar.ModelName = a.chat.ActiveModelName()
-		a.statusBar.ModelProvider = a.chat.ActiveModelProvider()
-	case "up":
-		// Navigate back in message history
-		if len(a.msgHistory) == 0 {
-			return nil
-		}
-		if a.msgHistIdx == -1 {
-			// Save current input as draft before entering history
-			a.msgDraft = a.chat.InputValue()
-			a.msgHistIdx = len(a.msgHistory) - 1
-		} else if a.msgHistIdx > 0 {
-			a.msgHistIdx--
-		}
-		a.chat.SetInputValue(a.msgHistory[a.msgHistIdx])
-	case "down":
-		// Navigate forward in message history
-		if a.msgHistIdx == -1 {
-			return nil
-		}
-		if a.msgHistIdx < len(a.msgHistory)-1 {
-			a.msgHistIdx++
-			a.chat.SetInputValue(a.msgHistory[a.msgHistIdx])
-		} else {
-			// Reached end of history, restore draft
-			a.msgHistIdx = -1
-			a.chat.SetInputValue(a.msgDraft)
-		}
-	}
-	return nil
-}
-
-func (a *App) handleCommandKey(key string, msg tea.KeyMsg) tea.Cmd {
-	switch key {
-	case "esc":
-		a.cmdHistIdx = -1
-		a.setMode(modes.Normal)
-		return nil
-	case "enter":
-		input := a.cmdInput.Value()
-		a.setMode(modes.Normal)
-		if input != "" {
-			// Save to history (avoid duplicates at top)
-			if len(a.cmdHistory) == 0 || a.cmdHistory[len(a.cmdHistory)-1] != input {
-				a.cmdHistory = append(a.cmdHistory, input)
-				if len(a.cmdHistory) > 50 {
-					a.cmdHistory = a.cmdHistory[1:]
-				}
-			}
-			a.cmdHistIdx = -1
-			ctx := a.commandContext()
-			prefix := a.cmdInput.Prompt
-			return a.registry.Dispatch(prefix+input, ctx)
-		}
-		return nil
-	case "up":
-		if len(a.cmdHistory) == 0 {
-			return nil
-		}
-		if a.cmdHistIdx == -1 {
-			// Save current draft and start browsing
-			a.cmdDraft = a.cmdInput.Value()
-			a.cmdHistIdx = len(a.cmdHistory) - 1
-		} else if a.cmdHistIdx > 0 {
-			a.cmdHistIdx--
-		}
-		a.cmdInput.SetValue(a.cmdHistory[a.cmdHistIdx])
-		a.cmdInput.CursorEnd()
-		return nil
-	case "down":
-		if a.cmdHistIdx == -1 {
-			return nil
-		}
-		if a.cmdHistIdx < len(a.cmdHistory)-1 {
-			a.cmdHistIdx++
-			a.cmdInput.SetValue(a.cmdHistory[a.cmdHistIdx])
-		} else {
-			// Back to draft
-			a.cmdHistIdx = -1
-			a.cmdInput.SetValue(a.cmdDraft)
-		}
-		a.cmdInput.CursorEnd()
-		return nil
-	case "tab":
-		input := a.cmdInput.Value()
-		ctx := a.commandContext()
-		matches := a.registry.CompleteWithArgs(input, ctx)
-		if len(matches) == 1 {
-			// Single match - complete it
-			parts := strings.Fields(input)
-			if len(parts) <= 1 && !strings.Contains(input, " ") {
-				// Completing command name
-				a.cmdInput.SetValue(matches[0])
-			} else {
-				// Completing argument - replace last part
-				if len(parts) > 0 {
-					parts[len(parts)-1] = matches[0]
-					a.cmdInput.SetValue(strings.Join(parts, " "))
-				} else {
-					a.cmdInput.SetValue(matches[0])
-				}
-			}
-			a.cmdInput.CursorEnd()
-		}
-		return nil
-	default:
-		a.cmdHistIdx = -1 // reset history browsing on any other key
-		var cmd tea.Cmd
-		a.cmdInput, cmd = a.cmdInput.Update(msg)
-		return cmd
-	}
-}
-
-func (a *App) handleBrowseKey(key string, msg tea.KeyMsg) tea.Cmd {
-	if !a.browseReady {
-		return nil
-	}
-
-	if key == "?" {
-		ctx := a.commandContext()
-		return commands.ModeHelp(int(a.mode), ctx)
-	}
-
-	// Esc in Browse returns to Normal (unless browse handles it internally)
-	if key == "esc" {
-		a.setMode(modes.Normal)
-		return nil
-	}
-
-	consumed, cmd := a.browseView.HandleKey(key, msg)
-	if consumed {
-		return cmd
-	}
-
-	return nil
-}
-
-func (a *App) handlePairKey(key string, msg tea.KeyMsg) tea.Cmd {
-	if !a.pairReady {
-		return nil
-	}
-
-	if key == "?" {
-		ctx := a.commandContext()
-		return commands.ModeHelp(int(a.mode), ctx)
-	}
-
-	consumed, cmd := a.pairView.HandleKey(key, msg)
-	if consumed {
-		return cmd
-	}
-
-	// Unconsumed Esc exits Pair mode
-	if key == "esc" {
-		a.setMode(modes.Normal)
-		return nil
-	}
-
-	return nil
-}
-
-func (a *App) handleEditKey(key string, msg tea.KeyMsg) tea.Cmd {
-	if !a.editorReady {
-		return nil
-	}
-
-	// Intercept Ctrl+Q and Esc to close editor instead of quitting
-	switch key {
-	case "ctrl+q", "esc":
-		a.editorReady = false
-		a.setMode(modes.Normal)
-		return nil
-	}
-
-	// Forward to editor
-	var cmd tea.Cmd
-	var model tea.Model
-	model, cmd = a.editorView.Update(msg)
-	a.editorView = model.(editor.Model)
-
-	// Catch tea.Quit from editor (e.g., save-then-quit flows) and convert to mode exit
-	// Editor's own quit will be intercepted above via ctrl+q/esc
-	return cmd
-}
-
-func (a *App) handleFormKey(key string, msg tea.KeyMsg) tea.Cmd {
-	if !a.formReady || a.formView == nil {
-		return nil
-	}
-
-	// Forward all keys to the form - it handles esc internally
-	var cmd tea.Cmd
-	a.formView, cmd = a.formView.Update(msg)
-	return cmd
-}
-
-// showForm initializes and displays a form overlay.
-func (a *App) showForm(formType string) tea.Cmd {
-	switch formType {
-	case "torch_init":
-		cwd, _ := os.Getwd()
-		a.formView = ui.NewTorchForm(a.theme, a.styles, cwd)
-		formWidth := 60
-		if a.width > 0 && a.width < 70 {
-			formWidth = a.width - 4
-		}
-		a.formView.SetWidth(formWidth)
-		a.formReady = true
-		a.setMode(modes.Form)
-		return a.formView.Init()
-	default:
-		a.chat.InjectSystemMessage("Unknown form type: " + formType)
-		return nil
-	}
-}
-
-// handleFormResult processes form submission or cancellation.
-func (a *App) handleFormResult(result ui.FormResult) tea.Cmd {
-	a.formReady = false
-	a.setMode(modes.Normal)
-
-	if !result.Submitted {
-		a.chat.InjectSystemMessage("Cancelled.")
-		return nil
-	}
-
-	// Handle based on form type
-	switch result.FormID {
-	case "torch_init":
-		pathInput := result.Values["path"]
-		name := result.Values["name"]
-		brief := result.Values["brief"]
-
-		// Path is required
-		if strings.TrimSpace(pathInput) == "" {
-			a.chat.InjectSystemMessage(a.styles.Error.Render("Path is required"))
-			return nil
-		}
-
-		// Expand path
-		cwd, _ := os.Getwd()
-		path := ui.ExpandPath(pathInput, cwd)
-
-		// Infer name from path if not provided
-		if strings.TrimSpace(name) == "" {
-			name = ui.InferName(path)
-		}
-
-		return a.createTorchFromForm(path, name, brief)
-
-	default:
-		a.chat.InjectSystemMessage("Unknown form: " + result.FormID)
-		return nil
-	}
-}
-
-// createTorchFromForm creates a torch after form submission.
-func (a *App) createTorchFromForm(path, name, brief string) tea.Cmd {
-	return func() tea.Msg {
-		s := a.styles
-
-		// Create directory if it doesn't exist
-		if err := os.MkdirAll(path, 0755); err != nil {
-			return commands.InjectSystemMsg{Content: s.Error.Render("Failed to create directory: " + err.Error())}
-		}
-
-		// Create torch via daemon
-		torch, err := a.client.InitiateTorch(name, brief)
-		if err != nil {
-			return commands.InjectSystemMsg{Content: s.Error.Render("Failed to initiate torch: " + err.Error())}
-		}
-
-		// Scaffold the repository structure
-		manifest := scaffold.TorchManifest{
-			TorchID:     torch.TorchID,
-			Name:        torch.Name,
-			Brief:       torch.Brief,
-			Root:        path,
-			InitiatedAt: torch.InitiatedAt,
-			InitiatedBy: torch.InitiatedBy,
-		}
-
-		result := scaffold.Scaffold(path, manifest)
-
-		// Build output message
-		var b strings.Builder
-		b.WriteString(s.StatusOK.Render("Torch Initiated"))
-		b.WriteString("\n\n")
-		b.WriteString(s.CardTitle.Render("Torch: " + torch.Name))
-		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("    ID: "))
-		b.WriteString(s.CardValue.Render(torch.TorchID))
-		b.WriteString("\n")
-		b.WriteString(s.CardLabel.Render("  Root: "))
-		b.WriteString(s.Subtle.Render(path))
-		b.WriteString("\n\n")
-
-		b.WriteString(s.CardTitle.Render("Scaffolded:"))
-		b.WriteString("\n")
-
-		if result.Success {
-			b.WriteString(s.StatusOK.Render("  ✓ "))
-			b.WriteString(s.Subtle.Render(".hecate/torch.json"))
-			b.WriteString("\n")
-		}
-		if result.AgentsCloned {
-			b.WriteString(s.StatusOK.Render("  ✓ "))
-			b.WriteString(s.Subtle.Render(".hecate/agents/"))
-			b.WriteString("\n")
-		}
-		if result.ReadmeCreated {
-			b.WriteString(s.StatusOK.Render("  ✓ "))
-			b.WriteString(s.Subtle.Render("README.md"))
-			b.WriteString("\n")
-		}
-		if result.ChangelogCreated {
-			b.WriteString(s.StatusOK.Render("  ✓ "))
-			b.WriteString(s.Subtle.Render("CHANGELOG.md"))
-			b.WriteString("\n")
-		}
-
-		if result.GitInitialized {
-			b.WriteString(s.StatusOK.Render("  ✓ "))
-			b.WriteString(s.Subtle.Render("git init"))
-			b.WriteString("\n")
-		}
-
-		if result.GitCommitted {
-			b.WriteString(s.StatusOK.Render("  ✓ "))
-			b.WriteString(s.Subtle.Render("git commit"))
-			b.WriteString("\n")
-		}
-
-		for _, warn := range result.Warnings {
-			b.WriteString(s.StatusWarning.Render("  ⚠ " + warn))
-			b.WriteString("\n")
-		}
-
-		b.WriteString("\n")
-		b.WriteString(s.Subtle.Render("Next: gh repo create --public --source=. --push"))
-
-		return commands.TorchCreatedMsg{Path: path, Message: b.String()}
-	}
-}
-
-func (a *App) openEditor(path string) tea.Cmd {
-	if path != "" {
-		ed, err := editor.NewWithFile(path)
-		if err != nil {
-			a.chat.InjectSystemMessage("Could not open file: " + err.Error())
-			return nil
-		}
-		a.editorView = ed
-	} else {
-		a.editorView = editor.New()
-	}
-
-	a.editorView.SetSize(a.width, a.editorHeight())
-	a.editorView.Focus()
-	a.editorReady = true
-	a.setMode(modes.Edit)
-	return a.editorView.Init()
-}
-
-func (a *App) editorHeight() int {
-	return a.height - 2 // header + status bar
-}
-
 func (a *App) setMode(m modes.Mode) {
 	if m == a.mode {
 		return
@@ -1157,11 +491,8 @@ func (a *App) switchTheme(t *theme.Theme) {
 	a.statusBar.SessionTokens = a.chat.SessionTokenCount()
 
 	// Rebuild chat with new theme (preserves messages via re-init)
-	oldChat := a.chat
 	a.chat = chat.New(a.client, t, a.styles)
 	a.chat.SetSize(a.width, a.chatAreaHeight())
-	// Transfer state — the new chat will re-fetch models via Init
-	_ = oldChat
 
 	// Update command input styling
 	a.cmdInput.PromptStyle = lipgloss.NewStyle().Foreground(t.Warning).Bold(true)
@@ -1178,7 +509,9 @@ func (a *App) saveThemeToConfig(t *theme.Theme) {
 	for key, builtin := range theme.BuiltinThemes() {
 		if builtin.Name == t.Name {
 			a.cfg.Theme = key
-			_ = a.cfg.Save()
+			if err := a.cfg.Save(); err != nil {
+				a.chat.InjectSystemMessage("Warning: failed to save config: " + err.Error())
+			}
 			return
 		}
 	}
@@ -1216,7 +549,9 @@ func (a *App) commandContext() *commands.Context {
 			a.systemPrompt = prompt
 			a.chat.SetSystemPrompt(prompt)
 			a.cfg.SystemPrompt = prompt
-			_ = a.cfg.Save()
+			if err := a.cfg.Save(); err != nil {
+				a.chat.InjectSystemMessage("Warning: failed to save config: " + err.Error())
+			}
 		},
 		GetToolExecutor: func() *llmtools.Executor {
 			return a.chat.ToolExecutor()
@@ -1271,515 +606,4 @@ func (a *App) handleALCContextChange(msg commands.SetALCContextMsg) {
 			a.chat.InjectSystemMessage("Cartwheel active: " + msg.Cartwheel.Name + " (" + string(msg.Cartwheel.CurrentPhase) + ")")
 		}
 	}
-}
-
-func (a *App) chatAreaHeight() int {
-	headerHeight := 2
-	statusBarHeight := 1
-	inputHeight := 0
-
-	switch a.mode {
-	case modes.Insert:
-		inputHeight = 3 // 1 row + border
-	case modes.Command:
-		inputHeight = 1
-	}
-
-	statsHeight := 1
-	h := a.height - headerHeight - statusBarHeight - inputHeight - statsHeight
-	if h < 5 {
-		h = 5
-	}
-	return h
-}
-
-// browseWidth returns the width for the browse overlay.
-// Split pane on wide terminals (>= 100 cols), full width on narrow.
-func (a *App) browseWidth() int {
-	if a.width >= 100 {
-		return a.width / 2
-	}
-	return a.width - 4
-}
-
-// browseHeight returns the height for the browse overlay.
-func (a *App) browseHeight() int {
-	return a.height - 4 // header + status bar + padding
-}
-
-// pairWidth returns the width for the pair overlay.
-func (a *App) pairWidth() int {
-	if a.width >= 100 {
-		return a.width / 2
-	}
-	return a.width - 4
-}
-
-// pairHeight returns the height for the pair overlay.
-func (a *App) pairHeight() int {
-	return a.height - 4
-}
-
-// View renders the entire TUI.
-func (a *App) View() string {
-	if a.width == 0 {
-		return "Loading..."
-	}
-
-	// Browse mode uses split or full layout
-	if a.mode == modes.Browse && a.browseReady {
-		return a.renderBrowseLayout()
-	}
-
-	// Pair mode uses split or full layout
-	if a.mode == modes.Pair && a.pairReady {
-		return a.renderPairLayout()
-	}
-
-	// Edit mode takes full screen
-	if a.mode == modes.Edit && a.editorReady {
-		return a.renderEditLayout()
-	}
-
-	// Form mode overlays the chat
-	if a.mode == modes.Form && a.formReady {
-		return a.renderFormLayout()
-	}
-
-	var sections []string
-
-	// Header
-	sections = append(sections, a.renderHeader())
-
-	// Chat area (always visible)
-	sections = append(sections, a.chat.ViewChat())
-
-	// Stats/streaming indicator
-	if stats := a.chat.ViewStats(); stats != "" {
-		sections = append(sections, stats)
-	}
-
-	// Error
-	if errView := a.chat.ViewError(); errView != "" {
-		sections = append(sections, errView)
-	}
-
-	// Input area (mode-dependent)
-	switch a.mode {
-	case modes.Insert:
-		sections = append(sections, a.chat.ViewInput())
-	case modes.Command:
-		sections = append(sections, a.renderCommandLine())
-	}
-
-	// Status bar (always at bottom)
-	sections = append(sections, a.statusBar.View())
-
-	content := strings.Join(sections, "\n")
-
-	// Overlay tool approval prompt if there's a pending approval
-	if a.chat.HasPendingApproval() && a.approvalPrompt != nil {
-		content = a.renderWithApprovalOverlay(content)
-	}
-
-	return content
-}
-
-// renderWithApprovalOverlay overlays the approval prompt on top of the content.
-func (a *App) renderWithApprovalOverlay(content string) string {
-	call := a.chat.PendingToolCall()
-	if call == nil {
-		return content
-	}
-
-	// Get tool info from registry
-	registry := a.toolExecutor.Registry()
-	tool, _, ok := registry.Get(call.Name)
-	if !ok {
-		// Unknown tool, just show basic info
-		tool = llmtools.Tool{
-			Name:        call.Name,
-			Description: "Unknown tool",
-			Category:    llmtools.CategorySystem,
-		}
-	}
-
-	// Set width based on terminal
-	dialogWidth := 60
-	if a.width > 80 {
-		dialogWidth = 70
-	}
-	if a.width < 70 {
-		dialogWidth = a.width - 4
-	}
-	a.approvalPrompt.SetWidth(dialogWidth)
-
-	// Render the approval prompt
-	prompt := a.approvalPrompt.Render(tool, *call)
-
-	// Center the prompt on the screen
-	promptLines := strings.Split(prompt, "\n")
-	promptHeight := len(promptLines)
-
-	// Calculate vertical position (center)
-	contentLines := strings.Split(content, "\n")
-	startLine := (len(contentLines) - promptHeight) / 2
-	if startLine < 0 {
-		startLine = 0
-	}
-
-	// Calculate horizontal padding to center
-	maxPromptWidth := 0
-	for _, line := range promptLines {
-		if w := lipgloss.Width(line); w > maxPromptWidth {
-			maxPromptWidth = w
-		}
-	}
-	leftPad := (a.width - maxPromptWidth) / 2
-	if leftPad < 0 {
-		leftPad = 0
-	}
-	padding := strings.Repeat(" ", leftPad)
-
-	// Overlay the prompt
-	for i, line := range promptLines {
-		lineIdx := startLine + i
-		if lineIdx >= 0 && lineIdx < len(contentLines) {
-			contentLines[lineIdx] = padding + line
-		}
-	}
-
-	return strings.Join(contentLines, "\n")
-}
-
-func (a *App) renderBrowseLayout() string {
-	// Render the normal chat view as the background
-	var sections []string
-	sections = append(sections, a.renderHeader())
-	sections = append(sections, a.chat.ViewChat())
-	if stats := a.chat.ViewStats(); stats != "" {
-		sections = append(sections, stats)
-	}
-	if errView := a.chat.ViewError(); errView != "" {
-		sections = append(sections, errView)
-	}
-	sections = append(sections, a.statusBar.View())
-	background := strings.Join(sections, "\n")
-
-	// Dim the background
-	backgroundLines := strings.Split(background, "\n")
-	for i, line := range backgroundLines {
-		backgroundLines[i] = lipgloss.NewStyle().Foreground(a.theme.TextMuted).Render(line)
-	}
-
-	// The browse modal handles its own centering
-	modal := a.browseView.View()
-	modalLines := strings.Split(modal, "\n")
-
-	// Overlay the modal on the dimmed background
-	result := make([]string, len(backgroundLines))
-	copy(result, backgroundLines)
-
-	// Overlay modal lines onto background
-	for i, line := range modalLines {
-		if i < len(result) && strings.TrimSpace(line) != "" {
-			result[i] = line
-		}
-	}
-
-	return strings.Join(result, "\n")
-}
-
-func (a *App) renderPairLayout() string {
-	var sections []string
-
-	// Header
-	sections = append(sections, a.renderHeader())
-
-	if a.width >= 100 {
-		// Split pane: dimmed chat left, pair right
-		chatWidth := a.width - a.pairWidth() - 1
-		chatHeight := a.pairHeight()
-
-		chatContent := a.chat.ViewChat()
-		dimmedChat := lipgloss.NewStyle().
-			Width(chatWidth).
-			Height(chatHeight).
-			Foreground(a.theme.TextMuted).
-			Render(chatContent)
-
-		pairPanel := a.pairView.View()
-
-		sep := lipgloss.NewStyle().
-			Foreground(a.theme.Border).
-			Render("│")
-
-		split := lipgloss.JoinHorizontal(lipgloss.Top, dimmedChat, sep, pairPanel)
-		sections = append(sections, split)
-	} else {
-		// Full width pair
-		sections = append(sections, a.pairView.View())
-	}
-
-	// Status bar
-	sections = append(sections, a.statusBar.View())
-
-	return strings.Join(sections, "\n")
-}
-
-func (a *App) renderEditLayout() string {
-	var sections []string
-	sections = append(sections, a.editorView.View())
-	sections = append(sections, a.statusBar.View())
-	return strings.Join(sections, "\n")
-}
-
-func (a *App) renderFormLayout() string {
-	// Render the normal chat view as the background
-	var sections []string
-	sections = append(sections, a.renderHeader())
-	sections = append(sections, a.chat.ViewChat())
-	if stats := a.chat.ViewStats(); stats != "" {
-		sections = append(sections, stats)
-	}
-	sections = append(sections, a.statusBar.View())
-	background := strings.Join(sections, "\n")
-
-	// Dim the background
-	backgroundLines := strings.Split(background, "\n")
-	for i, line := range backgroundLines {
-		backgroundLines[i] = lipgloss.NewStyle().Foreground(a.theme.TextMuted).Render(line)
-	}
-
-	// Render the form
-	if a.formView == nil {
-		return strings.Join(backgroundLines, "\n")
-	}
-
-	formContent := a.formView.View()
-	formLines := strings.Split(formContent, "\n")
-	formHeight := len(formLines)
-
-	// Calculate form width for centering
-	maxFormWidth := 0
-	for _, line := range formLines {
-		if w := lipgloss.Width(line); w > maxFormWidth {
-			maxFormWidth = w
-		}
-	}
-
-	// Center the form vertically and horizontally
-	startLine := (len(backgroundLines) - formHeight) / 2
-	if startLine < 2 {
-		startLine = 2
-	}
-
-	leftPad := (a.width - maxFormWidth) / 2
-	if leftPad < 0 {
-		leftPad = 0
-	}
-	padding := strings.Repeat(" ", leftPad)
-
-	// Overlay the form on the dimmed background
-	result := make([]string, len(backgroundLines))
-	copy(result, backgroundLines)
-
-	for i, line := range formLines {
-		lineIdx := startLine + i
-		if lineIdx >= 0 && lineIdx < len(result) {
-			result[lineIdx] = padding + line
-		}
-	}
-
-	return strings.Join(result, "\n")
-}
-
-func (a *App) renderHeader() string {
-	// Context-aware header based on ALC state
-	if a.alcState != nil && a.alcState.Context != alc.Chat {
-		return a.renderContextHeader()
-	}
-
-	// Default Chat mode header
-	logo := lipgloss.NewStyle().Foreground(a.theme.Primary).Bold(true).Render("🔥🗝️🔥 Hecate")
-
-	modelSection := ""
-	if modelName := a.chat.ActiveModelName(); modelName != "" {
-		modelSection = a.styles.Subtle.Render("  ·  " + modelName)
-	}
-
-	daemonSection := "  ·  "
-	switch a.daemonStatus {
-	case "healthy", "ok":
-		daemonSection += a.styles.StatusOK.Render("●") + a.styles.Subtle.Render(" daemon")
-	case "degraded":
-		daemonSection += a.styles.StatusWarning.Render("●") + a.styles.Subtle.Render(" daemon")
-	default:
-		daemonSection += a.styles.Subtle.Render("○ daemon")
-	}
-
-	titleSection := ""
-	if a.conversationTitle != "" {
-		titleSection = a.styles.Subtle.Render("  ·  ") + a.styles.CardValue.Render(a.conversationTitle)
-	}
-
-	left := logo + modelSection + daemonSection + titleSection
-
-	return lipgloss.NewStyle().Width(a.width).Padding(0, 1).Render(left)
-}
-
-// renderContextHeader renders the context-aware header for Torch/Cartwheel modes.
-func (a *App) renderContextHeader() string {
-	var parts []string
-
-	// Torch name (always present in non-Chat mode)
-	if a.alcState.Torch != nil {
-		torchStyle := lipgloss.NewStyle().Foreground(a.theme.Warning).Bold(true)
-		parts = append(parts, torchStyle.Render("🔥 "+a.alcState.Torch.Name))
-	}
-
-	// Cartwheel name and phase (if in Cartwheel mode)
-	if a.alcState.Context == alc.Cartwheel && a.alcState.Cartwheel != nil {
-		cartwheelStyle := lipgloss.NewStyle().Foreground(a.theme.Secondary)
-		parts = append(parts, cartwheelStyle.Render("🎡 "+a.alcState.Cartwheel.Name))
-
-		// Phase badge
-		if phase := a.alcState.Cartwheel.CurrentPhase; phase != "" {
-			phaseStyle := a.phaseStyle(string(phase))
-			parts = append(parts, phaseStyle.Render("📍 "+strings.ToUpper(string(phase))))
-		}
-
-		// Model indicator moves to header in Cartwheel mode
-		if modelName := a.chat.ActiveModelName(); modelName != "" {
-			name := modelName
-			if len(name) > 15 {
-				name = name[:12] + "..."
-			}
-			parts = append(parts, a.styles.Subtle.Render("🤖 "+name))
-		}
-	}
-
-	left := strings.Join(parts, a.styles.Subtle.Render(" › "))
-
-	return lipgloss.NewStyle().Width(a.width).Padding(0, 1).Render(left)
-}
-
-// phaseStyle returns a style for ALC phase badges.
-func (a *App) phaseStyle(phase string) lipgloss.Style {
-	switch strings.ToLower(phase) {
-	case "dna":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED")).Bold(true) // Purple
-	case "anp":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#2563EB")).Bold(true) // Blue
-	case "tni":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#059669")).Bold(true) // Green
-	case "dno":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#DC2626")).Bold(true) // Red
-	default:
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Bold(true) // Gray
-	}
-}
-
-func (a *App) renderCommandLine() string {
-	return lipgloss.NewStyle().
-		Width(a.width).
-		Padding(0, 1).
-		Background(a.theme.BgInput).
-		Render(a.cmdInput.View())
-}
-
-func (a *App) checkHealth() tea.Msg {
-	health, err := a.client.GetHealth()
-	if err != nil {
-		return healthMsg{status: "error"}
-	}
-	return healthMsg{status: health.Status}
-}
-
-func (a *App) saveConversation() {
-	msgs := a.chat.Messages()
-	if len(msgs) == 0 {
-		return
-	}
-
-	var convMsgs []config.ConversationMsg
-	for _, m := range msgs {
-		if m.Role == "system" {
-			continue // Don't persist command output
-		}
-		convMsgs = append(convMsgs, config.ConversationMsg{
-			Role:    m.Role,
-			Content: m.Content,
-			Time:    m.Time,
-		})
-	}
-
-	if len(convMsgs) == 0 {
-		return
-	}
-
-	title := config.TitleFromMessages(convMsgs)
-	a.conversationTitle = title
-
-	conv := config.Conversation{
-		ID:        a.conversationID,
-		Title:     title,
-		Model:     a.chat.ActiveModelName(),
-		Messages:  convMsgs,
-		CreatedAt: convMsgs[0].Time,
-	}
-
-	_ = config.SaveConversation(conv)
-}
-
-func (a *App) startNewConversation() {
-	a.saveConversation()
-	a.chat.ClearMessages()
-	a.conversationID = config.NewConversationID()
-	a.conversationTitle = ""
-}
-
-func (a *App) loadConversation(id string) error {
-	conv, err := config.LoadConversation(id)
-	if err != nil {
-		return err
-	}
-
-	a.saveConversation() // save current first
-
-	var msgs []chat.Message
-	for _, m := range conv.Messages {
-		msgs = append(msgs, chat.Message{
-			Role:    m.Role,
-			Content: m.Content,
-			Time:    m.Time,
-		})
-	}
-
-	a.chat.ClearMessages()
-	a.chat.LoadMessages(msgs)
-	a.conversationID = conv.ID
-	a.conversationTitle = conv.Title
-	return nil
-}
-
-func (a *App) yankLastResponse() tea.Cmd {
-	content := a.chat.LastAssistantMessage()
-	if content == "" {
-		a.chat.InjectSystemMessage("No response to copy.")
-		return nil
-	}
-
-	if err := clipboard.WriteAll(content); err != nil {
-		a.chat.InjectSystemMessage("Clipboard unavailable: " + err.Error())
-		return nil
-	}
-
-	// Truncate preview
-	preview := content
-	if len(preview) > 60 {
-		preview = preview[:57] + "..."
-	}
-	a.chat.InjectSystemMessage("Copied to clipboard: " + preview)
-	return nil
 }

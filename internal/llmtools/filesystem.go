@@ -369,7 +369,11 @@ func globSearchHandler(ctx context.Context, args json.RawMessage) (string, error
 
 	basePath := a.Path
 	if basePath == "" {
-		basePath, _ = os.Getwd()
+		if p, err := os.Getwd(); err == nil {
+			basePath = p
+		} else {
+			basePath = "/"
+		}
 	}
 	basePath = expandHomePath(basePath)
 

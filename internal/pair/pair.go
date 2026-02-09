@@ -475,7 +475,7 @@ func (m Model) checkPairingStatus() tea.Msg {
 }
 
 func (m Model) cancelPairing() tea.Msg {
-	_ = m.client.CancelPairing()
+	_ = m.client.CancelPairing() //nolint:errcheck // best-effort cleanup on exit
 	return nil
 }
 

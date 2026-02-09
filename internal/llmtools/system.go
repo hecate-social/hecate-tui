@@ -75,7 +75,11 @@ func runCommandHandler(ctx context.Context, args json.RawMessage) (string, error
 
 	workingDir := a.WorkingDir
 	if workingDir == "" {
-		workingDir, _ = os.Getwd()
+		var err error
+		workingDir, err = os.Getwd()
+		if err != nil {
+			workingDir = "/"
+		}
 	}
 	workingDir = expandHomePath(workingDir)
 

@@ -28,7 +28,7 @@ type Completable interface {
 
 // Context provides commands access to the app's resources.
 type Context struct {
-	Client     *client.Client
+	Client     client.DaemonClient
 	SocketPath string // Unix socket path (if connected via socket)
 	HTTPUrl    string // HTTP URL (if connected via TCP)
 	Theme      *theme.Theme

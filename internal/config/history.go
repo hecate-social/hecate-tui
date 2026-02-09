@@ -46,7 +46,9 @@ func ConversationsDir() string {
 	// If old dir exists, migrate it
 	if _, err := os.Stat(oldDir); err == nil {
 		// Create parent dir and rename
-		_ = os.MkdirAll(filepath.Dir(newDir), 0755)
+		if err := os.MkdirAll(filepath.Dir(newDir), 0755); err != nil {
+			return oldDir // fallback if parent creation fails
+		}
 		if os.Rename(oldDir, newDir) == nil {
 			return newDir
 		}

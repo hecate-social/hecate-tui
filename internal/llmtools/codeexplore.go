@@ -61,7 +61,11 @@ func grepSearchHandler(ctx context.Context, args json.RawMessage) (string, error
 
 	searchPath := a.Path
 	if searchPath == "" {
-		searchPath, _ = os.Getwd()
+		if p, err := os.Getwd(); err == nil {
+			searchPath = p
+		} else {
+			searchPath = "/"
+		}
 	}
 	searchPath = expandHomePath(searchPath)
 
@@ -234,7 +238,11 @@ func symbolSearchHandler(ctx context.Context, args json.RawMessage) (string, err
 
 	searchPath := a.Path
 	if searchPath == "" {
-		searchPath, _ = os.Getwd()
+		if p, err := os.Getwd(); err == nil {
+			searchPath = p
+		} else {
+			searchPath = "/"
+		}
 	}
 	searchPath = expandHomePath(searchPath)
 

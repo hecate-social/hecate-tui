@@ -193,15 +193,14 @@ func migrateOldConfigs() Config {
 	cfg.Connection.SocketPath = defaultSocketPath()
 
 	if migrated {
-		// Save new consolidated config
-		_ = cfg.Save()
-
-		// Rename old files to .migrated
+		// Save new consolidated config (best-effort during migration)
+		_ = cfg.Save() //nolint:errcheck // migration runs before UI is ready
+		// Rename old files to .migrated (best-effort)
 		if _, err := os.Stat(oldJSONPath); err == nil {
-			_ = os.Rename(oldJSONPath, oldJSONPath+".migrated")
+			_ = os.Rename(oldJSONPath, oldJSONPath+".migrated") //nolint:errcheck
 		}
 		if _, err := os.Stat(oldTOMLPath); err == nil {
-			_ = os.Rename(oldTOMLPath, oldTOMLPath+".migrated")
+			_ = os.Rename(oldTOMLPath, oldTOMLPath+".migrated") //nolint:errcheck
 		}
 	}
 
