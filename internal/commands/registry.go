@@ -53,6 +53,10 @@ func NewRegistry() *Registry {
 	r.Register(&RoleCmd{})
 	r.Register(&AboutCmd{})
 	r.Register(&TorchCmd{})
+	r.Register(&TorchesCmd{})
+	r.Register(&ChatCmd{})
+	r.Register(&BackCmd{})
+	r.Register(&CartwheelsCmd{})
 	r.Register(&AgentsCmd{})
 	r.Register(&CostCmd{})
 

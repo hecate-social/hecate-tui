@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/hecate-social/hecate-tui/internal/alc"
 	"github.com/hecate-social/hecate-tui/internal/browse"
 	"github.com/hecate-social/hecate-tui/internal/chat"
 	"github.com/hecate-social/hecate-tui/internal/client"
@@ -74,6 +75,9 @@ type App struct {
 
 	// Health polling
 	daemonStatus string
+
+	// ALC context (Chat/Torch/Cartwheel)
+	alcState *alc.State
 }
 
 // New creates a new App with the modal chat interface.
@@ -170,6 +174,7 @@ func New(hecateURL string) *App {
 		registry:          commands.NewRegistry(),
 		toolExecutor:      toolExecutor,
 		approvalPrompt:    approvalPrompt,
+		alcState:          alc.NewState(),
 	}
 }
 
@@ -256,6 +261,7 @@ func NewWithSocket(socketPath string) *App {
 		registry:          commands.NewRegistry(),
 		toolExecutor:      toolExecutor,
 		approvalPrompt:    approvalPrompt,
+		alcState:          alc.NewState(),
 	}
 }
 
@@ -267,13 +273,68 @@ type healthMsg struct {
 // healthTickMsg triggers periodic health polling.
 type healthTickMsg struct{}
 
-// Init starts the app — fetch models, check health, start polling.
+// torchDetectedMsg carries auto-detected torch info.
+type torchDetectedMsg struct {
+	torch  *alc.TorchInfo
+	source string
+}
+
+// Init starts the app — fetch models, check health, start polling, detect torch.
 func (a *App) Init() tea.Cmd {
 	return tea.Batch(
 		a.chat.Init(),
 		a.checkHealth,
 		a.scheduleHealthTick(),
+		a.detectTorch,
 	)
+}
+
+// detectTorch attempts to auto-detect a torch from git remote or .hecate/torch.json.
+func (a *App) detectTorch() tea.Msg {
+	result := alc.DetectTorch()
+	if !result.Found {
+		return nil
+	}
+
+	// If detected from config, we have the torch ID directly
+	if result.Source == "config" && result.Config != nil && result.Config.TorchID != "" {
+		// Try to fetch full torch info from daemon
+		torch, err := a.client.GetTorchByID(result.Config.TorchID)
+		if err == nil && torch != nil {
+			return torchDetectedMsg{
+				torch: &alc.TorchInfo{
+					ID:    torch.TorchID,
+					Name:  torch.Name,
+					Brief: torch.Brief,
+				},
+				source: "config",
+			}
+		}
+	}
+
+	// If detected from git, try to match against known torches
+	if result.Source == "git" && result.Config != nil {
+		torches, err := a.client.ListTorches()
+		if err == nil {
+			// Match by name (the normalized git URL is stored in Name)
+			for _, t := range torches {
+				// TODO: Add git_remote field to torch for proper matching
+				// For now, just check if torch name is part of the git URL
+				if strings.Contains(result.Config.Name, t.Name) {
+					return torchDetectedMsg{
+						torch: &alc.TorchInfo{
+							ID:    t.TorchID,
+							Name:  t.Name,
+							Brief: t.Brief,
+						},
+						source: "git",
+					}
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func (a *App) scheduleHealthTick() tea.Cmd {
@@ -331,6 +392,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Sync status bar model from chat state (don't override with first model from list)
 		a.statusBar.ModelName = a.chat.ActiveModelName()
 		a.statusBar.ModelProvider = a.chat.ActiveModelProvider()
+
+	case torchDetectedMsg:
+		if msg.torch != nil {
+			a.alcState.SetTorch(msg.torch, msg.source)
+			a.statusBar.TorchName = msg.torch.Name
+			a.chat.InjectSystemMessage("Resuming torch: " + msg.torch.Name + " (detected from " + msg.source + ")")
+		}
 
 	case healthTickMsg:
 		cmds = append(cmds, a.checkHealth, a.scheduleHealthTick())
@@ -407,6 +475,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			roleName = msg.Role
 		}
 		a.chat.InjectSystemMessage("Role switched to: " + roleName)
+
+	case commands.SetALCContextMsg:
+		a.handleALCContextChange(msg)
 	}
 
 	// Forward to chat for streaming updates
@@ -933,6 +1004,39 @@ func (a *App) commandContext() *commands.Context {
 		RebuildPrompt: func() string {
 			return a.cfg.BuildSystemPrompt()
 		},
+		GetALCContext: func() *alc.State {
+			return a.alcState
+		},
+	}
+}
+
+// handleALCContextChange processes ALC context switch messages.
+func (a *App) handleALCContextChange(msg commands.SetALCContextMsg) {
+	switch msg.Context {
+	case alc.Chat:
+		a.alcState.ClearTorch()
+		a.statusBar.TorchName = ""
+		a.statusBar.ActivePhase = ""
+		a.chat.InjectSystemMessage("Returned to chat mode.")
+
+	case alc.Torch:
+		if msg.Torch != nil {
+			source := msg.Source
+			if source == "" {
+				source = "manual"
+			}
+			a.alcState.SetTorch(msg.Torch, source)
+			a.statusBar.TorchName = msg.Torch.Name
+			a.statusBar.ActivePhase = ""
+			a.chat.InjectSystemMessage("Torch selected: " + msg.Torch.Name)
+		}
+
+	case alc.Cartwheel:
+		if msg.Cartwheel != nil {
+			a.alcState.SetCartwheel(msg.Cartwheel)
+			a.statusBar.ActivePhase = string(msg.Cartwheel.CurrentPhase)
+			a.chat.InjectSystemMessage("Cartwheel active: " + msg.Cartwheel.Name + " (" + string(msg.Cartwheel.CurrentPhase) + ")")
+		}
 	}
 }
 
@@ -1193,6 +1297,12 @@ func (a *App) renderEditLayout() string {
 }
 
 func (a *App) renderHeader() string {
+	// Context-aware header based on ALC state
+	if a.alcState != nil && a.alcState.Context != alc.Chat {
+		return a.renderContextHeader()
+	}
+
+	// Default Chat mode header
 	logo := lipgloss.NewStyle().Foreground(a.theme.Primary).Bold(true).Render("🔥🗝️🔥 Hecate")
 
 	modelSection := ""
@@ -1218,6 +1328,58 @@ func (a *App) renderHeader() string {
 	left := logo + modelSection + daemonSection + titleSection
 
 	return lipgloss.NewStyle().Width(a.width).Padding(0, 1).Render(left)
+}
+
+// renderContextHeader renders the context-aware header for Torch/Cartwheel modes.
+func (a *App) renderContextHeader() string {
+	var parts []string
+
+	// Torch name (always present in non-Chat mode)
+	if a.alcState.Torch != nil {
+		torchStyle := lipgloss.NewStyle().Foreground(a.theme.Warning).Bold(true)
+		parts = append(parts, torchStyle.Render("🔥 "+a.alcState.Torch.Name))
+	}
+
+	// Cartwheel name and phase (if in Cartwheel mode)
+	if a.alcState.Context == alc.Cartwheel && a.alcState.Cartwheel != nil {
+		cartwheelStyle := lipgloss.NewStyle().Foreground(a.theme.Secondary)
+		parts = append(parts, cartwheelStyle.Render("🎡 "+a.alcState.Cartwheel.Name))
+
+		// Phase badge
+		if phase := a.alcState.Cartwheel.CurrentPhase; phase != "" {
+			phaseStyle := a.phaseStyle(string(phase))
+			parts = append(parts, phaseStyle.Render("📍 "+strings.ToUpper(string(phase))))
+		}
+
+		// Model indicator moves to header in Cartwheel mode
+		if modelName := a.chat.ActiveModelName(); modelName != "" {
+			name := modelName
+			if len(name) > 15 {
+				name = name[:12] + "..."
+			}
+			parts = append(parts, a.styles.Subtle.Render("🤖 "+name))
+		}
+	}
+
+	left := strings.Join(parts, a.styles.Subtle.Render(" › "))
+
+	return lipgloss.NewStyle().Width(a.width).Padding(0, 1).Render(left)
+}
+
+// phaseStyle returns a style for ALC phase badges.
+func (a *App) phaseStyle(phase string) lipgloss.Style {
+	switch strings.ToLower(phase) {
+	case "dna":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED")).Bold(true) // Purple
+	case "anp":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#2563EB")).Bold(true) // Blue
+	case "tni":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#059669")).Bold(true) // Green
+	case "dno":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#DC2626")).Bold(true) // Red
+	default:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Bold(true) // Gray
+	}
 }
 
 func (a *App) renderCommandLine() string {

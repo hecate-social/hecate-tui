@@ -4,6 +4,7 @@ import (
 	"context"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/hecate-social/hecate-tui/internal/alc"
 	"github.com/hecate-social/hecate-tui/internal/client"
 	"github.com/hecate-social/hecate-tui/internal/llmtools"
 	"github.com/hecate-social/hecate-tui/internal/theme"
@@ -45,6 +46,9 @@ type Context struct {
 	SetActiveRole    func(role string) error
 	GetRoleNames     func() []string
 	RebuildPrompt    func() string // rebuilds system prompt from config
+
+	// ALC context access
+	GetALCContext func() *alc.State
 }
 
 // Ctx returns a background context. Used for tool execution.
@@ -95,4 +99,12 @@ type LoadConversationMsg struct {
 // SwitchRoleMsg tells the app to switch to a different ALC role.
 type SwitchRoleMsg struct {
 	Role string // dna, anp, tni, dno
+}
+
+// SetALCContextMsg tells the app to switch ALC context (Chat/Torch/Cartwheel).
+type SetALCContextMsg struct {
+	Context   alc.Context
+	Torch     *alc.TorchInfo
+	Cartwheel *alc.CartwheelInfo
+	Source    string // "manual", "git", "config"
 }
