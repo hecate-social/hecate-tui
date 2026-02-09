@@ -57,11 +57,14 @@ func (c *Client) ListTorches() ([]Torch, error) {
 	if !resp.Ok {
 		return nil, fmt.Errorf("list torches failed: %s", resp.Error)
 	}
-	var torches []Torch
-	if err := json.Unmarshal(resp.Result, &torches); err != nil {
+	// Daemon returns {"ok": true, "torches": [...]}
+	var result struct {
+		Torches []Torch `json:"torches"`
+	}
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse torches: %w", err)
 	}
-	return torches, nil
+	return result.Torches, nil
 }
 
 // InitiateTorch creates a new torch with the given name and brief.
