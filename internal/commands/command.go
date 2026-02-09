@@ -116,3 +116,8 @@ type SetALCContextMsg struct {
 	Cartwheel *alc.CartwheelInfo
 	Source    string // "manual", "git", "config"
 }
+
+// ShowFormMsg tells the app to display a form overlay.
+type ShowFormMsg struct {
+	FormType string // "torch_init", "cartwheel_init", etc.
+}

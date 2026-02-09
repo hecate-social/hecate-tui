@@ -1,6 +1,7 @@
 package app
 
 import (
+	"os"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/hecate-social/hecate-tui/internal/llmtools"
 	"github.com/hecate-social/hecate-tui/internal/modes"
 	"github.com/hecate-social/hecate-tui/internal/pair"
+	"github.com/hecate-social/hecate-tui/internal/scaffold"
 	"github.com/hecate-social/hecate-tui/internal/statusbar"
 	"github.com/hecate-social/hecate-tui/internal/theme"
 	"github.com/hecate-social/hecate-tui/internal/ui"
@@ -45,6 +47,7 @@ type App struct {
 	statusBar  statusbar.Model
 	cmdInput   textinput.Model
 	registry   *commands.Registry
+	formView   *ui.FormModel
 
 	// Tool system
 	toolExecutor   *llmtools.Executor
@@ -54,6 +57,7 @@ type App struct {
 	browseReady bool
 	pairReady   bool
 	editorReady bool
+	formReady   bool
 
 	// Command history
 	cmdHistory []string
@@ -110,6 +114,9 @@ func New(hecateURL string) *App {
 	ci.CharLimit = 256
 
 	sb := statusbar.New(t, s)
+	if cwd, err := os.Getwd(); err == nil {
+		sb.Cwd = cwd
+	}
 
 	chatModel := chat.New(c, t, s)
 
@@ -200,6 +207,9 @@ func NewWithSocket(socketPath string) *App {
 	ci.CharLimit = 256
 
 	sb := statusbar.New(t, s)
+	if cwd, err := os.Getwd(); err == nil {
+		sb.Cwd = cwd
+	}
 
 	chatModel := chat.New(c, t, s)
 
@@ -478,6 +488,41 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case commands.SetALCContextMsg:
 		a.handleALCContextChange(msg)
+
+	case commands.ShowFormMsg:
+		a.chat.InjectSystemMessage("DEBUG: ShowFormMsg received, type=" + msg.FormType)
+		cmd := a.showForm(msg.FormType)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+
+	case commands.ChangeDirMsg:
+		if err := os.Chdir(msg.Path); err != nil {
+			a.chat.InjectSystemMessage(a.styles.Error.Render("Failed to change directory: " + err.Error()))
+		} else {
+			a.statusBar.Cwd = msg.Path
+			a.chat.InjectSystemMessage(a.styles.Subtle.Render("Changed to: " + msg.Path))
+			// Re-detect torch in new directory
+			cmds = append(cmds, a.detectTorch)
+		}
+
+	case commands.TorchCreatedMsg:
+		// Show the creation message
+		a.chat.InjectSystemMessage(msg.Message)
+		// cd into the new torch directory
+		if err := os.Chdir(msg.Path); err != nil {
+			a.chat.InjectSystemMessage(a.styles.Error.Render("Failed to cd to new torch: " + err.Error()))
+		} else {
+			a.statusBar.Cwd = msg.Path
+			// Re-detect torch (will load the newly created one)
+			cmds = append(cmds, a.detectTorch)
+		}
+
+	case ui.FormResult:
+		cmd := a.handleFormResult(msg)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 	}
 
 	// Forward to chat for streaming updates
@@ -528,6 +573,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// Forward to form if in Form mode (non-key msgs like blink)
+	if a.mode == modes.Form && a.formReady && a.formView != nil {
+		if _, isKey := msg.(tea.KeyMsg); !isKey {
+			var formCmd tea.Cmd
+			a.formView, formCmd = a.formView.Update(msg)
+			cmds = append(cmds, formCmd)
+		}
+	}
+
 	return a, tea.Batch(cmds...)
 }
 
@@ -552,6 +606,8 @@ func (a *App) handleKey(msg tea.KeyMsg) tea.Cmd {
 		return a.handlePairKey(key, msg)
 	case modes.Edit:
 		return a.handleEditKey(key, msg)
+	case modes.Form:
+		return a.handleFormKey(key, msg)
 	default:
 		if key == "esc" {
 			a.setMode(modes.Normal)
@@ -847,6 +903,166 @@ func (a *App) handleEditKey(key string, msg tea.KeyMsg) tea.Cmd {
 	return cmd
 }
 
+func (a *App) handleFormKey(key string, msg tea.KeyMsg) tea.Cmd {
+	if !a.formReady || a.formView == nil {
+		return nil
+	}
+
+	// Forward all keys to the form - it handles esc internally
+	var cmd tea.Cmd
+	a.formView, cmd = a.formView.Update(msg)
+	return cmd
+}
+
+// showForm initializes and displays a form overlay.
+func (a *App) showForm(formType string) tea.Cmd {
+	switch formType {
+	case "torch_init":
+		cwd, _ := os.Getwd()
+		a.formView = ui.NewTorchForm(a.theme, a.styles, cwd)
+		formWidth := 60
+		if a.width > 0 && a.width < 70 {
+			formWidth = a.width - 4
+		}
+		a.formView.SetWidth(formWidth)
+		a.formReady = true
+		a.setMode(modes.Form)
+		return a.formView.Init()
+	default:
+		a.chat.InjectSystemMessage("Unknown form type: " + formType)
+		return nil
+	}
+}
+
+// handleFormResult processes form submission or cancellation.
+func (a *App) handleFormResult(result ui.FormResult) tea.Cmd {
+	a.formReady = false
+	a.setMode(modes.Normal)
+
+	if !result.Submitted {
+		a.chat.InjectSystemMessage("Cancelled.")
+		return nil
+	}
+
+	// Handle based on form type
+	switch result.FormID {
+	case "torch_init":
+		pathInput := result.Values["path"]
+		name := result.Values["name"]
+		brief := result.Values["brief"]
+
+		// Path is required
+		if strings.TrimSpace(pathInput) == "" {
+			a.chat.InjectSystemMessage(a.styles.Error.Render("Path is required"))
+			return nil
+		}
+
+		// Expand path
+		cwd, _ := os.Getwd()
+		path := ui.ExpandPath(pathInput, cwd)
+
+		// Infer name from path if not provided
+		if strings.TrimSpace(name) == "" {
+			name = ui.InferName(path)
+		}
+
+		return a.createTorchFromForm(path, name, brief)
+
+	default:
+		a.chat.InjectSystemMessage("Unknown form: " + result.FormID)
+		return nil
+	}
+}
+
+// createTorchFromForm creates a torch after form submission.
+func (a *App) createTorchFromForm(path, name, brief string) tea.Cmd {
+	return func() tea.Msg {
+		s := a.styles
+
+		// Create directory if it doesn't exist
+		if err := os.MkdirAll(path, 0755); err != nil {
+			return commands.InjectSystemMsg{Content: s.Error.Render("Failed to create directory: " + err.Error())}
+		}
+
+		// Create torch via daemon
+		torch, err := a.client.InitiateTorch(name, brief)
+		if err != nil {
+			return commands.InjectSystemMsg{Content: s.Error.Render("Failed to initiate torch: " + err.Error())}
+		}
+
+		// Scaffold the repository structure
+		manifest := scaffold.TorchManifest{
+			TorchID:     torch.TorchID,
+			Name:        torch.Name,
+			Brief:       torch.Brief,
+			Root:        path,
+			InitiatedAt: torch.InitiatedAt,
+			InitiatedBy: torch.InitiatedBy,
+		}
+
+		result := scaffold.Scaffold(path, manifest)
+
+		// Build output message
+		var b strings.Builder
+		b.WriteString(s.StatusOK.Render("Torch Initiated"))
+		b.WriteString("\n\n")
+		b.WriteString(s.CardTitle.Render("Torch: " + torch.Name))
+		b.WriteString("\n")
+		b.WriteString(s.CardLabel.Render("    ID: "))
+		b.WriteString(s.CardValue.Render(torch.TorchID))
+		b.WriteString("\n")
+		b.WriteString(s.CardLabel.Render("  Root: "))
+		b.WriteString(s.Subtle.Render(path))
+		b.WriteString("\n\n")
+
+		b.WriteString(s.CardTitle.Render("Scaffolded:"))
+		b.WriteString("\n")
+
+		if result.Success {
+			b.WriteString(s.StatusOK.Render("  ✓ "))
+			b.WriteString(s.Subtle.Render(".hecate/torch.json"))
+			b.WriteString("\n")
+		}
+		if result.AgentsCloned {
+			b.WriteString(s.StatusOK.Render("  ✓ "))
+			b.WriteString(s.Subtle.Render(".hecate/agents/"))
+			b.WriteString("\n")
+		}
+		if result.ReadmeCreated {
+			b.WriteString(s.StatusOK.Render("  ✓ "))
+			b.WriteString(s.Subtle.Render("README.md"))
+			b.WriteString("\n")
+		}
+		if result.ChangelogCreated {
+			b.WriteString(s.StatusOK.Render("  ✓ "))
+			b.WriteString(s.Subtle.Render("CHANGELOG.md"))
+			b.WriteString("\n")
+		}
+
+		if result.GitInitialized {
+			b.WriteString(s.StatusOK.Render("  ✓ "))
+			b.WriteString(s.Subtle.Render("git init"))
+			b.WriteString("\n")
+		}
+
+		if result.GitCommitted {
+			b.WriteString(s.StatusOK.Render("  ✓ "))
+			b.WriteString(s.Subtle.Render("git commit"))
+			b.WriteString("\n")
+		}
+
+		for _, warn := range result.Warnings {
+			b.WriteString(s.StatusWarning.Render("  ⚠ " + warn))
+			b.WriteString("\n")
+		}
+
+		b.WriteString("\n")
+		b.WriteString(s.Subtle.Render("Next: gh repo create --public --source=. --push"))
+
+		return commands.TorchCreatedMsg{Path: path, Message: b.String()}
+	}
+}
+
 func (a *App) openEditor(path string) tea.Cmd {
 	if path != "" {
 		ed, err := editor.NewWithFile(path)
@@ -896,6 +1112,9 @@ func (a *App) setMode(m modes.Mode) {
 		a.chat.SetInputVisible(false)
 		a.cmdInput.Blur()
 	case modes.Edit:
+		a.chat.SetInputVisible(false)
+		a.cmdInput.Blur()
+	case modes.Form:
 		a.chat.SetInputVisible(false)
 		a.cmdInput.Blur()
 	}
@@ -1122,6 +1341,11 @@ func (a *App) View() string {
 		return a.renderEditLayout()
 	}
 
+	// Form mode overlays the chat
+	if a.mode == modes.Form && a.formReady {
+		return a.renderFormLayout()
+	}
+
 	var sections []string
 
 	// Header
@@ -1308,6 +1532,66 @@ func (a *App) renderEditLayout() string {
 	sections = append(sections, a.editorView.View())
 	sections = append(sections, a.statusBar.View())
 	return strings.Join(sections, "\n")
+}
+
+func (a *App) renderFormLayout() string {
+	// Render the normal chat view as the background
+	var sections []string
+	sections = append(sections, a.renderHeader())
+	sections = append(sections, a.chat.ViewChat())
+	if stats := a.chat.ViewStats(); stats != "" {
+		sections = append(sections, stats)
+	}
+	sections = append(sections, a.statusBar.View())
+	background := strings.Join(sections, "\n")
+
+	// Dim the background
+	backgroundLines := strings.Split(background, "\n")
+	for i, line := range backgroundLines {
+		backgroundLines[i] = lipgloss.NewStyle().Foreground(a.theme.TextMuted).Render(line)
+	}
+
+	// Render the form
+	if a.formView == nil {
+		return strings.Join(backgroundLines, "\n")
+	}
+
+	formContent := a.formView.View()
+	formLines := strings.Split(formContent, "\n")
+	formHeight := len(formLines)
+
+	// Calculate form width for centering
+	maxFormWidth := 0
+	for _, line := range formLines {
+		if w := lipgloss.Width(line); w > maxFormWidth {
+			maxFormWidth = w
+		}
+	}
+
+	// Center the form vertically and horizontally
+	startLine := (len(backgroundLines) - formHeight) / 2
+	if startLine < 2 {
+		startLine = 2
+	}
+
+	leftPad := (a.width - maxFormWidth) / 2
+	if leftPad < 0 {
+		leftPad = 0
+	}
+	padding := strings.Repeat(" ", leftPad)
+
+	// Overlay the form on the dimmed background
+	result := make([]string, len(backgroundLines))
+	copy(result, backgroundLines)
+
+	for i, line := range formLines {
+		lineIdx := startLine + i
+		if lineIdx >= 0 && lineIdx < len(result) {
+			result[lineIdx] = padding + line
+		}
+	}
+
+	return strings.Join(result, "\n")
 }
 
 func (a *App) renderHeader() string {

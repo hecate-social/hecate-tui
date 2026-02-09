@@ -2,6 +2,7 @@ package statusbar
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -17,6 +18,7 @@ type Model struct {
 	width  int
 
 	Mode          modes.Mode
+	Cwd           string // current working directory
 	ModelName     string
 	ModelProvider string // "ollama", "openai", "anthropic", etc.
 	MeshStatus    string // "connected", "disconnected", "unknown"
@@ -56,6 +58,13 @@ func (m Model) View() string {
 	// Mode label — each mode gets its own color
 	modeStyle := m.modeStyle()
 	modeLabel := modeStyle.Render(" " + m.Mode.String() + " ")
+
+	// Current working directory (shortened)
+	cwdSection := ""
+	if m.Cwd != "" {
+		cwd := shortenPath(m.Cwd, 30)
+		cwdSection = "  " + m.styles.Subtle.Render(cwd)
+	}
 
 	// Model indicator with provider and status LED
 	modelSection := ""
@@ -101,26 +110,8 @@ func (m Model) View() string {
 		daemonSection += m.styles.Subtle.Render("○")
 	}
 
-	// Torch context: name + phase + agent count
-	torchSection := ""
-	if m.TorchName != "" {
-		name := m.TorchName
-		if len(name) > 15 {
-			name = name[:12] + "..."
-		}
-		torchSection = "  " + m.styles.Subtle.Render("🔥 "+name)
-
-		// Phase badge
-		if m.ActivePhase != "" {
-			phaseStyle := m.phaseStyle(m.ActivePhase)
-			torchSection += " " + phaseStyle.Render(strings.ToUpper(m.ActivePhase))
-		}
-
-		// Agent count
-		if m.AgentCount > 0 {
-			torchSection += m.styles.Subtle.Render(fmt.Sprintf(" 🤖×%d", m.AgentCount))
-		}
-	}
+	// Note: Torch context (name, phase, agents) is shown in the header breadcrumb
+	// when in Torch or Cartwheel mode, so we don't duplicate it here.
 
 	// Token count (only show if non-zero and using paid provider)
 	tokenSection := ""
@@ -147,8 +138,8 @@ func (m Model) View() string {
 		hints = m.styles.Subtle.Render("  " + hintsText)
 	}
 
-	// Left side: mode + model + daemon + torch + tokens
-	left := modeLabel + modelSection + daemonSection + torchSection + tokenSection
+	// Left side: mode + cwd + model + daemon + tokens
+	left := modeLabel + cwdSection + modelSection + daemonSection + tokenSection
 
 	// Right side: hints + clickable donate link + version
 	// OSC 8 hyperlink format: \x1b]8;;URL\x1b\\TEXT\x1b]8;;\x1b\\
@@ -189,6 +180,8 @@ func (m Model) modeStyle() lipgloss.Style {
 		return m.styles.PairMode
 	case modes.Edit:
 		return m.styles.EditMode
+	case modes.Form:
+		return m.styles.CommandMode // Reuse command style for forms
 	default:
 		return m.styles.NormalMode
 	}
@@ -227,4 +220,29 @@ func formatTokenCount(count int) string {
 		return fmt.Sprintf("%.1fK", float64(count)/1000)
 	}
 	return fmt.Sprintf("%d", count)
+}
+
+// shortenPath shortens a path for display, replacing home dir with ~ and truncating if needed.
+func shortenPath(path string, maxLen int) string {
+	// Replace home directory with ~
+	home := os.Getenv("HOME")
+	if home != "" && strings.HasPrefix(path, home) {
+		path = "~" + path[len(home):]
+	}
+
+	// If still too long, show .../<last-two-dirs>
+	if len(path) > maxLen {
+		parts := strings.Split(path, "/")
+		if len(parts) >= 2 {
+			// Keep last 2 parts
+			short := ".../" + strings.Join(parts[len(parts)-2:], "/")
+			if len(short) <= maxLen {
+				return short
+			}
+		}
+		// Still too long, just truncate
+		return "..." + path[len(path)-(maxLen-3):]
+	}
+
+	return path
 }

@@ -728,10 +728,10 @@ func formatCartwheelPhase(phase string) string {
 	}
 }
 
-// formatTimestamp converts a Unix timestamp to a readable string.
+// formatTimestamp converts a Unix timestamp (milliseconds) to a readable string.
 func formatTimestamp(ts int64) string {
 	if ts == 0 {
 		return "-"
 	}
-	return time.Unix(ts, 0).Format("2006-01-02 15:04")
+	return time.UnixMilli(ts).Format("2006-01-02 15:04")
 }

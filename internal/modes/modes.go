@@ -10,6 +10,7 @@ const (
 	Browse              // Browsing capabilities — modal dialog
 	Pair                // Pairing flow — inline wizard
 	Edit                // Built-in editor — file editing overlay
+	Form                // Form input — structured data entry overlay
 )
 
 // String returns the display name for the mode (shown in status bar).
@@ -27,6 +28,8 @@ func (m Mode) String() string {
 		return "PAIR"
 	case Edit:
 		return "EDIT"
+	case Form:
+		return "FORM"
 	default:
 		return "UNKNOWN"
 	}
@@ -47,6 +50,8 @@ func (m Mode) Hints() string {
 		return "p:pair  c:cancel  r:refresh  Esc:back"
 	case Edit:
 		return "Ctrl+S:save  Ctrl+Q:close  Esc:close"
+	case Form:
+		return "Tab:next  Shift+Tab:prev  Enter:submit  Esc:cancel"
 	default:
 		return ""
 	}

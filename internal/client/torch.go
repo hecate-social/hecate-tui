@@ -3,6 +3,7 @@ package client
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 )
 
 // Torch represents a business endeavor in the Hecate system.
@@ -48,9 +49,22 @@ func (c *Client) GetTorchByID(torchID string) (*Torch, error) {
 	return &torch, nil
 }
 
-// ListTorches returns all torches.
+// ListTorches returns active (non-archived) torches.
 func (c *Client) ListTorches() ([]Torch, error) {
-	resp, err := c.get("/api/torches")
+	return c.listTorchesInternal(false)
+}
+
+// ListAllTorches returns all torches including archived ones.
+func (c *Client) ListAllTorches() ([]Torch, error) {
+	return c.listTorchesInternal(true)
+}
+
+func (c *Client) listTorchesInternal(includeArchived bool) ([]Torch, error) {
+	path := "/api/torches"
+	if includeArchived {
+		path += "?include_archived=true"
+	}
+	resp, err := c.get(path)
 	if err != nil {
 		return nil, err
 	}
@@ -69,9 +83,21 @@ func (c *Client) ListTorches() ([]Torch, error) {
 
 // InitiateTorch creates a new torch with the given name and brief.
 func (c *Client) InitiateTorch(name, brief string) (*Torch, error) {
+	// Get user@hostname for initiated_by
+	user := os.Getenv("USER")
+	if user == "" {
+		user = "unknown"
+	}
+	hostname, _ := os.Hostname()
+	if hostname == "" {
+		hostname = "localhost"
+	}
+	initiatedBy := user + "@" + hostname
+
 	body := map[string]interface{}{
-		"name":  name,
-		"brief": brief,
+		"name":         name,
+		"brief":        brief,
+		"initiated_by": initiatedBy,
 	}
 	resp, err := c.post("/api/torch/initiate", body)
 	if err != nil {
@@ -85,4 +111,20 @@ func (c *Client) InitiateTorch(name, brief string) (*Torch, error) {
 		return nil, fmt.Errorf("failed to parse torch: %w", err)
 	}
 	return &torch, nil
+}
+
+// ArchiveTorch archives a torch (soft delete).
+func (c *Client) ArchiveTorch(torchID, reason string) error {
+	body := map[string]interface{}{
+		"reason":      reason,
+		"archived_by": "tui",
+	}
+	resp, err := c.post("/api/torches/"+torchID+"/archive", body)
+	if err != nil {
+		return err
+	}
+	if !resp.Ok {
+		return fmt.Errorf("archive torch failed: %s", resp.Error)
+	}
+	return nil
 }

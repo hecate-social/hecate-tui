@@ -24,6 +24,7 @@ func NewRegistry() *Registry {
 	// Register built-in commands
 	r.Register(&HelpCmd{registry: r})
 	r.Register(&HistoryCmd{})
+	r.Register(&CdCmd{})
 	r.Register(&ClearCmd{})
 	r.Register(&DeleteCmd{})
 	r.Register(&QuitCmd{})

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/hecate-social/hecate-tui/internal/alc"
 	"github.com/hecate-social/hecate-tui/internal/client"
+	"github.com/hecate-social/hecate-tui/internal/scaffold"
 )
 
 // TorchCmd handles all /torch subcommands for business endeavor management.
@@ -21,43 +23,79 @@ func (c *TorchCmd) Description() string { return "Manage business endeavors (Tor
 // Complete implements Completable for torch argument completion.
 func (c *TorchCmd) Complete(args []string, ctx *Context) []string {
 	// Subcommands
-	subcommands := []string{"init", "new", "list", "ls", "select", "clear", "exit", "help", "status"}
+	subcommands := []string{"init", "new", "list", "ls", "select", "clear", "exit", "archive", "help", "status"}
 
 	if len(args) == 0 {
 		return subcommands
 	}
 
-	prefix := strings.ToLower(args[0])
+	firstArg := strings.ToLower(args[0])
 
-	// If first arg matches a subcommand prefix, complete subcommands
+	// If we have 2+ args, we're completing the second argument
+	// For "archive" and "select", complete torch IDs
+	if len(args) >= 2 {
+		switch firstArg {
+		case "archive":
+			// Archive needs torch IDs (include archived for visibility)
+			return c.completeTorchIDs(args[1], ctx, true)
+		case "select", "switch", "use":
+			// Select needs active torch IDs/names
+			return c.completeTorchIDs(args[1], ctx, false)
+		case "list", "ls":
+			// List can have "all" or "archived" as second arg
+			prefix := strings.ToLower(args[1])
+			var matches []string
+			for _, opt := range []string{"all", "archived"} {
+				if strings.HasPrefix(opt, prefix) {
+					matches = append(matches, opt)
+				}
+			}
+			return matches
+		}
+		return nil
+	}
+
+	// Single arg - complete subcommands and torch names
 	var subMatches []string
 	for _, sub := range subcommands {
-		if strings.HasPrefix(sub, prefix) {
+		if strings.HasPrefix(sub, firstArg) {
 			subMatches = append(subMatches, sub)
 		}
 	}
 
-	// Also try to complete torch IDs/names
-	torches, err := ctx.Client.ListTorches()
+	// Also try to complete torch IDs/names for direct selection
+	torchMatches := c.completeTorchIDs(firstArg, ctx, false)
+
+	// Combine
+	return append(subMatches, torchMatches...)
+}
+
+// completeTorchIDs returns torch IDs matching the prefix.
+func (c *TorchCmd) completeTorchIDs(prefix string, ctx *Context, includeArchived bool) []string {
+	var torches []client.Torch
+	var err error
+	if includeArchived {
+		torches, err = ctx.Client.ListAllTorches()
+	} else {
+		torches, err = ctx.Client.ListTorches()
+	}
 	if err != nil {
-		return subMatches
+		return nil
 	}
 
-	var torchMatches []string
+	prefix = strings.ToLower(prefix)
+	var matches []string
 	for _, torch := range torches {
-		// Match against ID (case-insensitive prefix match, preserve original case)
+		// Match against ID
 		if strings.HasPrefix(strings.ToLower(torch.TorchID), prefix) {
-			torchMatches = append(torchMatches, torch.TorchID)
+			matches = append(matches, torch.TorchID)
 		}
-		// Match against name (case-insensitive prefix match, preserve original case)
+		// Match against name (if different from ID)
 		if strings.HasPrefix(strings.ToLower(torch.Name), prefix) && torch.Name != torch.TorchID {
-			torchMatches = append(torchMatches, torch.Name)
+			matches = append(matches, torch.Name)
 		}
 	}
-
-	// Combine and dedupe
-	all := append(subMatches, torchMatches...)
-	return all
+	return matches
 }
 
 func (c *TorchCmd) Execute(args []string, ctx *Context) tea.Cmd {
@@ -74,7 +112,8 @@ func (c *TorchCmd) Execute(args []string, ctx *Context) tea.Cmd {
 	case "init", "new", "create":
 		return c.initiateTorch(args[1:], ctx)
 	case "list", "ls":
-		return c.listTorches(ctx)
+		includeArchived := len(args) > 1 && (args[1] == "all" || args[1] == "archived")
+		return c.listTorches(ctx, includeArchived)
 	case "select", "switch", "use":
 		if len(args) < 2 {
 			return c.showError(ctx, "Usage: /torch select <id|name|number>")
@@ -82,6 +121,15 @@ func (c *TorchCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		return c.selectTorch(args[1], ctx)
 	case "clear", "exit":
 		return c.clearTorch(ctx)
+	case "archive":
+		if len(args) < 2 {
+			return c.showError(ctx, "Usage: /torch archive <torch-id> [reason]")
+		}
+		reason := ""
+		if len(args) > 2 {
+			reason = strings.Join(args[2:], " ")
+		}
+		return c.archiveTorch(args[1], reason, ctx)
 	case "help":
 		return c.showUsage(ctx)
 	default:
@@ -130,7 +178,9 @@ func (c *TorchCmd) showUsage(ctx *Context) tea.Cmd {
 		b.WriteString(row("/torch", "Show current torch status"))
 		b.WriteString(row("/torch status", "Show current torch status"))
 		b.WriteString(row("/torch init <name> [brief]", "Initiate a new torch"))
-		b.WriteString(row("/torch list", "List all torches"))
+		b.WriteString(row("/torch archive <torch-id> [reason]", "Archive a torch (soft delete)"))
+		b.WriteString(row("/torch list", "List active torches"))
+		b.WriteString(row("/torch list all", "List all torches (including archived)"))
 		b.WriteString(row("/torch <id>", "Show specific torch by ID"))
 		b.WriteString("\n")
 
@@ -167,25 +217,39 @@ func (c *TorchCmd) showTorchByID(torchID string, ctx *Context) tea.Cmd {
 	}
 }
 
-func (c *TorchCmd) listTorches(ctx *Context) tea.Cmd {
+func (c *TorchCmd) listTorches(ctx *Context, includeArchived bool) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
 
-		torches, err := ctx.Client.ListTorches()
+		var torches []client.Torch
+		var err error
+		if includeArchived {
+			torches, err = ctx.Client.ListAllTorches()
+		} else {
+			torches, err = ctx.Client.ListTorches()
+		}
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to list torches: " + err.Error())}
 		}
 
 		if len(torches) == 0 {
 			var b strings.Builder
-			b.WriteString(s.CardTitle.Render("Torches"))
+			title := "Torches"
+			if includeArchived {
+				title = "Torches (including archived)"
+			}
+			b.WriteString(s.CardTitle.Render(title))
 			b.WriteString("\n\n")
 			b.WriteString(s.Subtle.Render("No torches found. Use /torch init <name> [brief] to create one."))
 			return InjectSystemMsg{Content: b.String()}
 		}
 
 		var b strings.Builder
-		b.WriteString(s.CardTitle.Render("Torches"))
+		title := "Torches"
+		if includeArchived {
+			title = "Torches (including archived)"
+		}
+		b.WriteString(s.CardTitle.Render(title))
 		b.WriteString("\n\n")
 
 		for i, torch := range torches {
@@ -194,6 +258,11 @@ func (c *TorchCmd) listTorches(ctx *Context) tea.Cmd {
 			}
 			b.WriteString(s.CardLabel.Render("  ID: "))
 			b.WriteString(s.CardValue.Render(torch.TorchID))
+			// Show archived badge if archived (status bit 32)
+			if torch.Status&32 != 0 {
+				b.WriteString(" ")
+				b.WriteString(s.Error.Render("[archived]"))
+			}
 			b.WriteString("\n")
 			b.WriteString(s.CardLabel.Render("Name: "))
 			b.WriteString(s.CardValue.Render(torch.Name))
@@ -209,30 +278,202 @@ func (c *TorchCmd) listTorches(ctx *Context) tea.Cmd {
 }
 
 func (c *TorchCmd) initiateTorch(args []string, ctx *Context) tea.Cmd {
+	// No args → show form
 	if len(args) == 0 {
 		return func() tea.Msg {
-			return InjectSystemMsg{Content: ctx.Styles.Error.Render("Usage: /torch init <name> [brief]")}
+			return ShowFormMsg{FormType: "torch_init"}
 		}
 	}
 
-	name := args[0]
+	// With args → create directly (power user mode)
+	// First arg is path (e.g., "my-venture" or "~/projects/my-venture")
+	// Second arg onwards is brief
+	cwd, _ := os.Getwd()
+	path := expandPath(args[0], cwd)
+	name := inferName(path)
 	brief := ""
 	if len(args) > 1 {
 		brief = strings.Join(args[1:], " ")
 	}
 
+	return c.doInitiateTorch(path, name, brief, ctx)
+}
+
+// expandPath expands ~ and makes path absolute relative to cwd.
+func expandPath(path, cwd string) string {
+	if path == "" {
+		return cwd
+	}
+
+	// Expand ~
+	if strings.HasPrefix(path, "~") {
+		if home, err := os.UserHomeDir(); err == nil {
+			path = home + path[1:]
+		}
+	}
+
+	// Make absolute if relative
+	if !strings.HasPrefix(path, "/") {
+		path = cwd + "/" + path
+	}
+
+	// Clean the path
+	return cleanPath(path)
+}
+
+// cleanPath normalizes a path (removes . and ..)
+func cleanPath(path string) string {
+	parts := strings.Split(path, "/")
+	var result []string
+	for _, p := range parts {
+		if p == ".." && len(result) > 0 {
+			result = result[:len(result)-1]
+		} else if p != "." && p != "" {
+			result = append(result, p)
+		}
+	}
+	return "/" + strings.Join(result, "/")
+}
+
+// inferName extracts the project name from a path.
+func inferName(path string) string {
+	// Get last non-empty component
+	parts := strings.Split(path, "/")
+	for i := len(parts) - 1; i >= 0; i-- {
+		if parts[i] != "" {
+			return parts[i]
+		}
+	}
+	return "unnamed"
+}
+
+// TorchCreatedMsg is sent after a torch is successfully created and scaffolded.
+// It triggers a cd to the new torch directory.
+type TorchCreatedMsg struct {
+	Path    string
+	Message string
+}
+
+// doInitiateTorch performs the actual torch creation.
+func (c *TorchCmd) doInitiateTorch(path, name, brief string, ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
+
+		if strings.TrimSpace(path) == "" {
+			return InjectSystemMsg{Content: s.Error.Render("Path is required")}
+		}
+
+		if strings.TrimSpace(name) == "" {
+			name = inferName(path)
+		}
+
+		// Create directory if it doesn't exist
+		if err := os.MkdirAll(path, 0755); err != nil {
+			return InjectSystemMsg{Content: s.Error.Render("Failed to create directory: " + err.Error())}
+		}
 
 		torch, err := ctx.Client.InitiateTorch(name, brief)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to initiate torch: " + err.Error())}
 		}
 
+		// Scaffold the repository structure in the target path
+		manifest := scaffold.TorchManifest{
+			TorchID:     torch.TorchID,
+			Name:        torch.Name,
+			Brief:       torch.Brief,
+			Root:        path,
+			InitiatedAt: torch.InitiatedAt,
+			InitiatedBy: torch.InitiatedBy,
+		}
+
+		result := scaffold.Scaffold(path, manifest)
+
 		var b strings.Builder
 		b.WriteString(s.StatusOK.Render("Torch Initiated"))
 		b.WriteString("\n\n")
 		b.WriteString(c.renderTorchCard(torch, ctx))
+		b.WriteString("\n")
+		b.WriteString(s.Subtle.Render("Root: " + path))
+
+		// Show scaffolding results
+		b.WriteString("\n\n")
+		b.WriteString(s.CardTitle.Render("Scaffolded:"))
+		b.WriteString("\n")
+
+		if result.Success {
+			b.WriteString(s.StatusOK.Render("  ✓ "))
+			b.WriteString(s.Subtle.Render(".hecate/torch.json"))
+			b.WriteString("\n")
+		}
+
+		if result.AgentsCloned {
+			b.WriteString(s.StatusOK.Render("  ✓ "))
+			b.WriteString(s.Subtle.Render(".hecate/agents/"))
+			b.WriteString("\n")
+		}
+
+		if result.ReadmeCreated {
+			b.WriteString(s.StatusOK.Render("  ✓ "))
+			b.WriteString(s.Subtle.Render("README.md"))
+			b.WriteString("\n")
+		}
+
+		if result.ChangelogCreated {
+			b.WriteString(s.StatusOK.Render("  ✓ "))
+			b.WriteString(s.Subtle.Render("CHANGELOG.md"))
+			b.WriteString("\n")
+		}
+
+		if result.GitInitialized {
+			b.WriteString(s.StatusOK.Render("  ✓ "))
+			b.WriteString(s.Subtle.Render("git init"))
+			b.WriteString("\n")
+		}
+
+		if result.GitCommitted {
+			b.WriteString(s.StatusOK.Render("  ✓ "))
+			b.WriteString(s.Subtle.Render("git commit"))
+			b.WriteString("\n")
+		}
+
+		// Show warnings
+		for _, warn := range result.Warnings {
+			b.WriteString("\n")
+			b.WriteString(s.StatusWarning.Render("⚠ " + warn))
+		}
+
+		// Hint about next steps
+		b.WriteString("\n\n")
+		b.WriteString(s.Subtle.Render("Next: gh repo create --public --source=. --push"))
+
+		// Return TorchCreatedMsg to trigger cd
+		return TorchCreatedMsg{Path: path, Message: b.String()}
+	}
+}
+
+func (c *TorchCmd) archiveTorch(torchID, reason string, ctx *Context) tea.Cmd {
+	return func() tea.Msg {
+		s := ctx.Styles
+
+		// Only accept torch IDs (not names) to avoid ambiguity
+		if !strings.HasPrefix(torchID, "torch-") {
+			return InjectSystemMsg{Content: s.Error.Render("Please use torch ID (starts with 'torch-'). Use /torch list to see IDs.")}
+		}
+
+		err := ctx.Client.ArchiveTorch(torchID, reason)
+		if err != nil {
+			return InjectSystemMsg{Content: s.Error.Render("Failed to archive torch: " + err.Error())}
+		}
+
+		var b strings.Builder
+		b.WriteString(s.StatusOK.Render("Torch Archived"))
+		b.WriteString("\n\n")
+		b.WriteString(s.Subtle.Render("ID: " + torchID))
+		if reason != "" {
+			b.WriteString("\n")
+			b.WriteString(s.Subtle.Render("Reason: " + reason))
+		}
 
 		return InjectSystemMsg{Content: b.String()}
 	}
@@ -365,7 +606,7 @@ func (c *TorchCmd) renderTorchPicker(torches []client.Torch, ctx *Context) tea.M
 		b.WriteString(s.Subtle.Render(torch.TorchID))
 		if torch.InitiatedAt > 0 {
 			b.WriteString(" · ")
-			b.WriteString(s.Subtle.Render(time.Unix(torch.InitiatedAt, 0).Format("2006-01-02")))
+			b.WriteString(s.Subtle.Render(time.UnixMilli(torch.InitiatedAt).Format("2006-01-02")))
 		}
 		b.WriteString("\n")
 	}
@@ -413,7 +654,7 @@ func (c *TorchCmd) selectTorch(idOrName string, ctx *Context) tea.Cmd {
 			ID:          selected.TorchID,
 			Name:        selected.Name,
 			Brief:       selected.Brief,
-			InitiatedAt: time.Unix(selected.InitiatedAt, 0),
+			InitiatedAt: time.UnixMilli(selected.InitiatedAt),
 		}
 
 		return SetALCContextMsg{
@@ -443,7 +684,7 @@ func (c *TorchCmd) selectTorchByIndex(index int, ctx *Context) tea.Cmd {
 			ID:          selected.TorchID,
 			Name:        selected.Name,
 			Brief:       selected.Brief,
-			InitiatedAt: time.Unix(selected.InitiatedAt, 0),
+			InitiatedAt: time.UnixMilli(selected.InitiatedAt),
 		}
 
 		return SetALCContextMsg{
@@ -487,7 +728,8 @@ func (c *TorchesCmd) Description() string { return "List all torches" }
 
 func (c *TorchesCmd) Execute(args []string, ctx *Context) tea.Cmd {
 	torchCmd := &TorchCmd{}
-	return torchCmd.listTorches(ctx)
+	includeArchived := len(args) > 0 && (args[0] == "all" || args[0] == "archived")
+	return torchCmd.listTorches(ctx, includeArchived)
 }
 
 // ChatCmd handles /chat - returns to Chat mode (clears torch context).
