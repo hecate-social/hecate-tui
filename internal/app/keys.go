@@ -29,18 +29,15 @@ func (a *App) handleKey(msg tea.KeyMsg) tea.Cmd {
 	activeMode := a.studios[a.activeStudio].Mode()
 
 	if activeMode == modes.Normal {
-		// Studio switching (Ctrl+1-5)
 		switch key {
-		case "ctrl+1":
-			return a.switchStudio(0)
-		case "ctrl+2":
-			return a.switchStudio(1)
-		case "ctrl+3":
-			return a.switchStudio(2)
-		case "ctrl+4":
-			return a.switchStudio(3)
-		case "ctrl+5":
-			return a.switchStudio(4)
+		case "[":
+			if a.activeStudio > 0 {
+				return a.switchStudio(a.activeStudio - 1)
+			}
+		case "]":
+			if a.activeStudio < len(a.studios)-1 {
+				return a.switchStudio(a.activeStudio + 1)
+			}
 		case "q":
 			return tea.Quit
 		case "/", ":":
