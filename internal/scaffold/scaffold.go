@@ -1,4 +1,4 @@
-// Package scaffold handles torch repository scaffolding.
+// Package scaffold handles venture repository scaffolding.
 package scaffold
 
 import (
@@ -13,9 +13,9 @@ import (
 	"time"
 )
 
-// TorchManifest represents the .hecate/torch.json file.
-type TorchManifest struct {
-	TorchID     string `json:"torch_id"`
+// VentureManifest represents the .hecate/torch.json file.
+type VentureManifest struct {
+	VentureID   string `json:"torch_id"`
 	Name        string `json:"name"`
 	Brief       string `json:"brief,omitempty"`
 	Root        string `json:"root"`
@@ -50,13 +50,13 @@ const (
 	agentsRepoURL = "https://github.com/hecate-social/hecate-agents.git"
 )
 
-// Scaffold creates the full torch repository structure.
+// Scaffold creates the full venture repository structure.
 // It creates:
 //   - .hecate/torch.json
 //   - .hecate/agents/ (cloned from hecate-agents)
 //   - README.md (from template)
 //   - CHANGELOG.md (from template)
-func Scaffold(root string, manifest TorchManifest) Result {
+func Scaffold(root string, manifest VentureManifest) Result {
 	result := Result{
 		HecateDir: filepath.Join(root, ".hecate"),
 	}
@@ -68,7 +68,7 @@ func Scaffold(root string, manifest TorchManifest) Result {
 	}
 
 	// 2. Write torch.json
-	if err := writeTorchManifest(result.HecateDir, manifest); err != nil {
+	if err := writeVentureManifest(result.HecateDir, manifest); err != nil {
 		result.Error = fmt.Errorf("write torch.json: %w", err)
 		return result
 	}
@@ -190,7 +190,7 @@ func gitInit(root string) error {
 	return nil
 }
 
-func gitCommit(root, torchName string) error {
+func gitCommit(root, ventureName string) error {
 	// Stage all files
 	addCmd := exec.Command("git", "add", ".")
 	addCmd.Dir = root
@@ -199,7 +199,7 @@ func gitCommit(root, torchName string) error {
 	}
 
 	// Commit
-	msg := fmt.Sprintf("Initialize torch: %s\n\nScaffolded by Hecate TUI", torchName)
+	msg := fmt.Sprintf("Initialize venture: %s\n\nScaffolded by Hecate TUI", ventureName)
 	commitCmd := exec.Command("git", "commit", "-m", msg)
 	commitCmd.Dir = root
 	if output, err := commitCmd.CombinedOutput(); err != nil {
@@ -208,7 +208,7 @@ func gitCommit(root, torchName string) error {
 	return nil
 }
 
-func writeTorchManifest(hecateDir string, manifest TorchManifest) error {
+func writeVentureManifest(hecateDir string, manifest VentureManifest) error {
 	data, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
 		return err
@@ -299,7 +299,7 @@ All notable changes to **%s** will be documented in this file.
 ## [Unreleased]
 
 ### Added
-- Initialized torch
+- Initialized venture
 
 ---
 
@@ -369,7 +369,7 @@ func inferRepoURL(root string) string {
 
 // ScaffoldVision creates a VISION.md file in the given root directory if it doesn't exist.
 // Uses the template from .hecate/agents/templates/ if available, otherwise falls back to default.
-func ScaffoldVision(root string, manifest TorchManifest) (bool, error) {
+func ScaffoldVision(root string, manifest VentureManifest) (bool, error) {
 	visionPath := filepath.Join(root, "VISION.md")
 
 	// Already exists — nothing to do
@@ -391,12 +391,12 @@ func ScaffoldVision(root string, manifest TorchManifest) (bool, error) {
 	return true, nil
 }
 
-// VisionPath returns the path to VISION.md in the given torch root.
+// VisionPath returns the path to VISION.md in the given venture root.
 func VisionPath(root string) string {
 	return filepath.Join(root, "VISION.md")
 }
 
-// VisionExists checks if VISION.md exists in the given torch root.
+// VisionExists checks if VISION.md exists in the given venture root.
 func VisionExists(root string) bool {
 	_, err := os.Stat(VisionPath(root))
 	return err == nil

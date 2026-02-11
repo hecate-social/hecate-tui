@@ -9,34 +9,34 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// CartwheelCmd handles all /cartwheel subcommands for bounded context management.
-type CartwheelCmd struct{}
+// DepartmentCmd handles all /department subcommands for bounded context management.
+type DepartmentCmd struct{}
 
-func (c *CartwheelCmd) Name() string        { return "cartwheel" }
-func (c *CartwheelCmd) Aliases() []string   { return []string{"cw", "alc", "lifecycle", "lc"} }
-func (c *CartwheelCmd) Description() string { return "Manage bounded contexts (Cartwheels)" }
+func (c *DepartmentCmd) Name() string        { return "department" }
+func (c *DepartmentCmd) Aliases() []string   { return []string{"dept", "alc", "lifecycle", "lc"} }
+func (c *DepartmentCmd) Description() string { return "Manage departments" }
 
-func (c *CartwheelCmd) Execute(args []string, ctx *Context) tea.Cmd {
+func (c *DepartmentCmd) Execute(args []string, ctx *Context) tea.Cmd {
 	if len(args) == 0 {
 		return c.showUsage(ctx)
 	}
 
 	sub := strings.ToLower(args[0])
 
-	// "init" creates a new cartwheel
+	// "init" creates a new department
 	if sub == "init" {
-		return c.initCartwheel(args[1:], ctx)
+		return c.initDepartment(args[1:], ctx)
 	}
 
-	// Everything else requires a cartwheel ID as first arg
+	// Everything else requires a department ID as first arg
 	if !strings.HasPrefix(sub, "prj-") {
 		return c.showUsage(ctx)
 	}
 
-	cartwheelID := sub
+	departmentID := sub
 	if len(args) < 2 {
-		// Just a cartwheel ID -> show status card
-		return c.showCartwheel(cartwheelID, ctx)
+		// Just a department ID -> show status card
+		return c.showDepartment(departmentID, ctx)
 	}
 
 	action := strings.ToLower(args[1])
@@ -44,52 +44,52 @@ func (c *CartwheelCmd) Execute(args []string, ctx *Context) tea.Cmd {
 
 	switch action {
 	case "discovery":
-		return c.phaseAction(cartwheelID, "discovery", rest, ctx)
+		return c.phaseAction(departmentID, "discovery", rest, ctx)
 	case "finding":
-		return c.recordFinding(cartwheelID, rest, ctx)
+		return c.recordFinding(departmentID, rest, ctx)
 	case "term":
-		return c.defineTerm(cartwheelID, rest, ctx)
+		return c.defineTerm(departmentID, rest, ctx)
 	case "transition":
-		return c.transition(cartwheelID, rest, ctx)
+		return c.transition(departmentID, rest, ctx)
 	case "arch":
-		return c.phaseAction(cartwheelID, "architecture", rest, ctx)
+		return c.phaseAction(departmentID, "architecture", rest, ctx)
 	case "dossier":
-		return c.defineDossier(cartwheelID, rest, ctx)
+		return c.defineDossier(departmentID, rest, ctx)
 	case "spoke":
-		return c.inventorySpoke(cartwheelID, rest, ctx)
+		return c.inventorySpoke(departmentID, rest, ctx)
 	case "plan":
-		return c.draftPlan(cartwheelID, rest, ctx)
+		return c.draftPlan(departmentID, rest, ctx)
 	case "approve":
-		return c.approvePlan(cartwheelID, rest, ctx)
+		return c.approvePlan(departmentID, rest, ctx)
 	case "test":
-		return c.phaseAction(cartwheelID, "testing", rest, ctx)
+		return c.phaseAction(departmentID, "testing", rest, ctx)
 	case "skeleton":
-		return c.createSkeleton(cartwheelID, ctx)
+		return c.createSkeleton(departmentID, ctx)
 	case "implement":
-		return c.implementSpoke(cartwheelID, rest, ctx)
+		return c.implementSpoke(departmentID, rest, ctx)
 	case "verify":
-		return c.verifyBuild(cartwheelID, rest, ctx)
+		return c.verifyBuild(departmentID, rest, ctx)
 	case "deploy":
-		return c.deployAction(cartwheelID, rest, ctx)
+		return c.deployAction(departmentID, rest, ctx)
 	case "incident":
-		return c.reportIncident(cartwheelID, rest, ctx)
+		return c.reportIncident(departmentID, rest, ctx)
 	case "resolve":
-		return c.resolveIncident(cartwheelID, rest, ctx)
+		return c.resolveIncident(departmentID, rest, ctx)
 	case "complete":
-		return c.completePhase(cartwheelID, ctx)
+		return c.completePhase(departmentID, ctx)
 	default:
 		return c.showUsage(ctx)
 	}
 }
 
-func (c *CartwheelCmd) showUsage(ctx *Context) tea.Cmd {
+func (c *DepartmentCmd) showUsage(ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
 		t := ctx.Theme
 		var b strings.Builder
 
 		// Title
-		b.WriteString(s.CardTitle.Render("Cartwheel - Bounded Context Lifecycle Commands"))
+		b.WriteString(s.CardTitle.Render("Department - Bounded Context Lifecycle Commands"))
 		b.WriteString("\n\n")
 
 		// Intro
@@ -121,51 +121,51 @@ func (c *CartwheelCmd) showUsage(ctx *Context) tea.Cmd {
 
 		// Getting Started
 		b.WriteString(section("Getting Started", ""))
-		b.WriteString(row("/cartwheel init <name>", "Create a new cartwheel"))
-		b.WriteString(row("/cartwheel <id>", "Show cartwheel status"))
-		b.WriteString(row("/cartwheel <id> transition X", "Move to phase (arch, test, deploy)"))
-		b.WriteString(row("/cartwheel <id> complete", "Complete current phase"))
+		b.WriteString(row("/department init <name>", "Create a new department"))
+		b.WriteString(row("/department <id>", "Show department status"))
+		b.WriteString(row("/department <id> transition X", "Move to phase (arch, test, deploy)"))
+		b.WriteString(row("/department <id> complete", "Complete current phase"))
 		b.WriteString("\n")
 
 		// Phase 1
 		b.WriteString(section("Phase 1: Discovery & Analysis", "Analyze requirements, gather findings, build vocabulary"))
-		b.WriteString(row("/cartwheel <id> discovery start", "Begin discovery"))
-		b.WriteString(row("/cartwheel <id> finding <title>", "Record insight or requirement"))
-		b.WriteString(row("/cartwheel <id> term <t> <def>", "Define domain term"))
+		b.WriteString(row("/department <id> discovery start", "Begin discovery"))
+		b.WriteString(row("/department <id> finding <title>", "Record insight or requirement"))
+		b.WriteString(row("/department <id> term <t> <def>", "Define domain term"))
 		b.WriteString("\n")
 
 		// Phase 2
 		b.WriteString(section("Phase 2: Architecture & Planning", "Design dossiers (aggregates) and spokes (operations)"))
-		b.WriteString(row("/cartwheel <id> arch start", "Begin architecture"))
-		b.WriteString(row("/cartwheel <id> dossier <name>", "Define aggregate/entity"))
-		b.WriteString(row("/cartwheel <id> spoke <n> <t> <did>", "Add operation (cmd/qry/evt)"))
-		b.WriteString(row("/cartwheel <id> plan", "Draft implementation plan"))
-		b.WriteString(row("/cartwheel <id> approve", "Approve plan"))
+		b.WriteString(row("/department <id> arch start", "Begin architecture"))
+		b.WriteString(row("/department <id> dossier <name>", "Define aggregate/entity"))
+		b.WriteString(row("/department <id> spoke <n> <t> <did>", "Add operation (cmd/qry/evt)"))
+		b.WriteString(row("/department <id> plan", "Draft implementation plan"))
+		b.WriteString(row("/department <id> approve", "Approve plan"))
 		b.WriteString("\n")
 
 		// Phase 3
 		b.WriteString(section("Phase 3: Testing & Implementation", "Implement features and verify quality"))
-		b.WriteString(row("/cartwheel <id> test start", "Begin testing"))
-		b.WriteString(row("/cartwheel <id> skeleton", "Generate code skeleton"))
-		b.WriteString(row("/cartwheel <id> implement <sid>", "Mark spoke implemented"))
-		b.WriteString(row("/cartwheel <id> verify pass|fail", "Record build result"))
+		b.WriteString(row("/department <id> test start", "Begin testing"))
+		b.WriteString(row("/department <id> skeleton", "Generate code skeleton"))
+		b.WriteString(row("/department <id> implement <sid>", "Mark spoke implemented"))
+		b.WriteString(row("/department <id> verify pass|fail", "Record build result"))
 		b.WriteString("\n")
 
 		// Phase 4
 		b.WriteString(section("Phase 4: Deployment & Operations", "Release to production, monitor, handle incidents"))
-		b.WriteString(row("/cartwheel <id> deploy start", "Begin deployment"))
-		b.WriteString(row("/cartwheel <id> deploy record <e> <v>", "Record release"))
-		b.WriteString(row("/cartwheel <id> incident <desc>", "Report incident"))
-		b.WriteString(row("/cartwheel <id> resolve <iid> <res>", "Resolve incident"))
+		b.WriteString(row("/department <id> deploy start", "Begin deployment"))
+		b.WriteString(row("/department <id> deploy record <e> <v>", "Record release"))
+		b.WriteString(row("/department <id> incident <desc>", "Report incident"))
+		b.WriteString(row("/department <id> resolve <iid> <res>", "Resolve incident"))
 
 		return InjectSystemMsg{Content: b.String()}
 	}
 }
 
-func (c *CartwheelCmd) initCartwheel(args []string, ctx *Context) tea.Cmd {
+func (c *DepartmentCmd) initDepartment(args []string, ctx *Context) tea.Cmd {
 	if len(args) == 0 {
 		return func() tea.Msg {
-			return InjectSystemMsg{Content: ctx.Styles.Error.Render("Usage: /cartwheel init <name> [description]")}
+			return InjectSystemMsg{Content: ctx.Styles.Error.Render("Usage: /department init <name> [description]")}
 		}
 	}
 
@@ -182,13 +182,13 @@ func (c *CartwheelCmd) initCartwheel(args []string, ctx *Context) tea.Cmd {
 			body["description"] = desc
 		}
 
-		err := ctx.Client.CartwheelCommand("/api/cartwheels/initiate", body)
+		err := ctx.Client.DepartmentCommand("/api/cartwheels/initiate", body)
 		if err != nil {
-			return InjectSystemMsg{Content: s.Error.Render("Failed to initiate cartwheel: " + err.Error())}
+			return InjectSystemMsg{Content: s.Error.Render("Failed to initiate department: " + err.Error())}
 		}
 
 		var b strings.Builder
-		b.WriteString(s.CardTitle.Render("Cartwheel Initiated"))
+		b.WriteString(s.CardTitle.Render("Department Initiated"))
 		b.WriteString("\n\n")
 		b.WriteString(s.CardLabel.Render("Name: "))
 		b.WriteString(s.CardValue.Render(name))
@@ -198,73 +198,73 @@ func (c *CartwheelCmd) initCartwheel(args []string, ctx *Context) tea.Cmd {
 			b.WriteString(s.CardValue.Render(desc))
 		}
 		b.WriteString("\n\n")
-		b.WriteString(s.Subtle.Render("  Use /cartwheel to browse cartwheels"))
+		b.WriteString(s.Subtle.Render("  Use /department to browse departments"))
 
 		return InjectSystemMsg{Content: b.String()}
 	}
 }
 
-func (c *CartwheelCmd) showCartwheel(cartwheelID string, ctx *Context) tea.Cmd {
+func (c *DepartmentCmd) showDepartment(departmentID string, ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
-		cw, err := ctx.Client.GetCartwheel(cartwheelID)
+		dept, err := ctx.Client.GetDepartment(departmentID)
 		if err != nil {
-			return InjectSystemMsg{Content: s.Error.Render("Failed to get cartwheel: " + err.Error())}
+			return InjectSystemMsg{Content: s.Error.Render("Failed to get department: " + err.Error())}
 		}
 
 		var b strings.Builder
-		b.WriteString(s.CardTitle.Render("Cartwheel: " + cw.Name))
+		b.WriteString(s.CardTitle.Render("Department: " + dept.Name))
 		b.WriteString("\n\n")
 
 		b.WriteString(s.CardLabel.Render("ID: "))
-		b.WriteString(s.CardValue.Render(cw.CartwheelID))
+		b.WriteString(s.CardValue.Render(dept.DepartmentID))
 		b.WriteString("\n")
 
-		if cw.Description != "" {
+		if dept.Description != "" {
 			b.WriteString(s.CardLabel.Render("Description: "))
-			b.WriteString(s.CardValue.Render(cw.Description))
+			b.WriteString(s.CardValue.Render(dept.Description))
 			b.WriteString("\n")
 		}
 
 		b.WriteString(s.CardLabel.Render("Phase: "))
-		b.WriteString(s.CardValue.Render(formatCartwheelPhase(cw.CurrentPhase)))
+		b.WriteString(s.CardValue.Render(formatDepartmentPhase(dept.CurrentPhase)))
 		b.WriteString("\n")
 
 		b.WriteString(s.CardLabel.Render("Initiated: "))
-		b.WriteString(s.Subtle.Render(formatTimestamp(cw.InitiatedAt)))
+		b.WriteString(s.Subtle.Render(formatTimestamp(dept.InitiatedAt)))
 		b.WriteString("\n\n")
 
 		// Phase-specific counters
 		b.WriteString(s.Bold.Render("  Counters"))
 		b.WriteString("\n")
 		b.WriteString(s.CardLabel.Render("Findings: "))
-		b.WriteString(s.CardValue.Render(fmt.Sprintf("%d", cw.FindingCount)))
+		b.WriteString(s.CardValue.Render(fmt.Sprintf("%d", dept.FindingCount)))
 		b.WriteString("  ")
 		b.WriteString(s.CardLabel.Render("Terms: "))
-		b.WriteString(s.CardValue.Render(fmt.Sprintf("%d", cw.TermCount)))
+		b.WriteString(s.CardValue.Render(fmt.Sprintf("%d", dept.TermCount)))
 		b.WriteString("\n")
 		b.WriteString(s.CardLabel.Render("Dossiers: "))
-		b.WriteString(s.CardValue.Render(fmt.Sprintf("%d", cw.DossierCount)))
+		b.WriteString(s.CardValue.Render(fmt.Sprintf("%d", dept.DossierCount)))
 		b.WriteString("  ")
 		b.WriteString(s.CardLabel.Render("Spokes: "))
-		b.WriteString(s.CardValue.Render(fmt.Sprintf("%d", cw.SpokeCount)))
+		b.WriteString(s.CardValue.Render(fmt.Sprintf("%d", dept.SpokeCount)))
 		b.WriteString("\n")
 		b.WriteString(s.CardLabel.Render("Implemented: "))
-		b.WriteString(s.CardValue.Render(fmt.Sprintf("%d/%d", cw.ImplementedSpokeCount, cw.SpokeCount)))
+		b.WriteString(s.CardValue.Render(fmt.Sprintf("%d/%d", dept.ImplementedSpokeCount, dept.SpokeCount)))
 		b.WriteString("  ")
 		b.WriteString(s.CardLabel.Render("Build: "))
-		if cw.BuildVerified {
+		if dept.BuildVerified {
 			b.WriteString(s.StatusOK.Render("verified"))
 		} else {
 			b.WriteString(s.Subtle.Render("pending"))
 		}
 		b.WriteString("\n")
 		b.WriteString(s.CardLabel.Render("Deployments: "))
-		b.WriteString(s.CardValue.Render(fmt.Sprintf("%d", cw.DeploymentCount)))
+		b.WriteString(s.CardValue.Render(fmt.Sprintf("%d", dept.DeploymentCount)))
 		b.WriteString("  ")
 		b.WriteString(s.CardLabel.Render("Incidents: "))
-		if cw.ActiveIncidents > 0 {
-			b.WriteString(s.StatusError.Render(fmt.Sprintf("%d active", cw.ActiveIncidents)))
+		if dept.ActiveIncidents > 0 {
+			b.WriteString(s.StatusError.Render(fmt.Sprintf("%d active", dept.ActiveIncidents)))
 		} else {
 			b.WriteString(s.StatusOK.Render("none"))
 		}
@@ -274,30 +274,30 @@ func (c *CartwheelCmd) showCartwheel(cartwheelID string, ctx *Context) tea.Cmd {
 	}
 }
 
-func (c *CartwheelCmd) phaseAction(cartwheelID, phase string, args []string, ctx *Context) tea.Cmd {
+func (c *DepartmentCmd) phaseAction(departmentID, phase string, args []string, ctx *Context) tea.Cmd {
 	if len(args) == 0 || strings.ToLower(args[0]) != "start" {
 		return func() tea.Msg {
 			return InjectSystemMsg{
-				Content: ctx.Styles.Error.Render(fmt.Sprintf("Usage: /cartwheel %s %s start", cartwheelID, phase)),
+				Content: ctx.Styles.Error.Render(fmt.Sprintf("Usage: /department %s %s start", departmentID, phase)),
 			}
 		}
 	}
 
 	return func() tea.Msg {
 		s := ctx.Styles
-		path := fmt.Sprintf("/api/cartwheels/%s/%s/start", cartwheelID, phase)
-		err := ctx.Client.CartwheelCommand(path, nil)
+		path := fmt.Sprintf("/api/cartwheels/%s/%s/start", departmentID, phase)
+		err := ctx.Client.DepartmentCommand(path, nil)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to start " + phase + ": " + err.Error())}
 		}
-		return InjectSystemMsg{Content: s.StatusOK.Render("Started " + phase + " phase for " + cartwheelID)}
+		return InjectSystemMsg{Content: s.StatusOK.Render("Started " + phase + " phase for " + departmentID)}
 	}
 }
 
-func (c *CartwheelCmd) recordFinding(cartwheelID string, args []string, ctx *Context) tea.Cmd {
+func (c *DepartmentCmd) recordFinding(departmentID string, args []string, ctx *Context) tea.Cmd {
 	if len(args) == 0 {
 		return func() tea.Msg {
-			return InjectSystemMsg{Content: ctx.Styles.Error.Render("Usage: /cartwheel <id> finding <title> [content]")}
+			return InjectSystemMsg{Content: ctx.Styles.Error.Render("Usage: /department <id> finding <title> [content]")}
 		}
 	}
 
@@ -314,8 +314,8 @@ func (c *CartwheelCmd) recordFinding(cartwheelID string, args []string, ctx *Con
 			body["content"] = content
 		}
 
-		path := fmt.Sprintf("/api/cartwheels/%s/discovery/findings/record", cartwheelID)
-		err := ctx.Client.CartwheelCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/discovery/findings/record", departmentID)
+		err := ctx.Client.DepartmentCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to record finding: " + err.Error())}
 		}
@@ -323,10 +323,10 @@ func (c *CartwheelCmd) recordFinding(cartwheelID string, args []string, ctx *Con
 	}
 }
 
-func (c *CartwheelCmd) defineTerm(cartwheelID string, args []string, ctx *Context) tea.Cmd {
+func (c *DepartmentCmd) defineTerm(departmentID string, args []string, ctx *Context) tea.Cmd {
 	if len(args) < 2 {
 		return func() tea.Msg {
-			return InjectSystemMsg{Content: ctx.Styles.Error.Render("Usage: /cartwheel <id> term <term> <definition>")}
+			return InjectSystemMsg{Content: ctx.Styles.Error.Render("Usage: /department <id> term <term> <definition>")}
 		}
 	}
 
@@ -337,8 +337,8 @@ func (c *CartwheelCmd) defineTerm(cartwheelID string, args []string, ctx *Contex
 		s := ctx.Styles
 		body := map[string]interface{}{"term": term, "definition": definition}
 
-		path := fmt.Sprintf("/api/cartwheels/%s/discovery/terms/define", cartwheelID)
-		err := ctx.Client.CartwheelCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/discovery/terms/define", departmentID)
+		err := ctx.Client.DepartmentCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to define term: " + err.Error())}
 		}
@@ -346,11 +346,11 @@ func (c *CartwheelCmd) defineTerm(cartwheelID string, args []string, ctx *Contex
 	}
 }
 
-func (c *CartwheelCmd) transition(cartwheelID string, args []string, ctx *Context) tea.Cmd {
+func (c *DepartmentCmd) transition(departmentID string, args []string, ctx *Context) tea.Cmd {
 	if len(args) == 0 {
 		return func() tea.Msg {
 			return InjectSystemMsg{
-				Content: ctx.Styles.Error.Render("Usage: /cartwheel <id> transition <target_phase>"),
+				Content: ctx.Styles.Error.Render("Usage: /department <id> transition <target_phase>"),
 			}
 		}
 	}
@@ -361,19 +361,19 @@ func (c *CartwheelCmd) transition(cartwheelID string, args []string, ctx *Contex
 		s := ctx.Styles
 		body := map[string]interface{}{"target_phase": targetPhase}
 
-		path := fmt.Sprintf("/api/cartwheels/%s/transition", cartwheelID)
-		err := ctx.Client.CartwheelCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/transition", departmentID)
+		err := ctx.Client.DepartmentCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to transition: " + err.Error())}
 		}
-		return InjectSystemMsg{Content: s.StatusOK.Render("Transitioned " + cartwheelID + " to " + targetPhase)}
+		return InjectSystemMsg{Content: s.StatusOK.Render("Transitioned " + departmentID + " to " + targetPhase)}
 	}
 }
 
-func (c *CartwheelCmd) defineDossier(cartwheelID string, args []string, ctx *Context) tea.Cmd {
+func (c *DepartmentCmd) defineDossier(departmentID string, args []string, ctx *Context) tea.Cmd {
 	if len(args) == 0 {
 		return func() tea.Msg {
-			return InjectSystemMsg{Content: ctx.Styles.Error.Render("Usage: /cartwheel <id> dossier <name> [description]")}
+			return InjectSystemMsg{Content: ctx.Styles.Error.Render("Usage: /department <id> dossier <name> [description]")}
 		}
 	}
 
@@ -390,8 +390,8 @@ func (c *CartwheelCmd) defineDossier(cartwheelID string, args []string, ctx *Con
 			body["description"] = desc
 		}
 
-		path := fmt.Sprintf("/api/cartwheels/%s/architecture/dossiers/define", cartwheelID)
-		err := ctx.Client.CartwheelCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/architecture/dossiers/define", departmentID)
+		err := ctx.Client.DepartmentCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to define dossier: " + err.Error())}
 		}
@@ -399,11 +399,11 @@ func (c *CartwheelCmd) defineDossier(cartwheelID string, args []string, ctx *Con
 	}
 }
 
-func (c *CartwheelCmd) inventorySpoke(cartwheelID string, args []string, ctx *Context) tea.Cmd {
+func (c *DepartmentCmd) inventorySpoke(departmentID string, args []string, ctx *Context) tea.Cmd {
 	if len(args) < 3 {
 		return func() tea.Msg {
 			return InjectSystemMsg{
-				Content: ctx.Styles.Error.Render("Usage: /cartwheel <id> spoke <name> <type> <dossier_id> [description]"),
+				Content: ctx.Styles.Error.Render("Usage: /department <id> spoke <name> <type> <dossier_id> [description]"),
 			}
 		}
 	}
@@ -427,8 +427,8 @@ func (c *CartwheelCmd) inventorySpoke(cartwheelID string, args []string, ctx *Co
 			body["description"] = desc
 		}
 
-		path := fmt.Sprintf("/api/cartwheels/%s/architecture/spokes/inventory", cartwheelID)
-		err := ctx.Client.CartwheelCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/architecture/spokes/inventory", departmentID)
+		err := ctx.Client.DepartmentCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to inventory spoke: " + err.Error())}
 		}
@@ -436,10 +436,10 @@ func (c *CartwheelCmd) inventorySpoke(cartwheelID string, args []string, ctx *Co
 	}
 }
 
-func (c *CartwheelCmd) draftPlan(cartwheelID string, args []string, ctx *Context) tea.Cmd {
+func (c *DepartmentCmd) draftPlan(departmentID string, args []string, ctx *Context) tea.Cmd {
 	if len(args) == 0 {
 		return func() tea.Msg {
-			return InjectSystemMsg{Content: ctx.Styles.Error.Render("Usage: /cartwheel <id> plan <title> [description]")}
+			return InjectSystemMsg{Content: ctx.Styles.Error.Render("Usage: /department <id> plan <title> [description]")}
 		}
 	}
 
@@ -456,8 +456,8 @@ func (c *CartwheelCmd) draftPlan(cartwheelID string, args []string, ctx *Context
 			body["description"] = desc
 		}
 
-		path := fmt.Sprintf("/api/cartwheels/%s/architecture/plan", cartwheelID)
-		err := ctx.Client.CartwheelCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/architecture/plan", departmentID)
+		err := ctx.Client.DepartmentCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to draft plan: " + err.Error())}
 		}
@@ -465,10 +465,10 @@ func (c *CartwheelCmd) draftPlan(cartwheelID string, args []string, ctx *Context
 	}
 }
 
-func (c *CartwheelCmd) approvePlan(cartwheelID string, args []string, ctx *Context) tea.Cmd {
+func (c *DepartmentCmd) approvePlan(departmentID string, args []string, ctx *Context) tea.Cmd {
 	if len(args) == 0 {
 		return func() tea.Msg {
-			return InjectSystemMsg{Content: ctx.Styles.Error.Render("Usage: /cartwheel <id> approve <plan_id>")}
+			return InjectSystemMsg{Content: ctx.Styles.Error.Render("Usage: /department <id> approve <plan_id>")}
 		}
 	}
 
@@ -478,8 +478,8 @@ func (c *CartwheelCmd) approvePlan(cartwheelID string, args []string, ctx *Conte
 		s := ctx.Styles
 		body := map[string]interface{}{"plan_id": planID}
 
-		path := fmt.Sprintf("/api/cartwheels/%s/architecture/plan/approve", cartwheelID)
-		err := ctx.Client.CartwheelCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/architecture/plan/approve", departmentID)
+		err := ctx.Client.DepartmentCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to approve plan: " + err.Error())}
 		}
@@ -487,22 +487,22 @@ func (c *CartwheelCmd) approvePlan(cartwheelID string, args []string, ctx *Conte
 	}
 }
 
-func (c *CartwheelCmd) createSkeleton(cartwheelID string, ctx *Context) tea.Cmd {
+func (c *DepartmentCmd) createSkeleton(departmentID string, ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
-		path := fmt.Sprintf("/api/cartwheels/%s/testing/skeleton", cartwheelID)
-		err := ctx.Client.CartwheelCommand(path, nil)
+		path := fmt.Sprintf("/api/cartwheels/%s/testing/skeleton", departmentID)
+		err := ctx.Client.DepartmentCommand(path, nil)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to create skeleton: " + err.Error())}
 		}
-		return InjectSystemMsg{Content: s.StatusOK.Render("Skeleton created for " + cartwheelID)}
+		return InjectSystemMsg{Content: s.StatusOK.Render("Skeleton created for " + departmentID)}
 	}
 }
 
-func (c *CartwheelCmd) implementSpoke(cartwheelID string, args []string, ctx *Context) tea.Cmd {
+func (c *DepartmentCmd) implementSpoke(departmentID string, args []string, ctx *Context) tea.Cmd {
 	if len(args) == 0 {
 		return func() tea.Msg {
-			return InjectSystemMsg{Content: ctx.Styles.Error.Render("Usage: /cartwheel <id> implement <spoke_id> [notes]")}
+			return InjectSystemMsg{Content: ctx.Styles.Error.Render("Usage: /department <id> implement <spoke_id> [notes]")}
 		}
 	}
 
@@ -519,8 +519,8 @@ func (c *CartwheelCmd) implementSpoke(cartwheelID string, args []string, ctx *Co
 			body["implementation_notes"] = notes
 		}
 
-		path := fmt.Sprintf("/api/cartwheels/%s/testing/implement", cartwheelID)
-		err := ctx.Client.CartwheelCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/testing/implement", departmentID)
+		err := ctx.Client.DepartmentCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to implement spoke: " + err.Error())}
 		}
@@ -528,7 +528,7 @@ func (c *CartwheelCmd) implementSpoke(cartwheelID string, args []string, ctx *Co
 	}
 }
 
-func (c *CartwheelCmd) verifyBuild(cartwheelID string, args []string, ctx *Context) tea.Cmd {
+func (c *DepartmentCmd) verifyBuild(departmentID string, args []string, ctx *Context) tea.Cmd {
 	result := "pass"
 	if len(args) > 0 {
 		result = strings.ToLower(args[0])
@@ -545,8 +545,8 @@ func (c *CartwheelCmd) verifyBuild(cartwheelID string, args []string, ctx *Conte
 			body["notes"] = notes
 		}
 
-		path := fmt.Sprintf("/api/cartwheels/%s/testing/verify", cartwheelID)
-		err := ctx.Client.CartwheelCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/testing/verify", departmentID)
+		err := ctx.Client.DepartmentCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to verify build: " + err.Error())}
 		}
@@ -555,15 +555,15 @@ func (c *CartwheelCmd) verifyBuild(cartwheelID string, args []string, ctx *Conte
 		if result == "fail" {
 			label = s.StatusError.Render("FAIL")
 		}
-		return InjectSystemMsg{Content: fmt.Sprintf("Build verification: %s for %s", label, cartwheelID)}
+		return InjectSystemMsg{Content: fmt.Sprintf("Build verification: %s for %s", label, departmentID)}
 	}
 }
 
-func (c *CartwheelCmd) deployAction(cartwheelID string, args []string, ctx *Context) tea.Cmd {
+func (c *DepartmentCmd) deployAction(departmentID string, args []string, ctx *Context) tea.Cmd {
 	if len(args) == 0 {
 		return func() tea.Msg {
 			return InjectSystemMsg{
-				Content: ctx.Styles.Error.Render("Usage: /cartwheel <id> deploy start | /cartwheel <id> deploy record <env> <version>"),
+				Content: ctx.Styles.Error.Render("Usage: /department <id> deploy start | /department <id> deploy record <env> <version>"),
 			}
 		}
 	}
@@ -573,12 +573,12 @@ func (c *CartwheelCmd) deployAction(cartwheelID string, args []string, ctx *Cont
 	if sub == "start" {
 		return func() tea.Msg {
 			s := ctx.Styles
-			path := fmt.Sprintf("/api/cartwheels/%s/deployment/start", cartwheelID)
-			err := ctx.Client.CartwheelCommand(path, nil)
+			path := fmt.Sprintf("/api/cartwheels/%s/deployment/start", departmentID)
+			err := ctx.Client.DepartmentCommand(path, nil)
 			if err != nil {
 				return InjectSystemMsg{Content: s.Error.Render("Failed to start deployment phase: " + err.Error())}
 			}
-			return InjectSystemMsg{Content: s.StatusOK.Render("Started deployment phase for " + cartwheelID)}
+			return InjectSystemMsg{Content: s.StatusOK.Render("Started deployment phase for " + departmentID)}
 		}
 	}
 
@@ -586,7 +586,7 @@ func (c *CartwheelCmd) deployAction(cartwheelID string, args []string, ctx *Cont
 		if len(args) < 3 {
 			return func() tea.Msg {
 				return InjectSystemMsg{
-					Content: ctx.Styles.Error.Render("Usage: /cartwheel <id> deploy record <environment> <version> [notes]"),
+					Content: ctx.Styles.Error.Render("Usage: /department <id> deploy record <environment> <version> [notes]"),
 				}
 			}
 		}
@@ -608,13 +608,13 @@ func (c *CartwheelCmd) deployAction(cartwheelID string, args []string, ctx *Cont
 				body["notes"] = notes
 			}
 
-			path := fmt.Sprintf("/api/cartwheels/%s/deployment/record", cartwheelID)
-			err := ctx.Client.CartwheelCommand(path, body)
+			path := fmt.Sprintf("/api/cartwheels/%s/deployment/record", departmentID)
+			err := ctx.Client.DepartmentCommand(path, body)
 			if err != nil {
 				return InjectSystemMsg{Content: s.Error.Render("Failed to record deployment: " + err.Error())}
 			}
 			return InjectSystemMsg{
-				Content: s.StatusOK.Render(fmt.Sprintf("Recorded deployment: %s v%s to %s", cartwheelID, version, env)),
+				Content: s.StatusOK.Render(fmt.Sprintf("Recorded deployment: %s v%s to %s", departmentID, version, env)),
 			}
 		}
 	}
@@ -626,10 +626,10 @@ func (c *CartwheelCmd) deployAction(cartwheelID string, args []string, ctx *Cont
 	}
 }
 
-func (c *CartwheelCmd) reportIncident(cartwheelID string, args []string, ctx *Context) tea.Cmd {
+func (c *DepartmentCmd) reportIncident(departmentID string, args []string, ctx *Context) tea.Cmd {
 	if len(args) == 0 {
 		return func() tea.Msg {
-			return InjectSystemMsg{Content: ctx.Styles.Error.Render("Usage: /cartwheel <id> incident <description>")}
+			return InjectSystemMsg{Content: ctx.Styles.Error.Render("Usage: /department <id> incident <description>")}
 		}
 	}
 
@@ -639,19 +639,19 @@ func (c *CartwheelCmd) reportIncident(cartwheelID string, args []string, ctx *Co
 		s := ctx.Styles
 		body := map[string]interface{}{"description": description}
 
-		path := fmt.Sprintf("/api/cartwheels/%s/deployment/incident", cartwheelID)
-		err := ctx.Client.CartwheelCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/deployment/incident", departmentID)
+		err := ctx.Client.DepartmentCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to report incident: " + err.Error())}
 		}
-		return InjectSystemMsg{Content: s.StatusWarning.Render("Incident reported for " + cartwheelID)}
+		return InjectSystemMsg{Content: s.StatusWarning.Render("Incident reported for " + departmentID)}
 	}
 }
 
-func (c *CartwheelCmd) resolveIncident(cartwheelID string, args []string, ctx *Context) tea.Cmd {
+func (c *DepartmentCmd) resolveIncident(departmentID string, args []string, ctx *Context) tea.Cmd {
 	if len(args) < 2 {
 		return func() tea.Msg {
-			return InjectSystemMsg{Content: ctx.Styles.Error.Render("Usage: /cartwheel <id> resolve <incident_id> <resolution>")}
+			return InjectSystemMsg{Content: ctx.Styles.Error.Render("Usage: /department <id> resolve <incident_id> <resolution>")}
 		}
 	}
 
@@ -665,8 +665,8 @@ func (c *CartwheelCmd) resolveIncident(cartwheelID string, args []string, ctx *C
 			"resolution":  resolution,
 		}
 
-		path := fmt.Sprintf("/api/cartwheels/%s/deployment/incident/resolve", cartwheelID)
-		err := ctx.Client.CartwheelCommand(path, body)
+		path := fmt.Sprintf("/api/cartwheels/%s/deployment/incident/resolve", departmentID)
+		err := ctx.Client.DepartmentCommand(path, body)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to resolve incident: " + err.Error())}
 		}
@@ -674,19 +674,19 @@ func (c *CartwheelCmd) resolveIncident(cartwheelID string, args []string, ctx *C
 	}
 }
 
-func (c *CartwheelCmd) completePhase(cartwheelID string, ctx *Context) tea.Cmd {
+func (c *DepartmentCmd) completePhase(departmentID string, ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
 
-		// Fetch cartwheel to determine current phase
-		cartwheel, err := ctx.Client.GetCartwheel(cartwheelID)
+		// Fetch department to determine current phase
+		department, err := ctx.Client.GetDepartment(departmentID)
 		if err != nil {
-			return InjectSystemMsg{Content: s.Error.Render("Failed to get cartwheel: " + err.Error())}
+			return InjectSystemMsg{Content: s.Error.Render("Failed to get department: " + err.Error())}
 		}
 
 		// Map phase to endpoint path segment
 		var phasePath string
-		switch strings.ToLower(cartwheel.CurrentPhase) {
+		switch strings.ToLower(department.CurrentPhase) {
 		case "discovery", "dna":
 			phasePath = "discovery"
 		case "architecture", "anp":
@@ -696,20 +696,20 @@ func (c *CartwheelCmd) completePhase(cartwheelID string, ctx *Context) tea.Cmd {
 		case "deployment", "dno":
 			phasePath = "deployment"
 		default:
-			return InjectSystemMsg{Content: s.Error.Render("Cannot complete phase: " + cartwheel.CurrentPhase)}
+			return InjectSystemMsg{Content: s.Error.Render("Cannot complete phase: " + department.CurrentPhase)}
 		}
 
-		path := fmt.Sprintf("/api/cartwheels/%s/%s/complete", cartwheelID, phasePath)
-		err = ctx.Client.CartwheelCommand(path, nil)
+		path := fmt.Sprintf("/api/cartwheels/%s/%s/complete", departmentID, phasePath)
+		err = ctx.Client.DepartmentCommand(path, nil)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to complete phase: " + err.Error())}
 		}
-		return InjectSystemMsg{Content: s.StatusOK.Render("Completed " + phasePath + " phase for " + cartwheelID)}
+		return InjectSystemMsg{Content: s.StatusOK.Render("Completed " + phasePath + " phase for " + departmentID)}
 	}
 }
 
-// formatCartwheelPhase returns a human-readable phase name.
-func formatCartwheelPhase(phase string) string {
+// formatDepartmentPhase returns a human-readable phase name.
+func formatDepartmentPhase(phase string) string {
 	switch strings.ToLower(phase) {
 	case "discovery", "dna":
 		return "Discovery & Analysis"

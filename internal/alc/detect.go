@@ -8,30 +8,30 @@ import (
 	"strings"
 )
 
-// TorchConfig represents the .hecate/torch.json file format.
-type TorchConfig struct {
-	TorchID string `json:"torch_id"`
-	Name    string `json:"name"`
-	Brief   string `json:"brief,omitempty"`
+// VentureConfig represents the .hecate/torch.json file format.
+type VentureConfig struct {
+	VentureID string `json:"torch_id"`
+	Name      string `json:"name"`
+	Brief     string `json:"brief,omitempty"`
 }
 
-// DetectResult holds the result of torch detection.
+// DetectResult holds the result of venture detection.
 type DetectResult struct {
 	Found  bool
 	Source string // "git" or "config"
-	Config *TorchConfig
+	Config *VentureConfig
 }
 
-// DetectTorch attempts to detect a torch from the current directory.
+// DetectVenture attempts to detect a venture from the current directory.
 // It checks (in order):
-// 1. Git remote URL - matches against known torches (via daemon API)
+// 1. Git remote URL - matches against known ventures (via daemon API)
 // 2. .hecate/torch.json in CWD or parent directories
 //
 // Returns the detection result. Caller should use the daemon API to resolve
-// the torch ID to full torch info.
-func DetectTorch() DetectResult {
+// the venture ID to full venture info.
+func DetectVenture() DetectResult {
 	// First, try to find .hecate/torch.json
-	if config := findTorchConfig(); config != nil {
+	if config := findVentureConfig(); config != nil {
 		return DetectResult{
 			Found:  true,
 			Source: "config",
@@ -41,11 +41,11 @@ func DetectTorch() DetectResult {
 
 	// Next, try git remote URL
 	if remoteURL := getGitRemoteURL(); remoteURL != "" {
-		// Return the URL - caller will match against daemon's torch list
+		// Return the URL - caller will match against daemon's venture list
 		return DetectResult{
 			Found:  true,
 			Source: "git",
-			Config: &TorchConfig{
+			Config: &VentureConfig{
 				// Store remote URL in Name for matching
 				Name: remoteURL,
 			},
@@ -55,8 +55,8 @@ func DetectTorch() DetectResult {
 	return DetectResult{Found: false}
 }
 
-// findTorchConfig searches for .hecate/torch.json in CWD and parent directories.
-func findTorchConfig() *TorchConfig {
+// findVentureConfig searches for .hecate/torch.json in CWD and parent directories.
+func findVentureConfig() *VentureConfig {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil
@@ -66,8 +66,8 @@ func findTorchConfig() *TorchConfig {
 	for {
 		configPath := filepath.Join(dir, ".hecate", "torch.json")
 		if data, err := os.ReadFile(configPath); err == nil {
-			var config TorchConfig
-			if json.Unmarshal(data, &config) == nil && config.TorchID != "" {
+			var config VentureConfig
+			if json.Unmarshal(data, &config) == nil && config.VentureID != "" {
 				return &config
 			}
 		}
@@ -122,8 +122,8 @@ func normalizeGitURL(url string) string {
 	return url
 }
 
-// SaveTorchConfig saves torch configuration to .hecate/torch.json in CWD.
-func SaveTorchConfig(config TorchConfig) error {
+// SaveVentureConfig saves venture configuration to .hecate/torch.json in CWD.
+func SaveVentureConfig(config VentureConfig) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err

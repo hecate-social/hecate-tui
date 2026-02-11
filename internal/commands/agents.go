@@ -120,9 +120,9 @@ func (c *AgentsCmd) showAgent(agentID string, ctx *Context) tea.Cmd {
 		b.WriteString(s.CardValue.Render(agent.AgentID))
 		b.WriteString("\n")
 
-		b.WriteString(s.CardLabel.Render("    Torch: "))
-		if agent.TorchID != "" {
-			b.WriteString(s.CardValue.Render(agent.TorchID))
+		b.WriteString(s.CardLabel.Render("  Venture: "))
+		if agent.VentureID != "" {
+			b.WriteString(s.CardValue.Render(agent.VentureID))
 		} else {
 			b.WriteString(s.Subtle.Render("-"))
 		}

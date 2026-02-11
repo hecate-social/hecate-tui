@@ -46,14 +46,14 @@ func (c *HelpCmd) Execute(args []string, ctx *Context) tea.Cmd {
 			return s.Bold.Render(emoji+" "+title) + "\n"
 		}
 
-		// 📋 General
+		// General
 		b.WriteString(section("📋", "General"))
 		b.WriteString(row("/help", "(h, ?)", "Show this help"))
 		b.WriteString(row("/clear", "", "Clear the screen"))
 		b.WriteString(row("/quit", "(q, exit)", "Exit Hecate"))
 		b.WriteString("\n")
 
-		// 💬 Chat
+		// Chat
 		b.WriteString(section("💬", "Chat"))
 		b.WriteString(row("/new", "", "Start new conversation"))
 		b.WriteString(row("/history", "", "Show conversation history"))
@@ -63,7 +63,7 @@ func (c *HelpCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		b.WriteString(row("/system", "(sys)", "Set system prompt"))
 		b.WriteString("\n")
 
-		// 🤖 LLM & Models
+		// LLM & Models
 		b.WriteString(section("🤖", "LLM & Models"))
 		b.WriteString(row("/models", "", "List available models"))
 		b.WriteString(row("/model", "", "Show/select current model"))
@@ -72,7 +72,7 @@ func (c *HelpCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		b.WriteString(row("/browse", "", "Browse capabilities"))
 		b.WriteString("\n")
 
-		// 🌐 Mesh & Network
+		// Mesh & Network
 		b.WriteString(section("🌐", "Mesh & Network"))
 		b.WriteString(row("/status", "", "Show daemon status"))
 		b.WriteString(row("/health", "", "Health check"))
@@ -81,18 +81,18 @@ func (c *HelpCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		b.WriteString(row("/me", "", "Show identity"))
 		b.WriteString("\n")
 
-		// 🔥 Torch & Cartwheel (ALC)
-		b.WriteString(section("🔥", "Torch & Cartwheel"))
-		b.WriteString(row("/torch", "(t)", "Show/select torches"))
-		b.WriteString(row("/torches", "(ts)", "List all torches"))
-		b.WriteString(row("/cartwheel", "(cw)", "Manage cartwheels"))
-		b.WriteString(row("/cartwheels", "(cws)", "List cartwheels"))
+		// Venture & Department (ALC)
+		b.WriteString(section("🔥", "Venture & Department"))
+		b.WriteString(row("/venture", "(v)", "Show/select ventures"))
+		b.WriteString(row("/ventures", "(vs)", "List all ventures"))
+		b.WriteString(row("/department", "(dept)", "Manage departments"))
+		b.WriteString(row("/departments", "(dpts)", "List departments"))
 		b.WriteString(row("/back", "(b, ..)", "Navigate up context"))
 		b.WriteString(row("/chat", "", "Return to chat mode"))
 		b.WriteString(row("/roles", "", "Switch ALC role"))
 		b.WriteString("\n")
 
-		// 🛠️ Project & Tools
+		// Project & Tools
 		b.WriteString(section("🛠️", "Project & Tools"))
 		b.WriteString(row("/project", "(proj)", "Show workspace info"))
 		b.WriteString(row("/config", "", "Show configuration"))
@@ -102,7 +102,7 @@ func (c *HelpCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		b.WriteString(row("/fn", "(on|off)", "LLM function calling"))
 		b.WriteString("\n")
 
-		// 🎨 Appearance
+		// Appearance
 		b.WriteString(section("🎨", "Appearance"))
 		b.WriteString(row("/theme", "", "Change theme"))
 		b.WriteString("\n")

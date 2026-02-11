@@ -109,15 +109,15 @@ type SwitchRoleMsg struct {
 	Role string // dna, anp, tni, dno
 }
 
-// SetALCContextMsg tells the app to switch ALC context (Chat/Torch/Cartwheel).
+// SetALCContextMsg tells the app to switch ALC context (Chat/Venture/Department).
 type SetALCContextMsg struct {
-	Context   alc.Context
-	Torch     *alc.TorchInfo
-	Cartwheel *alc.CartwheelInfo
-	Source    string // "manual", "git", "config"
+	Context    alc.Context
+	Venture    *alc.VentureInfo
+	Department *alc.DepartmentInfo
+	Source     string // "manual", "git", "config"
 }
 
 // ShowFormMsg tells the app to display a form overlay.
 type ShowFormMsg struct {
-	FormType string // "torch_init", "cartwheel_init", etc.
+	FormType string // "venture_init", "department_init", etc.
 }

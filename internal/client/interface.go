@@ -36,20 +36,20 @@ type DaemonClient interface {
 	ListAgents() ([]Agent, error)
 	GetAgent(agentID string) (*Agent, error)
 
-	// Torch
-	GetTorch() (*Torch, error)
-	GetTorchByID(torchID string) (*Torch, error)
-	ListTorches() ([]Torch, error)
-	ListAllTorches() ([]Torch, error)
-	InitiateTorch(name, brief string) (*Torch, error)
-	ArchiveTorch(torchID, reason string) error
-	RefineVision(torchID string, params map[string]interface{}) error
-	SubmitVision(torchID, submittedBy string) error
+	// Venture
+	GetVenture() (*Venture, error)
+	GetVentureByID(ventureID string) (*Venture, error)
+	ListVentures() ([]Venture, error)
+	ListAllVentures() ([]Venture, error)
+	InitiateVenture(name, brief string) (*Venture, error)
+	ArchiveVenture(ventureID, reason string) error
+	RefineVision(ventureID string, params map[string]interface{}) error
+	SubmitVision(ventureID, submittedBy string) error
 
-	// Cartwheels
-	ListCartwheels() ([]Cartwheel, error)
-	GetCartwheel(cartwheelID string) (*Cartwheel, error)
-	CartwheelCommand(path string, body map[string]interface{}) error
+	// Departments
+	ListDepartments() ([]Department, error)
+	GetDepartment(departmentID string) (*Department, error)
+	DepartmentCommand(path string, body map[string]interface{}) error
 
 	// Pairing
 	StartPairing() (*PairingStatus, error)
@@ -58,7 +58,7 @@ type DaemonClient interface {
 
 	// Telemetry
 	GetTotalCost() (*CostSummary, error)
-	GetCostByTorch(torchID string) (*CostSummary, error)
+	GetCostByVenture(ventureID string) (*CostSummary, error)
 }
 
 // Verify at compile time that *Client implements DaemonClient.

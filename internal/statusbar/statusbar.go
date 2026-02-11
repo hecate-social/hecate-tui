@@ -27,8 +27,8 @@ type Model struct {
 	InputLen      int    // character count for Insert mode
 	SessionTokens int    // cumulative tokens for session
 
-	// Torch context
-	TorchName   string // current torch name (empty if none)
+	// Venture context
+	VentureName string // current venture name (empty if none)
 	ActivePhase string // current ALC phase: "dna", "anp", "tni", "dno"
 	AgentCount  int    // number of active agents
 }

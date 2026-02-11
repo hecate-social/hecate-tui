@@ -32,15 +32,15 @@ func (c *Client) GetTotalCost() (*CostSummary, error) {
 	return &cost, nil
 }
 
-// GetCostByTorch returns LLM cost for a specific torch.
-func (c *Client) GetCostByTorch(torchID string) (*CostSummary, error) {
-	resp, err := c.get("/api/telemetry/cost/" + torchID)
+// GetCostByVenture returns LLM cost for a specific venture.
+func (c *Client) GetCostByVenture(ventureID string) (*CostSummary, error) {
+	resp, err := c.get("/api/telemetry/cost/" + ventureID)
 	if err != nil {
 		return nil, err
 	}
 
 	if !resp.Ok {
-		return nil, fmt.Errorf("get cost by torch failed: %s", resp.Error)
+		return nil, fmt.Errorf("get cost by venture failed: %s", resp.Error)
 	}
 
 	var cost CostSummary

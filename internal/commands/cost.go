@@ -16,7 +16,7 @@ func (c *CostCmd) Description() string { return "View LLM cost breakdown" }
 
 func (c *CostCmd) Execute(args []string, ctx *Context) tea.Cmd {
 	if len(args) > 0 {
-		return c.showTorchCost(args[0], ctx)
+		return c.showVentureCost(args[0], ctx)
 	}
 	return c.showTotalCost(ctx)
 }
@@ -52,24 +52,24 @@ func (c *CostCmd) showTotalCost(ctx *Context) tea.Cmd {
 
 		if cost.TotalCost > 0 {
 			b.WriteString("\n")
-			b.WriteString(s.Subtle.Render("Use /cost <torch_id> for per-torch breakdown"))
+			b.WriteString(s.Subtle.Render("Use /cost <venture_id> for per-venture breakdown"))
 		}
 
 		return InjectSystemMsg{Content: b.String()}
 	}
 }
 
-func (c *CostCmd) showTorchCost(torchID string, ctx *Context) tea.Cmd {
+func (c *CostCmd) showVentureCost(ventureID string, ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
 
-		cost, err := ctx.Client.GetCostByTorch(torchID)
+		cost, err := ctx.Client.GetCostByVenture(ventureID)
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to get cost: " + err.Error())}
 		}
 
 		var b strings.Builder
-		b.WriteString(s.CardTitle.Render("Torch Cost: " + torchID))
+		b.WriteString(s.CardTitle.Render("Venture Cost: " + ventureID))
 		b.WriteString("\n\n")
 
 		b.WriteString(s.CardLabel.Render("Total Cost: "))

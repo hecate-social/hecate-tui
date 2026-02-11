@@ -1,5 +1,5 @@
 // Package alc provides Agent Lifecycle (ALC) context management.
-// The ALC context represents what the user is working on (Chat/Torch/Cartwheel),
+// The ALC context represents what the user is working on (Chat/Venture/Department),
 // which is orthogonal to the input mode (Normal/Insert/Command/etc.).
 package alc
 
@@ -10,11 +10,11 @@ const (
 	// Chat mode - lightweight, no project context
 	Chat Context = iota
 
-	// Torch mode - project-level context, torch selected but no active cartwheel
-	Torch
+	// Venture mode - project-level context, venture selected but no active department
+	Venture
 
-	// Cartwheel mode - active work unit with phase-specific behavior
-	Cartwheel
+	// Department mode - active work unit with phase-specific behavior
+	Department
 )
 
 // String returns the display name for the context.
@@ -22,21 +22,21 @@ func (c Context) String() string {
 	switch c {
 	case Chat:
 		return "CHAT"
-	case Torch:
-		return "TORCH"
-	case Cartwheel:
-		return "CARTWHEEL"
+	case Venture:
+		return "VENTURE"
+	case Department:
+		return "DEPARTMENT"
 	default:
 		return "UNKNOWN"
 	}
 }
 
-// HasTorchContext returns true if a torch is selected (Torch or Cartwheel mode).
-func (c Context) HasTorchContext() bool {
-	return c == Torch || c == Cartwheel
+// HasVentureContext returns true if a venture is selected (Venture or Department mode).
+func (c Context) HasVentureContext() bool {
+	return c == Venture || c == Department
 }
 
-// HasCartwheelContext returns true if a cartwheel is active.
-func (c Context) HasCartwheelContext() bool {
-	return c == Cartwheel
+// HasDepartmentContext returns true if a department is active.
+func (c Context) HasDepartmentContext() bool {
+	return c == Department
 }

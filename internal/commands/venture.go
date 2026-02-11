@@ -13,15 +13,15 @@ import (
 	"github.com/hecate-social/hecate-tui/internal/scaffold"
 )
 
-// TorchCmd handles all /torch subcommands for business endeavor management.
-type TorchCmd struct{}
+// VentureCmd handles all /venture subcommands for business endeavor management.
+type VentureCmd struct{}
 
-func (c *TorchCmd) Name() string        { return "torch" }
-func (c *TorchCmd) Aliases() []string   { return []string{"t"} }
-func (c *TorchCmd) Description() string { return "Manage business endeavors (Torches)" }
+func (c *VentureCmd) Name() string        { return "venture" }
+func (c *VentureCmd) Aliases() []string   { return []string{"v"} }
+func (c *VentureCmd) Description() string { return "Manage business endeavors (Ventures)" }
 
-// Complete implements Completable for torch argument completion.
-func (c *TorchCmd) Complete(args []string, ctx *Context) []string {
+// Complete implements Completable for venture argument completion.
+func (c *VentureCmd) Complete(args []string, ctx *Context) []string {
 	// Subcommands
 	subcommands := []string{"init", "new", "list", "ls", "select", "clear", "exit", "archive", "refine-vision", "refine", "rv", "submit-vision", "submit", "sv", "help", "status"}
 
@@ -32,15 +32,15 @@ func (c *TorchCmd) Complete(args []string, ctx *Context) []string {
 	firstArg := strings.ToLower(args[0])
 
 	// If we have 2+ args, we're completing the second argument
-	// For "archive" and "select", complete torch IDs
+	// For "archive" and "select", complete venture IDs
 	if len(args) >= 2 {
 		switch firstArg {
 		case "archive":
-			// Archive needs torch IDs (include archived for visibility)
-			return c.completeTorchIDs(args[1], ctx, true)
+			// Archive needs venture IDs (include archived for visibility)
+			return c.completeVentureIDs(args[1], ctx, true)
 		case "select", "switch", "use":
-			// Select needs active torch IDs/names
-			return c.completeTorchIDs(args[1], ctx, false)
+			// Select needs active venture IDs/names
+			return c.completeVentureIDs(args[1], ctx, false)
 		case "list", "ls":
 			// List can have "all" or "archived" as second arg
 			prefix := strings.ToLower(args[1])
@@ -55,7 +55,7 @@ func (c *TorchCmd) Complete(args []string, ctx *Context) []string {
 		return nil
 	}
 
-	// Single arg - complete subcommands and torch names
+	// Single arg - complete subcommands and venture names
 	var subMatches []string
 	for _, sub := range subcommands {
 		if strings.HasPrefix(sub, firstArg) {
@@ -63,21 +63,21 @@ func (c *TorchCmd) Complete(args []string, ctx *Context) []string {
 		}
 	}
 
-	// Also try to complete torch IDs/names for direct selection
-	torchMatches := c.completeTorchIDs(firstArg, ctx, false)
+	// Also try to complete venture IDs/names for direct selection
+	ventureMatches := c.completeVentureIDs(firstArg, ctx, false)
 
 	// Combine
-	return append(subMatches, torchMatches...)
+	return append(subMatches, ventureMatches...)
 }
 
-// completeTorchIDs returns torch IDs matching the prefix.
-func (c *TorchCmd) completeTorchIDs(prefix string, ctx *Context, includeArchived bool) []string {
-	var torches []client.Torch
+// completeVentureIDs returns venture IDs matching the prefix.
+func (c *VentureCmd) completeVentureIDs(prefix string, ctx *Context, includeArchived bool) []string {
+	var ventures []client.Venture
 	var err error
 	if includeArchived {
-		torches, err = ctx.Client.ListAllTorches()
+		ventures, err = ctx.Client.ListAllVentures()
 	} else {
-		torches, err = ctx.Client.ListTorches()
+		ventures, err = ctx.Client.ListVentures()
 	}
 	if err != nil {
 		return nil
@@ -85,21 +85,21 @@ func (c *TorchCmd) completeTorchIDs(prefix string, ctx *Context, includeArchived
 
 	prefix = strings.ToLower(prefix)
 	var matches []string
-	for _, torch := range torches {
+	for _, venture := range ventures {
 		// Match against ID
-		if strings.HasPrefix(strings.ToLower(torch.TorchID), prefix) {
-			matches = append(matches, torch.TorchID)
+		if strings.HasPrefix(strings.ToLower(venture.VentureID), prefix) {
+			matches = append(matches, venture.VentureID)
 		}
 		// Match against name (if different from ID)
-		if strings.HasPrefix(strings.ToLower(torch.Name), prefix) && torch.Name != torch.TorchID {
-			matches = append(matches, torch.Name)
+		if strings.HasPrefix(strings.ToLower(venture.Name), prefix) && venture.Name != venture.VentureID {
+			matches = append(matches, venture.Name)
 		}
 	}
 	return matches
 }
 
-func (c *TorchCmd) Execute(args []string, ctx *Context) tea.Cmd {
-	// No args → show current torch or list if none selected
+func (c *VentureCmd) Execute(args []string, ctx *Context) tea.Cmd {
+	// No args → show current venture or list if none selected
 	if len(args) == 0 {
 		return c.showOrPick(ctx)
 	}
@@ -108,28 +108,28 @@ func (c *TorchCmd) Execute(args []string, ctx *Context) tea.Cmd {
 
 	switch sub {
 	case "status":
-		return c.showCurrentTorch(ctx)
+		return c.showCurrentVenture(ctx)
 	case "init", "new", "create":
-		return c.initiateTorch(args[1:], ctx)
+		return c.initiateVenture(args[1:], ctx)
 	case "list", "ls":
 		includeArchived := len(args) > 1 && (args[1] == "all" || args[1] == "archived")
-		return c.listTorches(ctx, includeArchived)
+		return c.listVentures(ctx, includeArchived)
 	case "select", "switch", "use":
 		if len(args) < 2 {
-			return c.showError(ctx, "Usage: /torch select <id|name|number>")
+			return c.showError(ctx, "Usage: /venture select <id|name|number>")
 		}
-		return c.selectTorch(args[1], ctx)
+		return c.selectVenture(args[1], ctx)
 	case "clear", "exit":
-		return c.clearTorch(ctx)
+		return c.clearVenture(ctx)
 	case "archive":
 		if len(args) < 2 {
-			return c.showError(ctx, "Usage: /torch archive <torch-id> [reason]")
+			return c.showError(ctx, "Usage: /venture archive <venture-id> [reason]")
 		}
 		reason := ""
 		if len(args) > 2 {
 			reason = strings.Join(args[2:], " ")
 		}
-		return c.archiveTorch(args[1], reason, ctx)
+		return c.archiveVenture(args[1], reason, ctx)
 	case "refine-vision", "refine", "rv":
 		return c.refineVision(args[1:], ctx)
 	case "submit-vision", "submit", "sv":
@@ -139,29 +139,29 @@ func (c *TorchCmd) Execute(args []string, ctx *Context) tea.Cmd {
 	default:
 		// Check if it's a number (list index)
 		if idx := c.parseIndex(sub); idx > 0 {
-			return c.selectTorchByIndex(idx, ctx)
+			return c.selectVentureByIndex(idx, ctx)
 		}
-		// Check if it looks like a torch ID
-		if strings.HasPrefix(sub, "tch-") || strings.HasPrefix(sub, "torch-") {
-			return c.selectTorch(sub, ctx)
+		// Check if it looks like a venture ID
+		if strings.HasPrefix(sub, "ven-") || strings.HasPrefix(sub, "venture-") {
+			return c.selectVenture(sub, ctx)
 		}
-		// Otherwise treat as torch name to select
-		return c.selectTorch(sub, ctx)
+		// Otherwise treat as venture name to select
+		return c.selectVenture(sub, ctx)
 	}
 }
 
-func (c *TorchCmd) showUsage(ctx *Context) tea.Cmd {
+func (c *VentureCmd) showUsage(ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
 		t := ctx.Theme
 		var b strings.Builder
 
 		// Title
-		b.WriteString(s.CardTitle.Render("Torch - Business Endeavor Commands"))
+		b.WriteString(s.CardTitle.Render("Venture - Business Endeavor Commands"))
 		b.WriteString("\n\n")
 
 		// Intro
-		b.WriteString(s.Subtle.Render("Manage business endeavors (Torches) - the highest-level organizational unit in Hecate."))
+		b.WriteString(s.Subtle.Render("Manage business endeavors (Ventures) - the highest-level organizational unit in Hecate."))
 		b.WriteString("\n\n")
 
 		// Helper for table rows
@@ -179,15 +179,15 @@ func (c *TorchCmd) showUsage(ctx *Context) tea.Cmd {
 		// Commands
 		b.WriteString(s.Bold.Render("Commands"))
 		b.WriteString("\n")
-		b.WriteString(row("/torch", "Show current torch status"))
-		b.WriteString(row("/torch status", "Show current torch status"))
-		b.WriteString(row("/torch init <name> [brief]", "Initiate a new torch"))
-		b.WriteString(row("/torch archive <torch-id> [reason]", "Archive a torch (soft delete)"))
-		b.WriteString(row("/torch refine-vision", "Open VISION.md for editing"))
-		b.WriteString(row("/torch submit-vision", "Submit vision, complete DnA phase"))
-		b.WriteString(row("/torch list", "List active torches"))
-		b.WriteString(row("/torch list all", "List all torches (including archived)"))
-		b.WriteString(row("/torch <id>", "Show specific torch by ID"))
+		b.WriteString(row("/venture", "Show current venture status"))
+		b.WriteString(row("/venture status", "Show current venture status"))
+		b.WriteString(row("/venture init <name> [brief]", "Initiate a new venture"))
+		b.WriteString(row("/venture archive <venture-id> [reason]", "Archive a venture (soft delete)"))
+		b.WriteString(row("/venture refine-vision", "Open VISION.md for editing"))
+		b.WriteString(row("/venture submit-vision", "Submit vision, complete DnA phase"))
+		b.WriteString(row("/venture list", "List active ventures"))
+		b.WriteString(row("/venture list all", "List all ventures (including archived)"))
+		b.WriteString(row("/venture <id>", "Show specific venture by ID"))
 		b.WriteString("\n")
 
 		// Aliases for vision commands
@@ -195,88 +195,88 @@ func (c *TorchCmd) showUsage(ctx *Context) tea.Cmd {
 		b.WriteString("\n")
 
 		// Aliases
-		b.WriteString(s.Subtle.Render("Aliases: /t"))
+		b.WriteString(s.Subtle.Render("Aliases: /v"))
 
 		return InjectSystemMsg{Content: b.String()}
 	}
 }
 
-func (c *TorchCmd) showCurrentTorch(ctx *Context) tea.Cmd {
+func (c *VentureCmd) showCurrentVenture(ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
 
-		torch, err := ctx.Client.GetTorch()
+		venture, err := ctx.Client.GetVenture()
 		if err != nil {
-			return InjectSystemMsg{Content: s.Error.Render("Failed to get current torch: " + err.Error())}
+			return InjectSystemMsg{Content: s.Error.Render("Failed to get current venture: " + err.Error())}
 		}
 
-		return InjectSystemMsg{Content: c.renderTorchCard(torch, ctx)}
+		return InjectSystemMsg{Content: c.renderVentureCard(venture, ctx)}
 	}
 }
 
-func (c *TorchCmd) showTorchByID(torchID string, ctx *Context) tea.Cmd {
+func (c *VentureCmd) showVentureByID(ventureID string, ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
 
-		torch, err := ctx.Client.GetTorchByID(torchID)
+		venture, err := ctx.Client.GetVentureByID(ventureID)
 		if err != nil {
-			return InjectSystemMsg{Content: s.Error.Render("Failed to get torch: " + err.Error())}
+			return InjectSystemMsg{Content: s.Error.Render("Failed to get venture: " + err.Error())}
 		}
 
-		return InjectSystemMsg{Content: c.renderTorchCard(torch, ctx)}
+		return InjectSystemMsg{Content: c.renderVentureCard(venture, ctx)}
 	}
 }
 
-func (c *TorchCmd) listTorches(ctx *Context, includeArchived bool) tea.Cmd {
+func (c *VentureCmd) listVentures(ctx *Context, includeArchived bool) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
 
-		var torches []client.Torch
+		var ventures []client.Venture
 		var err error
 		if includeArchived {
-			torches, err = ctx.Client.ListAllTorches()
+			ventures, err = ctx.Client.ListAllVentures()
 		} else {
-			torches, err = ctx.Client.ListTorches()
+			ventures, err = ctx.Client.ListVentures()
 		}
 		if err != nil {
-			return InjectSystemMsg{Content: s.Error.Render("Failed to list torches: " + err.Error())}
+			return InjectSystemMsg{Content: s.Error.Render("Failed to list ventures: " + err.Error())}
 		}
 
-		if len(torches) == 0 {
+		if len(ventures) == 0 {
 			var b strings.Builder
-			title := "Torches"
+			title := "Ventures"
 			if includeArchived {
-				title = "Torches (including archived)"
+				title = "Ventures (including archived)"
 			}
 			b.WriteString(s.CardTitle.Render(title))
 			b.WriteString("\n\n")
-			b.WriteString(s.Subtle.Render("No torches found. Use /torch init <name> [brief] to create one."))
+			b.WriteString(s.Subtle.Render("No ventures found. Use /venture init <name> [brief] to create one."))
 			return InjectSystemMsg{Content: b.String()}
 		}
 
 		var b strings.Builder
-		title := "Torches"
+		title := "Ventures"
 		if includeArchived {
-			title = "Torches (including archived)"
+			title = "Ventures (including archived)"
 		}
 		b.WriteString(s.CardTitle.Render(title))
 		b.WriteString("\n\n")
 
-		for i, torch := range torches {
+		for i, venture := range ventures {
 			if i > 0 {
 				b.WriteString("\n")
 			}
 			b.WriteString(s.CardLabel.Render("    ID: "))
-			b.WriteString(s.CardValue.Render(torch.TorchID))
+			b.WriteString(s.CardValue.Render(venture.VentureID))
 			b.WriteString("\n")
 			b.WriteString(s.CardLabel.Render("  Name: "))
-			b.WriteString(s.CardValue.Render(torch.Name))
+			b.WriteString(s.CardValue.Render(venture.Name))
 			b.WriteString("\n")
 			b.WriteString(s.CardLabel.Render("Status: "))
-			b.WriteString(s.CardValue.Render(formatTorchStatusLabel(torch)))
+			b.WriteString(s.CardValue.Render(formatVentureStatusLabel(venture)))
 			b.WriteString("\n")
-			if torch.Brief != "" {
-				b.WriteString(s.Subtle.Render("      " + torch.Brief))
+			if venture.Brief != "" {
+				b.WriteString(s.Subtle.Render("      " + venture.Brief))
 				b.WriteString("\n")
 			}
 		}
@@ -285,11 +285,11 @@ func (c *TorchCmd) listTorches(ctx *Context, includeArchived bool) tea.Cmd {
 	}
 }
 
-func (c *TorchCmd) initiateTorch(args []string, ctx *Context) tea.Cmd {
+func (c *VentureCmd) initiateVenture(args []string, ctx *Context) tea.Cmd {
 	// No args → show form
 	if len(args) == 0 {
 		return func() tea.Msg {
-			return ShowFormMsg{FormType: "torch_init"}
+			return ShowFormMsg{FormType: "venture_init"}
 		}
 	}
 
@@ -304,7 +304,7 @@ func (c *TorchCmd) initiateTorch(args []string, ctx *Context) tea.Cmd {
 		brief = strings.Join(args[1:], " ")
 	}
 
-	return c.doInitiateTorch(path, name, brief, ctx)
+	return c.doInitiateVenture(path, name, brief, ctx)
 }
 
 // expandPath expands ~ and makes path absolute relative to cwd.
@@ -355,15 +355,15 @@ func inferName(path string) string {
 	return "unnamed"
 }
 
-// TorchCreatedMsg is sent after a torch is successfully created and scaffolded.
-// It triggers a cd to the new torch directory.
-type TorchCreatedMsg struct {
+// VentureCreatedMsg is sent after a venture is successfully created and scaffolded.
+// It triggers a cd to the new venture directory.
+type VentureCreatedMsg struct {
 	Path    string
 	Message string
 }
 
-// doInitiateTorch performs the actual torch creation.
-func (c *TorchCmd) doInitiateTorch(path, name, brief string, ctx *Context) tea.Cmd {
+// doInitiateVenture performs the actual venture creation.
+func (c *VentureCmd) doInitiateVenture(path, name, brief string, ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
 
@@ -380,27 +380,27 @@ func (c *TorchCmd) doInitiateTorch(path, name, brief string, ctx *Context) tea.C
 			return InjectSystemMsg{Content: s.Error.Render("Failed to create directory: " + err.Error())}
 		}
 
-		torch, err := ctx.Client.InitiateTorch(name, brief)
+		venture, err := ctx.Client.InitiateVenture(name, brief)
 		if err != nil {
-			return InjectSystemMsg{Content: s.Error.Render("Failed to initiate torch: " + err.Error())}
+			return InjectSystemMsg{Content: s.Error.Render("Failed to initiate venture: " + err.Error())}
 		}
 
 		// Scaffold the repository structure in the target path
-		manifest := scaffold.TorchManifest{
-			TorchID:     torch.TorchID,
-			Name:        torch.Name,
-			Brief:       torch.Brief,
+		manifest := scaffold.VentureManifest{
+			VentureID:   venture.VentureID,
+			Name:        venture.Name,
+			Brief:       venture.Brief,
 			Root:        path,
-			InitiatedAt: torch.InitiatedAt,
-			InitiatedBy: torch.InitiatedBy,
+			InitiatedAt: venture.InitiatedAt,
+			InitiatedBy: venture.InitiatedBy,
 		}
 
 		result := scaffold.Scaffold(path, manifest)
 
 		var b strings.Builder
-		b.WriteString(s.StatusOK.Render("Torch Initiated"))
+		b.WriteString(s.StatusOK.Render("Venture Initiated"))
 		b.WriteString("\n\n")
-		b.WriteString(c.renderTorchCard(torch, ctx))
+		b.WriteString(c.renderVentureCard(venture, ctx))
 		b.WriteString("\n")
 		b.WriteString(s.Subtle.Render("Root: " + path))
 
@@ -411,7 +411,7 @@ func (c *TorchCmd) doInitiateTorch(path, name, brief string, ctx *Context) tea.C
 
 		if result.Success {
 			b.WriteString(s.StatusOK.Render("  ✓ "))
-			b.WriteString(s.Subtle.Render(".hecate/torch.json"))
+			b.WriteString(s.Subtle.Render(".hecate/venture.json"))
 			b.WriteString("\n")
 		}
 
@@ -461,29 +461,29 @@ func (c *TorchCmd) doInitiateTorch(path, name, brief string, ctx *Context) tea.C
 		b.WriteString("\n\n")
 		b.WriteString(s.Subtle.Render("Next: gh repo create --public --source=. --push"))
 
-		// Return TorchCreatedMsg to trigger cd
-		return TorchCreatedMsg{Path: path, Message: b.String()}
+		// Return VentureCreatedMsg to trigger cd
+		return VentureCreatedMsg{Path: path, Message: b.String()}
 	}
 }
 
-func (c *TorchCmd) archiveTorch(torchID, reason string, ctx *Context) tea.Cmd {
+func (c *VentureCmd) archiveVenture(ventureID, reason string, ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
 
-		// Only accept torch IDs (not names) to avoid ambiguity
-		if !strings.HasPrefix(torchID, "torch-") {
-			return InjectSystemMsg{Content: s.Error.Render("Please use torch ID (starts with 'torch-'). Use /torch list to see IDs.")}
+		// Only accept venture IDs (not names) to avoid ambiguity
+		if !strings.HasPrefix(ventureID, "venture-") {
+			return InjectSystemMsg{Content: s.Error.Render("Please use venture ID (starts with 'venture-'). Use /venture list to see IDs.")}
 		}
 
-		err := ctx.Client.ArchiveTorch(torchID, reason)
+		err := ctx.Client.ArchiveVenture(ventureID, reason)
 		if err != nil {
-			return InjectSystemMsg{Content: s.Error.Render("Failed to archive torch: " + err.Error())}
+			return InjectSystemMsg{Content: s.Error.Render("Failed to archive venture: " + err.Error())}
 		}
 
 		var b strings.Builder
-		b.WriteString(s.StatusOK.Render("Torch Archived"))
+		b.WriteString(s.StatusOK.Render("Venture Archived"))
 		b.WriteString("\n\n")
-		b.WriteString(s.Subtle.Render("ID: " + torchID))
+		b.WriteString(s.Subtle.Render("ID: " + ventureID))
 		if reason != "" {
 			b.WriteString("\n")
 			b.WriteString(s.Subtle.Render("Reason: " + reason))
@@ -495,29 +495,29 @@ func (c *TorchCmd) archiveTorch(torchID, reason string, ctx *Context) tea.Cmd {
 
 // refineVision opens VISION.md for editing, scaffolding it first if needed.
 // The file IS the vision — no key=value API params.
-func (c *TorchCmd) refineVision(args []string, ctx *Context) tea.Cmd {
+func (c *VentureCmd) refineVision(args []string, ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
 
-		// Need a torch in context
+		// Need a venture in context
 		if ctx.GetALCContext == nil {
-			return InjectSystemMsg{Content: s.Error.Render("No torch selected. Use /torch to select one first.")}
+			return InjectSystemMsg{Content: s.Error.Render("No venture selected. Use /venture to select one first.")}
 		}
 		state := ctx.GetALCContext()
-		if state == nil || state.Torch == nil {
-			return InjectSystemMsg{Content: s.Error.Render("No torch selected. Use /torch to select one first.")}
+		if state == nil || state.Venture == nil {
+			return InjectSystemMsg{Content: s.Error.Render("No venture selected. Use /venture to select one first.")}
 		}
 
-		// Torch root = cwd (the TUI cds into the torch dir on init/select)
+		// Venture root = cwd (the TUI cds into the venture dir on init/select)
 		cwd, err := os.Getwd()
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Cannot determine working directory: " + err.Error())}
 		}
 
 		// Scaffold VISION.md if it doesn't exist
-		manifest := scaffold.TorchManifest{
-			Name:        state.Torch.Name,
-			Brief:       state.Torch.Brief,
+		manifest := scaffold.VentureManifest{
+			Name:        state.Venture.Name,
+			Brief:       state.Venture.Brief,
 			InitiatedBy: userAtHost(),
 		}
 		created, err := scaffold.ScaffoldVision(cwd, manifest)
@@ -529,7 +529,7 @@ func (c *TorchCmd) refineVision(args []string, ctx *Context) tea.Cmd {
 		params := map[string]interface{}{
 			"refined_by": userAtHost(),
 		}
-		_ = ctx.Client.RefineVision(state.Torch.ID, params)
+		_ = ctx.Client.RefineVision(state.Venture.ID, params)
 
 		visionPath := scaffold.VisionPath(cwd)
 		if created {
@@ -541,19 +541,19 @@ func (c *TorchCmd) refineVision(args []string, ctx *Context) tea.Cmd {
 	}
 }
 
-// submitVision submits the torch vision, completing the DnA phase.
+// submitVision submits the venture vision, completing the DnA phase.
 // Validates that VISION.md exists before allowing submission.
-func (c *TorchCmd) submitVision(ctx *Context) tea.Cmd {
+func (c *VentureCmd) submitVision(ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
 
-		// Need a torch in context
+		// Need a venture in context
 		if ctx.GetALCContext == nil {
-			return InjectSystemMsg{Content: s.Error.Render("No torch selected. Use /torch to select one first.")}
+			return InjectSystemMsg{Content: s.Error.Render("No venture selected. Use /venture to select one first.")}
 		}
 		state := ctx.GetALCContext()
-		if state == nil || state.Torch == nil {
-			return InjectSystemMsg{Content: s.Error.Render("No torch selected. Use /torch to select one first.")}
+		if state == nil || state.Venture == nil {
+			return InjectSystemMsg{Content: s.Error.Render("No venture selected. Use /venture to select one first.")}
 		}
 
 		// Check VISION.md exists
@@ -562,10 +562,10 @@ func (c *TorchCmd) submitVision(ctx *Context) tea.Cmd {
 			return InjectSystemMsg{Content: s.Error.Render("Cannot determine working directory: " + err.Error())}
 		}
 		if !scaffold.VisionExists(cwd) {
-			return InjectSystemMsg{Content: s.Error.Render("No VISION.md found. Use /torch refine-vision to create and edit it first.")}
+			return InjectSystemMsg{Content: s.Error.Render("No VISION.md found. Use /venture refine-vision to create and edit it first.")}
 		}
 
-		err = ctx.Client.SubmitVision(state.Torch.ID, userAtHost())
+		err = ctx.Client.SubmitVision(state.Venture.ID, userAtHost())
 		if err != nil {
 			return InjectSystemMsg{Content: s.Error.Render("Failed to submit vision: " + err.Error())}
 		}
@@ -573,7 +573,7 @@ func (c *TorchCmd) submitVision(ctx *Context) tea.Cmd {
 		var b strings.Builder
 		b.WriteString(s.StatusOK.Render("Vision Submitted"))
 		b.WriteString("\n\n")
-		b.WriteString(s.Subtle.Render("DnA phase complete. Torch is ready for Architecture & Planning."))
+		b.WriteString(s.Subtle.Render("DnA phase complete. Venture is ready for Architecture & Planning."))
 		return InjectSystemMsg{Content: b.String()}
 	}
 }
@@ -591,59 +591,59 @@ func userAtHost() string {
 	return user + "@" + hostname
 }
 
-func (c *TorchCmd) renderTorchCard(torch *client.Torch, ctx *Context) string {
+func (c *VentureCmd) renderVentureCard(venture *client.Venture, ctx *Context) string {
 	s := ctx.Styles
 	var b strings.Builder
 
-	b.WriteString(s.CardTitle.Render("Torch: " + torch.Name))
+	b.WriteString(s.CardTitle.Render("Venture: " + venture.Name))
 	b.WriteString("\n\n")
 
 	// Right-align labels for clean formatting
 	b.WriteString(s.CardLabel.Render("          ID: "))
-	b.WriteString(s.CardValue.Render(torch.TorchID))
+	b.WriteString(s.CardValue.Render(venture.VentureID))
 	b.WriteString("\n")
 
-	if torch.Brief != "" {
+	if venture.Brief != "" {
 		b.WriteString(s.CardLabel.Render("       Brief: "))
-		b.WriteString(s.CardValue.Render(torch.Brief))
+		b.WriteString(s.CardValue.Render(venture.Brief))
 		b.WriteString("\n")
 	}
 
 	b.WriteString(s.CardLabel.Render("      Status: "))
-	b.WriteString(s.CardValue.Render(formatTorchStatusLabel(*torch)))
+	b.WriteString(s.CardValue.Render(formatVentureStatusLabel(*venture)))
 	b.WriteString("\n")
 
-	if torch.ActiveCartwheelID != "" {
-		b.WriteString(s.CardLabel.Render("  Cartwheel: "))
-		b.WriteString(s.CardValue.Render(torch.ActiveCartwheelID))
+	if venture.ActiveDepartmentID != "" {
+		b.WriteString(s.CardLabel.Render("  Department: "))
+		b.WriteString(s.CardValue.Render(venture.ActiveDepartmentID))
 		b.WriteString("\n")
 	}
 
 	b.WriteString(s.CardLabel.Render("   Initiated: "))
-	b.WriteString(s.Subtle.Render(formatTimestamp(torch.InitiatedAt)))
+	b.WriteString(s.Subtle.Render(formatTimestamp(venture.InitiatedAt)))
 	b.WriteString("\n")
 
-	if torch.InitiatedBy != "" {
+	if venture.InitiatedBy != "" {
 		b.WriteString(s.CardLabel.Render("          By: "))
-		b.WriteString(s.Subtle.Render(torch.InitiatedBy))
+		b.WriteString(s.Subtle.Render(venture.InitiatedBy))
 		b.WriteString("\n")
 	}
 
 	return b.String()
 }
 
-// formatTorchStatusLabel returns the status label, preferring the daemon-provided
+// formatVentureStatusLabel returns the status label, preferring the daemon-provided
 // label (with emojis) and falling back to a local mapping.
-func formatTorchStatusLabel(torch client.Torch) string {
-	if torch.StatusLabel != "" {
-		return torch.StatusLabel
+func formatVentureStatusLabel(venture client.Venture) string {
+	if venture.StatusLabel != "" {
+		return venture.StatusLabel
 	}
-	return formatTorchStatus(torch.Status)
+	return formatVentureStatus(venture.Status)
 }
 
-// formatTorchStatus converts a status bit field to a human-readable string.
-// Matches torch_aggregate.erl bit flags.
-func formatTorchStatus(status int) string {
+// formatVentureStatus converts a status bit field to a human-readable string.
+// Matches venture_aggregate.erl bit flags.
+func formatVentureStatus(status int) string {
 	const (
 		statusInitiated    = 1  // 2^0
 		statusDNAActive    = 2  // 2^1
@@ -671,52 +671,52 @@ func formatTorchStatus(status int) string {
 	}
 }
 
-// showOrPick shows current torch or lists available torches to pick.
-func (c *TorchCmd) showOrPick(ctx *Context) tea.Cmd {
+// showOrPick shows current venture or lists available ventures to pick.
+func (c *VentureCmd) showOrPick(ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
 
-		// Check if we have a torch in context
+		// Check if we have a venture in context
 		if ctx.GetALCContext != nil {
-			if state := ctx.GetALCContext(); state != nil && state.Torch != nil {
-				return c.showCurrentTorch(ctx)()
+			if state := ctx.GetALCContext(); state != nil && state.Venture != nil {
+				return c.showCurrentVenture(ctx)()
 			}
 		}
 
-		// No torch selected - list available torches
-		torches, err := ctx.Client.ListTorches()
+		// No venture selected - list available ventures
+		ventures, err := ctx.Client.ListVentures()
 		if err != nil {
-			return InjectSystemMsg{Content: s.Error.Render("Failed to list torches: " + err.Error())}
+			return InjectSystemMsg{Content: s.Error.Render("Failed to list ventures: " + err.Error())}
 		}
 
-		if len(torches) == 0 {
-			return InjectSystemMsg{Content: s.Subtle.Render("No torches found. Use /torch init <name> to create one.")}
+		if len(ventures) == 0 {
+			return InjectSystemMsg{Content: s.Subtle.Render("No ventures found. Use /venture init <name> to create one.")}
 		}
 
-		return c.renderTorchPicker(torches, ctx)
+		return c.renderVenturePicker(ventures, ctx)
 	}
 }
 
-// renderTorchPicker renders a numbered list for selection.
-func (c *TorchCmd) renderTorchPicker(torches []client.Torch, ctx *Context) tea.Msg {
+// renderVenturePicker renders a numbered list for selection.
+func (c *VentureCmd) renderVenturePicker(ventures []client.Venture, ctx *Context) tea.Msg {
 	s := ctx.Styles
 	t := ctx.Theme
 
 	var b strings.Builder
-	b.WriteString(s.CardTitle.Render("Select a Torch"))
+	b.WriteString(s.CardTitle.Render("Select a Venture"))
 	b.WriteString("\n\n")
 
-	for i, torch := range torches {
+	for i, venture := range ventures {
 		// Numbered entry
 		numStyle := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
 		b.WriteString(numStyle.Render(fmt.Sprintf("  %d. ", i+1)))
 
 		// Name
-		b.WriteString(s.CardValue.Render(torch.Name))
+		b.WriteString(s.CardValue.Render(venture.Name))
 
 		// Brief if present
-		if torch.Brief != "" {
-			brief := torch.Brief
+		if venture.Brief != "" {
+			brief := venture.Brief
 			if len(brief) > 40 {
 				brief = brief[:37] + "..."
 			}
@@ -727,107 +727,107 @@ func (c *TorchCmd) renderTorchPicker(torches []client.Torch, ctx *Context) tea.M
 
 		// ID on second line, indented
 		b.WriteString("     ")
-		b.WriteString(s.Subtle.Render(torch.TorchID))
-		if torch.InitiatedAt > 0 {
+		b.WriteString(s.Subtle.Render(venture.VentureID))
+		if venture.InitiatedAt > 0 {
 			b.WriteString(" · ")
-			b.WriteString(s.Subtle.Render(time.UnixMilli(torch.InitiatedAt).Format("2006-01-02")))
+			b.WriteString(s.Subtle.Render(time.UnixMilli(venture.InitiatedAt).Format("2006-01-02")))
 		}
 		b.WriteString("\n")
 	}
 
 	b.WriteString("\n")
-	b.WriteString(s.Subtle.Render("Select: /torch <number> or /torch <id>"))
+	b.WriteString(s.Subtle.Render("Select: /venture <number> or /venture <id>"))
 	b.WriteString("\n")
-	b.WriteString(s.Subtle.Render("Create: /torch init <name> [brief]"))
+	b.WriteString(s.Subtle.Render("Create: /venture init <name> [brief]"))
 
 	return InjectSystemMsg{Content: b.String()}
 }
 
-// selectTorch switches to the specified torch.
-func (c *TorchCmd) selectTorch(idOrName string, ctx *Context) tea.Cmd {
+// selectVenture switches to the specified venture.
+func (c *VentureCmd) selectVenture(idOrName string, ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
 
-		// Try to find the torch by ID or name
-		torches, err := ctx.Client.ListTorches()
+		// Try to find the venture by ID or name
+		ventures, err := ctx.Client.ListVentures()
 		if err != nil {
-			return InjectSystemMsg{Content: s.Error.Render("Failed to list torches: " + err.Error())}
+			return InjectSystemMsg{Content: s.Error.Render("Failed to list ventures: " + err.Error())}
 		}
 
-		var selected *client.Torch
+		var selected *client.Venture
 
 		// Check if it's a number (index)
-		if idx := c.parseIndex(idOrName); idx > 0 && idx <= len(torches) {
-			selected = &torches[idx-1]
+		if idx := c.parseIndex(idOrName); idx > 0 && idx <= len(ventures) {
+			selected = &ventures[idx-1]
 		} else {
 			// Find by ID (case-insensitive) or name (case-insensitive)
-			for i := range torches {
-				if strings.EqualFold(torches[i].TorchID, idOrName) || strings.EqualFold(torches[i].Name, idOrName) {
-					selected = &torches[i]
+			for i := range ventures {
+				if strings.EqualFold(ventures[i].VentureID, idOrName) || strings.EqualFold(ventures[i].Name, idOrName) {
+					selected = &ventures[i]
 					break
 				}
 			}
 		}
 
 		if selected == nil {
-			return InjectSystemMsg{Content: s.Error.Render("Torch not found: " + idOrName)}
+			return InjectSystemMsg{Content: s.Error.Render("Venture not found: " + idOrName)}
 		}
 
-		// Convert to TorchInfo and send message to switch context
-		torchInfo := &alc.TorchInfo{
-			ID:          selected.TorchID,
+		// Convert to VentureInfo and send message to switch context
+		ventureInfo := &alc.VentureInfo{
+			ID:          selected.VentureID,
 			Name:        selected.Name,
 			Brief:       selected.Brief,
 			InitiatedAt: time.UnixMilli(selected.InitiatedAt),
 		}
 
 		return SetALCContextMsg{
-			Context: alc.Torch,
-			Torch:   torchInfo,
+			Context: alc.Venture,
+			Venture: ventureInfo,
 			Source:  "manual",
 		}
 	}
 }
 
-// selectTorchByIndex selects a torch by its list index (1-based).
-func (c *TorchCmd) selectTorchByIndex(index int, ctx *Context) tea.Cmd {
+// selectVentureByIndex selects a venture by its list index (1-based).
+func (c *VentureCmd) selectVentureByIndex(index int, ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
 
-		torches, err := ctx.Client.ListTorches()
+		ventures, err := ctx.Client.ListVentures()
 		if err != nil {
-			return InjectSystemMsg{Content: s.Error.Render("Failed to list torches: " + err.Error())}
+			return InjectSystemMsg{Content: s.Error.Render("Failed to list ventures: " + err.Error())}
 		}
 
-		if index < 1 || index > len(torches) {
-			return InjectSystemMsg{Content: s.Error.Render(fmt.Sprintf("Invalid index: %d (have %d torches)", index, len(torches)))}
+		if index < 1 || index > len(ventures) {
+			return InjectSystemMsg{Content: s.Error.Render(fmt.Sprintf("Invalid index: %d (have %d ventures)", index, len(ventures)))}
 		}
 
-		selected := &torches[index-1]
-		torchInfo := &alc.TorchInfo{
-			ID:          selected.TorchID,
+		selected := &ventures[index-1]
+		ventureInfo := &alc.VentureInfo{
+			ID:          selected.VentureID,
 			Name:        selected.Name,
 			Brief:       selected.Brief,
 			InitiatedAt: time.UnixMilli(selected.InitiatedAt),
 		}
 
 		return SetALCContextMsg{
-			Context: alc.Torch,
-			Torch:   torchInfo,
+			Context: alc.Venture,
+			Venture: ventureInfo,
 			Source:  "manual",
 		}
 	}
 }
 
-// clearTorch exits torch mode and returns to chat.
-func (c *TorchCmd) clearTorch(ctx *Context) tea.Cmd {
+// clearVenture exits venture mode and returns to chat.
+func (c *VentureCmd) clearVenture(ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		return SetALCContextMsg{Context: alc.Chat}
 	}
 }
 
 // parseIndex converts a string to an integer index, returns 0 if not a number.
-func (c *TorchCmd) parseIndex(s string) int {
+func (c *VentureCmd) parseIndex(s string) int {
 	var n int
 	_, err := fmt.Sscanf(s, "%d", &n)
 	if err != nil {
@@ -837,31 +837,31 @@ func (c *TorchCmd) parseIndex(s string) int {
 }
 
 // showError returns an error message.
-func (c *TorchCmd) showError(ctx *Context, msg string) tea.Cmd {
+func (c *VentureCmd) showError(ctx *Context, msg string) tea.Cmd {
 	return func() tea.Msg {
 		return InjectSystemMsg{Content: ctx.Styles.Error.Render(msg)}
 	}
 }
 
-// TorchesCmd handles /torches (alias for /torch list).
-type TorchesCmd struct{}
+// VenturesCmd handles /ventures (alias for /venture list).
+type VenturesCmd struct{}
 
-func (c *TorchesCmd) Name() string        { return "torches" }
-func (c *TorchesCmd) Aliases() []string   { return []string{"ts"} }
-func (c *TorchesCmd) Description() string { return "List all torches" }
+func (c *VenturesCmd) Name() string        { return "ventures" }
+func (c *VenturesCmd) Aliases() []string   { return []string{"vs"} }
+func (c *VenturesCmd) Description() string { return "List all ventures" }
 
-func (c *TorchesCmd) Execute(args []string, ctx *Context) tea.Cmd {
-	torchCmd := &TorchCmd{}
+func (c *VenturesCmd) Execute(args []string, ctx *Context) tea.Cmd {
+	ventureCmd := &VentureCmd{}
 	includeArchived := len(args) > 0 && (args[0] == "all" || args[0] == "archived")
-	return torchCmd.listTorches(ctx, includeArchived)
+	return ventureCmd.listVentures(ctx, includeArchived)
 }
 
-// ChatCmd handles /chat - returns to Chat mode (clears torch context).
+// ChatCmd handles /chat - returns to Chat mode (clears venture context).
 type ChatCmd struct{}
 
 func (c *ChatCmd) Name() string        { return "chat" }
 func (c *ChatCmd) Aliases() []string   { return nil }
-func (c *ChatCmd) Description() string { return "Return to chat mode (clear torch context)" }
+func (c *ChatCmd) Description() string { return "Return to chat mode (clear venture context)" }
 
 func (c *ChatCmd) Execute(args []string, ctx *Context) tea.Cmd {
 	return func() tea.Msg {
@@ -874,7 +874,7 @@ type BackCmd struct{}
 
 func (c *BackCmd) Name() string        { return "back" }
 func (c *BackCmd) Aliases() []string   { return []string{"b", ".."} }
-func (c *BackCmd) Description() string { return "Navigate back (Cartwheel -> Torch -> Chat)" }
+func (c *BackCmd) Description() string { return "Navigate back (Department -> Venture -> Chat)" }
 
 func (c *BackCmd) Execute(args []string, ctx *Context) tea.Cmd {
 	return func() tea.Msg {
@@ -888,13 +888,13 @@ func (c *BackCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		}
 
 		switch state.Context {
-		case alc.Cartwheel:
-			// Back to Torch mode, keep the torch
+		case alc.Department:
+			// Back to Venture mode, keep the venture
 			return SetALCContextMsg{
-				Context: alc.Torch,
-				Torch:   state.Torch,
+				Context: alc.Venture,
+				Venture: state.Venture,
 			}
-		case alc.Torch:
+		case alc.Venture:
 			// Back to Chat mode
 			return SetALCContextMsg{Context: alc.Chat}
 		default:
@@ -905,30 +905,30 @@ func (c *BackCmd) Execute(args []string, ctx *Context) tea.Cmd {
 	}
 }
 
-// CartwheelsCmd handles /cartwheels - list cartwheels in current torch.
-type CartwheelsCmd struct{}
+// DepartmentsCmd handles /departments - list departments in current venture.
+type DepartmentsCmd struct{}
 
-func (c *CartwheelsCmd) Name() string        { return "cartwheels" }
-func (c *CartwheelsCmd) Aliases() []string   { return []string{"cws"} }
-func (c *CartwheelsCmd) Description() string { return "List cartwheels in current torch" }
+func (c *DepartmentsCmd) Name() string        { return "departments" }
+func (c *DepartmentsCmd) Aliases() []string   { return []string{"dpts"} }
+func (c *DepartmentsCmd) Description() string { return "List departments in current venture" }
 
-func (c *CartwheelsCmd) Execute(args []string, ctx *Context) tea.Cmd {
+func (c *DepartmentsCmd) Execute(args []string, ctx *Context) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles
 
-		// Check if we have a torch in context
+		// Check if we have a venture in context
 		if ctx.GetALCContext == nil {
-			return InjectSystemMsg{Content: s.Error.Render("No torch selected. Use /torch to select one first.")}
+			return InjectSystemMsg{Content: s.Error.Render("No venture selected. Use /venture to select one first.")}
 		}
 
 		state := ctx.GetALCContext()
-		if state == nil || state.Torch == nil {
-			return InjectSystemMsg{Content: s.Error.Render("No torch selected. Use /torch to select one first.")}
+		if state == nil || state.Venture == nil {
+			return InjectSystemMsg{Content: s.Error.Render("No venture selected. Use /venture to select one first.")}
 		}
 
-		// For now, delegate to /cartwheel command
-		// TODO: Filter cartwheels by current torch when API supports it
-		cartwheelCmd := &CartwheelCmd{}
-		return cartwheelCmd.Execute(nil, ctx)()
+		// For now, delegate to /department command
+		// TODO: Filter departments by current venture when API supports it
+		departmentCmd := &DepartmentCmd{}
+		return departmentCmd.Execute(nil, ctx)()
 	}
 }

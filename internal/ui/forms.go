@@ -29,8 +29,8 @@ type FormModel struct {
 	title  string
 }
 
-// NewTorchForm creates a form for initiating a new torch.
-func NewTorchForm(t *theme.Theme, s *theme.Styles, cwd string) *FormModel {
+// NewVentureForm creates a form for initiating a new venture.
+func NewVentureForm(t *theme.Theme, s *theme.Styles, cwd string) *FormModel {
 	var path, name, brief string
 	var confirm bool
 
@@ -75,8 +75,8 @@ func NewTorchForm(t *theme.Theme, s *theme.Styles, cwd string) *FormModel {
 		form:   form,
 		theme:  t,
 		styles: s,
-		formID: "torch_init",
-		title:  "New Torch",
+		formID: "venture_init",
+		title:  "New Venture",
 		width:  55,
 	}
 }

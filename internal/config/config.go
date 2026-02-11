@@ -28,6 +28,9 @@ type Config struct {
 	// UI preferences
 	UI UIConfig `toml:"ui"`
 
+	// Last active studio index (-1 = show home, 0-4 = studio)
+	LastStudio int `toml:"last_studio,omitempty"`
+
 	// Personality settings
 	Personality PersonalityConfig `toml:"personality"`
 }

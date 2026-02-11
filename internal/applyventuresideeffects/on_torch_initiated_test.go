@@ -1,4 +1,4 @@
-package applytorchsideeffects
+package applyventuresideeffects
 
 import (
 	"encoding/json"
@@ -15,13 +15,13 @@ func TestParsesValidJSON(t *testing.T) {
 		"initiated_at": 1700000000000
 	}`)
 
-	msg, err := HandleTorchInitiated(data)
+	msg, err := HandleVentureInitiated(data)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	if msg.TorchID != "torch-abc-123" {
-		t.Errorf("Expected TorchID 'torch-abc-123', got '%s'", msg.TorchID)
+	if msg.VentureID != "torch-abc-123" {
+		t.Errorf("Expected VentureID 'torch-abc-123', got '%s'", msg.VentureID)
 	}
 	if msg.Name != "My Torch" {
 		t.Errorf("Expected Name 'My Torch', got '%s'", msg.Name)
@@ -38,13 +38,13 @@ func TestAllFieldsMapped(t *testing.T) {
 		"initiated_at": 1700000000999
 	}`)
 
-	msg, err := HandleTorchInitiated(data)
+	msg, err := HandleVentureInitiated(data)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	if msg.TorchID != "torch-full" {
-		t.Errorf("Expected TorchID 'torch-full', got '%s'", msg.TorchID)
+	if msg.VentureID != "torch-full" {
+		t.Errorf("Expected VentureID 'torch-full', got '%s'", msg.VentureID)
 	}
 	if msg.Name != "Full Fields" {
 		t.Errorf("Expected Name 'Full Fields', got '%s'", msg.Name)
@@ -67,13 +67,13 @@ func TestHandlesMissingOptionalFields(t *testing.T) {
 	// Only required fields — optional ones should get zero values
 	data := json.RawMessage(`{"torch_id": "minimal", "name": "Minimal Torch"}`)
 
-	msg, err := HandleTorchInitiated(data)
+	msg, err := HandleVentureInitiated(data)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	if msg.TorchID != "minimal" {
-		t.Errorf("Expected TorchID 'minimal', got '%s'", msg.TorchID)
+	if msg.VentureID != "minimal" {
+		t.Errorf("Expected VentureID 'minimal', got '%s'", msg.VentureID)
 	}
 	if msg.Name != "Minimal Torch" {
 		t.Errorf("Expected Name 'Minimal Torch', got '%s'", msg.Name)
@@ -95,14 +95,14 @@ func TestHandlesMissingOptionalFields(t *testing.T) {
 func TestReturnsErrorForInvalidJSON(t *testing.T) {
 	data := json.RawMessage(`not json`)
 
-	_, err := HandleTorchInitiated(data)
+	_, err := HandleVentureInitiated(data)
 	if err == nil {
 		t.Fatal("Expected error for invalid JSON, got nil")
 	}
 }
 
 func TestReturnsErrorForNil(t *testing.T) {
-	_, err := HandleTorchInitiated(nil)
+	_, err := HandleVentureInitiated(nil)
 	if err == nil {
 		t.Fatal("Expected error for nil input, got nil")
 	}

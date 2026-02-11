@@ -49,17 +49,18 @@ func NewRegistry() *Registry {
 	r.Register(&ThemeCmd{})
 	r.Register(&ToolsCmd{})
 	r.Register(&LLMToolsCmd{})
-	r.Register(&CartwheelCmd{})
+	r.Register(&DepartmentCmd{})
 	r.Register(&ProviderCmd{})
 	r.Register(&RoleCmd{})
 	r.Register(&AboutCmd{})
-	r.Register(&TorchCmd{})
-	r.Register(&TorchesCmd{})
+	r.Register(&VentureCmd{})
+	r.Register(&VenturesCmd{})
 	r.Register(&ChatCmd{})
 	r.Register(&BackCmd{})
-	r.Register(&CartwheelsCmd{})
+	r.Register(&DepartmentsCmd{})
 	r.Register(&AgentsCmd{})
 	r.Register(&CostCmd{})
+	r.Register(&StudioCmd{})
 
 	return r
 }
@@ -150,7 +151,7 @@ func (r *Registry) Complete(prefix string) []string {
 }
 
 // CompleteWithArgs returns completions for commands with arguments.
-// input is the full command line (e.g., "torch loc" or "t 1").
+// input is the full command line (e.g., "venture loc" or "v 1").
 // ctx is needed for commands that fetch data for completion.
 func (r *Registry) CompleteWithArgs(input string, ctx *Context) []string {
 	input = strings.TrimLeft(input, "/:")
