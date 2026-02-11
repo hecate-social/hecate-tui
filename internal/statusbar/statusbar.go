@@ -31,6 +31,9 @@ type Model struct {
 	VentureName string // current venture name (empty if none)
 	ActivePhase string // current ALC phase: "dna", "anp", "tni", "dno"
 	AgentCount  int    // number of active agents
+
+	// Flash notification (temporary, overrides hints when set)
+	FlashMsg string
 }
 
 // New creates a new status bar.
@@ -109,9 +112,11 @@ func (m Model) View() string {
 		cwdSection = " " + m.styles.Subtle.Render(cwd)
 	}
 
-	// Contextual hints (or error message if model failed)
+	// Flash notification takes priority over hints
 	var hints string
-	if m.ModelStatus == "error" && m.ModelError != "" {
+	if m.FlashMsg != "" {
+		hints = m.styles.StatusOK.Render(" ✓ " + m.FlashMsg)
+	} else if m.ModelStatus == "error" && m.ModelError != "" {
 		errMsg := m.ModelError
 		if len(errMsg) > 50 {
 			errMsg = errMsg[:47] + "..."

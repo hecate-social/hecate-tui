@@ -63,6 +63,9 @@ type App struct {
 	factStreamConnected bool
 	rxActive            bool
 	txActive            bool
+
+	// Flash notification (shown in hints area, auto-clears)
+	flashMsg string
 }
 
 // New creates a new App with the modal chat interface.
@@ -223,7 +226,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if err := os.Chdir(msg.Path); err == nil {
 			a.statusBar.Cwd = msg.Path
 		}
-		// Still forward to active studio
+		// Show flash notification visible in any studio
+		cmds = append(cmds, a.setFlash("Venture created: "+msg.Path))
+
+	case commands.InjectSystemMsg:
+		// Show flash notification visible in any studio
+		cmds = append(cmds, a.setFlash(stripAnsi(msg.Content)))
 
 	// Fact stream messages
 	case factbus.FactMsg:
@@ -249,6 +257,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case txFlashDoneMsg:
 		a.txActive = false
+
+	case flashClearMsg:
+		a.flashMsg = ""
 	}
 
 	// Forward message to active studio
@@ -349,6 +360,44 @@ func (a *App) switchStudio(index int) tea.Cmd {
 	return a.studios[index].Init()
 }
 
+// flashClearMsg clears the flash notification after a delay.
+type flashClearMsg struct{}
+
+// setFlash shows a brief notification in the hints area, auto-clears after 4 seconds.
+func (a *App) setFlash(msg string) tea.Cmd {
+	// Truncate long messages to a single line
+	if idx := strings.Index(msg, "\n"); idx >= 0 {
+		msg = msg[:idx]
+	}
+	if len(msg) > 80 {
+		msg = msg[:77] + "..."
+	}
+	a.flashMsg = msg
+	return tea.Tick(4*time.Second, func(time.Time) tea.Msg {
+		return flashClearMsg{}
+	})
+}
+
+// stripAnsi removes ANSI escape sequences from a string for flash display.
+func stripAnsi(s string) string {
+	var result strings.Builder
+	inEsc := false
+	for _, r := range s {
+		if r == '\033' {
+			inEsc = true
+			continue
+		}
+		if inEsc {
+			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+				inEsc = false
+			}
+			continue
+		}
+		result.WriteRune(r)
+	}
+	return result.String()
+}
+
 func (a *App) switchTheme(t *theme.Theme) {
 	a.theme = t
 	a.styles = t.ComputeStyles()
@@ -390,6 +439,7 @@ func (a *App) syncStatusBar() {
 	info := active.StatusInfo()
 
 	a.statusBar.Mode = active.Mode()
+	a.statusBar.FlashMsg = a.flashMsg
 	a.statusBar.ModelName = info.ModelName
 	a.statusBar.ModelProvider = info.ModelProvider
 	a.statusBar.ModelStatus = info.ModelStatus
