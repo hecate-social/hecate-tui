@@ -8,9 +8,9 @@ import (
 	"strings"
 )
 
-// VentureConfig represents the .hecate/torch.json file format.
+// VentureConfig represents the .hecate/venture.json file format.
 type VentureConfig struct {
-	VentureID string `json:"torch_id"`
+	VentureID string `json:"venture_id"`
 	Name      string `json:"name"`
 	Brief     string `json:"brief,omitempty"`
 }
@@ -25,12 +25,12 @@ type DetectResult struct {
 // DetectVenture attempts to detect a venture from the current directory.
 // It checks (in order):
 // 1. Git remote URL - matches against known ventures (via daemon API)
-// 2. .hecate/torch.json in CWD or parent directories
+// 2. .hecate/venture.json in CWD or parent directories
 //
 // Returns the detection result. Caller should use the daemon API to resolve
 // the venture ID to full venture info.
 func DetectVenture() DetectResult {
-	// First, try to find .hecate/torch.json
+	// First, try to find .hecate/venture.json
 	if config := findVentureConfig(); config != nil {
 		return DetectResult{
 			Found:  true,
@@ -55,7 +55,7 @@ func DetectVenture() DetectResult {
 	return DetectResult{Found: false}
 }
 
-// findVentureConfig searches for .hecate/torch.json in CWD and parent directories.
+// findVentureConfig searches for .hecate/venture.json in CWD and parent directories.
 func findVentureConfig() *VentureConfig {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -64,7 +64,7 @@ func findVentureConfig() *VentureConfig {
 
 	dir := cwd
 	for {
-		configPath := filepath.Join(dir, ".hecate", "torch.json")
+		configPath := filepath.Join(dir, ".hecate", "venture.json")
 		if data, err := os.ReadFile(configPath); err == nil {
 			var config VentureConfig
 			if json.Unmarshal(data, &config) == nil && config.VentureID != "" {
@@ -122,7 +122,7 @@ func normalizeGitURL(url string) string {
 	return url
 }
 
-// SaveVentureConfig saves venture configuration to .hecate/torch.json in CWD.
+// SaveVentureConfig saves venture configuration to .hecate/venture.json in CWD.
 func SaveVentureConfig(config VentureConfig) error {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -139,5 +139,5 @@ func SaveVentureConfig(config VentureConfig) error {
 		return err
 	}
 
-	return os.WriteFile(filepath.Join(hecateDir, "torch.json"), data, 0644)
+	return os.WriteFile(filepath.Join(hecateDir, "venture.json"), data, 0644)
 }

@@ -13,9 +13,9 @@ import (
 	"time"
 )
 
-// VentureManifest represents the .hecate/torch.json file.
+// VentureManifest represents the .hecate/venture.json file.
 type VentureManifest struct {
-	VentureID   string `json:"torch_id"`
+	VentureID   string `json:"venture_id"`
 	Name        string `json:"name"`
 	Brief       string `json:"brief,omitempty"`
 	Root        string `json:"root"`
@@ -52,7 +52,7 @@ const (
 
 // Scaffold creates the full venture repository structure.
 // It creates:
-//   - .hecate/torch.json
+//   - .hecate/venture.json
 //   - .hecate/agents/ (cloned from hecate-agents)
 //   - README.md (from template)
 //   - CHANGELOG.md (from template)
@@ -67,9 +67,9 @@ func Scaffold(root string, manifest VentureManifest) Result {
 		return result
 	}
 
-	// 2. Write torch.json
+	// 2. Write venture.json
 	if err := writeVentureManifest(result.HecateDir, manifest); err != nil {
-		result.Error = fmt.Errorf("write torch.json: %w", err)
+		result.Error = fmt.Errorf("write venture.json: %w", err)
 		return result
 	}
 
@@ -213,7 +213,7 @@ func writeVentureManifest(hecateDir string, manifest VentureManifest) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(hecateDir, "torch.json"), data, 0644)
+	return os.WriteFile(filepath.Join(hecateDir, "venture.json"), data, 0644)
 }
 
 func cloneAgents(agentsDir string) error {

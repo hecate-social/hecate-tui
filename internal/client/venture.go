@@ -8,19 +8,18 @@ import (
 
 // Venture represents a business endeavor in the Hecate system.
 type Venture struct {
-	VentureID           string `json:"torch_id"`
-	Name                string `json:"name"`
-	Brief               string `json:"brief"`
-	Status              int    `json:"status"`
-	StatusLabel         string `json:"status_label"`
-	ActiveDepartmentID  string `json:"active_cartwheel_id"`
-	InitiatedAt         int64  `json:"initiated_at"`
-	InitiatedBy         string `json:"initiated_by"`
+	VentureID   string `json:"venture_id"`
+	Name        string `json:"name"`
+	Brief       string `json:"brief"`
+	Status      int    `json:"status"`
+	StatusLabel string `json:"status_label"`
+	InitiatedAt int64  `json:"initiated_at"`
+	InitiatedBy string `json:"initiated_by"`
 }
 
 // GetVenture returns the current (active) venture.
 func (c *Client) GetVenture() (*Venture, error) {
-	resp, err := c.get("/api/torch")
+	resp, err := c.get("/api/venture")
 	if err != nil {
 		return nil, err
 	}
@@ -28,20 +27,20 @@ func (c *Client) GetVenture() (*Venture, error) {
 		return nil, fmt.Errorf("get venture failed: %s", resp.Error)
 	}
 	var result struct {
-		Torch *Venture `json:"torch"`
+		Venture *Venture `json:"venture"`
 	}
 	if err := json.Unmarshal(resp.Result, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse venture: %w", err)
 	}
-	if result.Torch == nil || result.Torch.VentureID == "" {
+	if result.Venture == nil || result.Venture.VentureID == "" {
 		return nil, fmt.Errorf("no active venture")
 	}
-	return result.Torch, nil
+	return result.Venture, nil
 }
 
 // GetVentureByID returns a specific venture by its ID.
 func (c *Client) GetVentureByID(ventureID string) (*Venture, error) {
-	resp, err := c.get("/api/torches/" + ventureID)
+	resp, err := c.get("/api/ventures/" + ventureID)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +65,7 @@ func (c *Client) ListAllVentures() ([]Venture, error) {
 }
 
 func (c *Client) listVenturesInternal(includeArchived bool) ([]Venture, error) {
-	path := "/api/torches"
+	path := "/api/ventures"
 	if includeArchived {
 		path += "?include_archived=true"
 	}
@@ -77,14 +76,13 @@ func (c *Client) listVenturesInternal(includeArchived bool) ([]Venture, error) {
 	if !resp.Ok {
 		return nil, fmt.Errorf("list ventures failed: %s", resp.Error)
 	}
-	// Daemon returns {"ok": true, "torches": [...]}
 	var result struct {
-		Torches []Venture `json:"torches"`
+		Ventures []Venture `json:"ventures"`
 	}
 	if err := json.Unmarshal(resp.Result, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse ventures: %w", err)
 	}
-	return result.Torches, nil
+	return result.Ventures, nil
 }
 
 // InitiateVenture creates a new venture with the given name and brief.
@@ -105,7 +103,7 @@ func (c *Client) InitiateVenture(name, brief string) (*Venture, error) {
 		"brief":        brief,
 		"initiated_by": initiatedBy,
 	}
-	resp, err := c.post("/api/torch/initiate", body)
+	resp, err := c.post("/api/ventures/setup", body)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +123,7 @@ func (c *Client) ArchiveVenture(ventureID, reason string) error {
 		"reason":      reason,
 		"archived_by": "tui",
 	}
-	resp, err := c.post("/api/torches/"+ventureID+"/archive", body)
+	resp, err := c.post("/api/ventures/"+ventureID+"/archive", body)
 	if err != nil {
 		return err
 	}
@@ -137,7 +135,7 @@ func (c *Client) ArchiveVenture(ventureID, reason string) error {
 
 // RefineVision refines the vision of a venture (updates brief, repos, etc.).
 func (c *Client) RefineVision(ventureID string, params map[string]interface{}) error {
-	resp, err := c.post("/api/torches/"+ventureID+"/vision/refine", params)
+	resp, err := c.post("/api/ventures/"+ventureID+"/vision/refine", params)
 	if err != nil {
 		return err
 	}
@@ -198,7 +196,7 @@ func (c *Client) SubmitVision(ventureID, submittedBy string) error {
 	body := map[string]interface{}{
 		"submitted_by": submittedBy,
 	}
-	resp, err := c.post("/api/torches/"+ventureID+"/vision/submit", body)
+	resp, err := c.post("/api/ventures/"+ventureID+"/vision/submit", body)
 	if err != nil {
 		return err
 	}

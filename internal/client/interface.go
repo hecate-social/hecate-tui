@@ -47,9 +47,9 @@ type DaemonClient interface {
 	SubmitVision(ventureID, submittedBy string) error
 	GetVentureTasks(ventureID string) (*VentureTaskList, error)
 
-	// Departments
-	ListDepartments() ([]Department, error)
-	GetDepartment(departmentID string) (*Department, error)
+	// Departments (divisions)
+	ListDepartments(ventureID string) ([]Department, error)
+	GetDepartment(ventureID, departmentID string) (*Department, error)
 	DepartmentCommand(path string, body map[string]interface{}) error
 
 	// Pairing

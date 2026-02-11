@@ -22,7 +22,7 @@ func WelcomeArt(t *theme.Theme) string {
 	body := lipgloss.NewStyle().Foreground(t.PrimaryLight)
 	eye := lipgloss.NewStyle().Foreground(t.EyeColor)
 	key := lipgloss.NewStyle().Foreground(t.KeyColor)
-	torch := lipgloss.NewStyle().Foreground(t.TorchColor)
+	torch := lipgloss.NewStyle().Foreground(t.VentureColor)
 	text := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
 
 	h := hood.Render

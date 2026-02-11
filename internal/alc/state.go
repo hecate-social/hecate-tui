@@ -39,7 +39,7 @@ type VentureInfo struct {
 
 // DepartmentInfo holds information about the current department (bounded context).
 type DepartmentInfo struct {
-	ID           string // e.g., "prj-xyz789"
+	ID           string // e.g., "div-1739001234567-A1B2C3D4"
 	Name         string // e.g., "user-registration"
 	Description  string
 	CurrentPhase Phase
@@ -53,7 +53,7 @@ type State struct {
 	Department *DepartmentInfo
 
 	// Source indicates how the context was detected
-	// "manual" = user selected, "git" = auto-detected from git remote, "config" = from .hecate/torch.json
+	// "manual" = user selected, "git" = auto-detected from git remote, "config" = from .hecate/venture.json
 	DetectionSource string
 }
 

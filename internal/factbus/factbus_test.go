@@ -16,7 +16,7 @@ func TestParsesSSEFact(t *testing.T) {
 		if !ok {
 			t.Fatal("ResponseWriter does not support Flusher")
 		}
-		fmt.Fprint(w, "data: {\"fact_type\":\"torch_initiated_v1\",\"data\":{\"name\":\"test\"}}\n\n")
+		fmt.Fprint(w, "data: {\"fact_type\":\"venture_setup_v1\",\"data\":{\"name\":\"test\"}}\n\n")
 		flusher.Flush()
 		// Keep connection open briefly so client can read
 		time.Sleep(200 * time.Millisecond)
@@ -30,8 +30,8 @@ func TestParsesSSEFact(t *testing.T) {
 
 	select {
 	case fact := <-conn.factChan:
-		if fact.FactType != "torch_initiated_v1" {
-			t.Errorf("Expected fact_type 'torch_initiated_v1', got '%s'", fact.FactType)
+		if fact.FactType != "venture_setup_v1" {
+			t.Errorf("Expected fact_type 'venture_setup_v1', got '%s'", fact.FactType)
 		}
 		if string(fact.Data) != `{"name":"test"}` {
 			t.Errorf("Expected data '{\"name\":\"test\"}', got '%s'", string(fact.Data))

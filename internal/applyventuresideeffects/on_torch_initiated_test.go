@@ -7,9 +7,9 @@ import (
 
 func TestParsesValidJSON(t *testing.T) {
 	data := json.RawMessage(`{
-		"torch_id": "torch-abc-123",
-		"name": "My Torch",
-		"brief": "A test torch",
+		"venture_id": "venture-abc-123",
+		"name": "My Venture",
+		"brief": "A test venture",
 		"initiated_by": "test-user@localhost",
 		"status": 1,
 		"initiated_at": 1700000000000
@@ -20,17 +20,17 @@ func TestParsesValidJSON(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	if msg.VentureID != "torch-abc-123" {
-		t.Errorf("Expected VentureID 'torch-abc-123', got '%s'", msg.VentureID)
+	if msg.VentureID != "venture-abc-123" {
+		t.Errorf("Expected VentureID 'venture-abc-123', got '%s'", msg.VentureID)
 	}
-	if msg.Name != "My Torch" {
-		t.Errorf("Expected Name 'My Torch', got '%s'", msg.Name)
+	if msg.Name != "My Venture" {
+		t.Errorf("Expected Name 'My Venture', got '%s'", msg.Name)
 	}
 }
 
 func TestAllFieldsMapped(t *testing.T) {
 	data := json.RawMessage(`{
-		"torch_id": "torch-full",
+		"venture_id": "venture-full",
 		"name": "Full Fields",
 		"brief": "Everything filled",
 		"initiated_by": "admin@host",
@@ -43,8 +43,8 @@ func TestAllFieldsMapped(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	if msg.VentureID != "torch-full" {
-		t.Errorf("Expected VentureID 'torch-full', got '%s'", msg.VentureID)
+	if msg.VentureID != "venture-full" {
+		t.Errorf("Expected VentureID 'venture-full', got '%s'", msg.VentureID)
 	}
 	if msg.Name != "Full Fields" {
 		t.Errorf("Expected Name 'Full Fields', got '%s'", msg.Name)
@@ -65,7 +65,7 @@ func TestAllFieldsMapped(t *testing.T) {
 
 func TestHandlesMissingOptionalFields(t *testing.T) {
 	// Only required fields — optional ones should get zero values
-	data := json.RawMessage(`{"torch_id": "minimal", "name": "Minimal Torch"}`)
+	data := json.RawMessage(`{"venture_id": "minimal", "name": "Minimal Venture"}`)
 
 	msg, err := HandleVentureInitiated(data)
 	if err != nil {
@@ -75,8 +75,8 @@ func TestHandlesMissingOptionalFields(t *testing.T) {
 	if msg.VentureID != "minimal" {
 		t.Errorf("Expected VentureID 'minimal', got '%s'", msg.VentureID)
 	}
-	if msg.Name != "Minimal Torch" {
-		t.Errorf("Expected Name 'Minimal Torch', got '%s'", msg.Name)
+	if msg.Name != "Minimal Venture" {
+		t.Errorf("Expected Name 'Minimal Venture', got '%s'", msg.Name)
 	}
 	if msg.Brief != "" {
 		t.Errorf("Expected empty Brief, got '%s'", msg.Brief)

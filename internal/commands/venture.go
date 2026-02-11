@@ -613,12 +613,6 @@ func (c *VentureCmd) renderVentureCard(venture *client.Venture, ctx *Context) st
 	b.WriteString(s.CardValue.Render(formatVentureStatusLabel(*venture)))
 	b.WriteString("\n")
 
-	if venture.ActiveDepartmentID != "" {
-		b.WriteString(s.CardLabel.Render("  Department: "))
-		b.WriteString(s.CardValue.Render(venture.ActiveDepartmentID))
-		b.WriteString("\n")
-	}
-
 	b.WriteString(s.CardLabel.Render("   Initiated: "))
 	b.WriteString(s.Subtle.Render(formatTimestamp(venture.InitiatedAt)))
 	b.WriteString("\n")

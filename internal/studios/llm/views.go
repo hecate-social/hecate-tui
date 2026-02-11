@@ -294,7 +294,7 @@ func buildVentureScaffoldMsg(st *theme.Styles, ventureID, name, brief string, in
 
 	if result.Success {
 		b.WriteString(st.StatusOK.Render("  ✓ "))
-		b.WriteString(st.Subtle.Render(".hecate/torch.json"))
+		b.WriteString(st.Subtle.Render(".hecate/venture.json"))
 		b.WriteString("\n")
 	}
 	if result.AgentsCloned {

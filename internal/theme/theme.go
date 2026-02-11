@@ -59,7 +59,7 @@ type Theme struct {
 
 	// Accents for special elements
 	KeyColor   lipgloss.Color
-	TorchColor lipgloss.Color
+	VentureColor lipgloss.Color
 	EyeColor   lipgloss.Color
 }
 

@@ -11,7 +11,7 @@ import (
 // handleFact routes a received fact to the appropriate handler.
 func (a *App) handleFact(msg factbus.FactMsg) tea.Cmd {
 	switch msg.FactType {
-	case "torch_initiated_v1":
+	case "venture_setup_v1":
 		ti, err := applyventuresideeffects.HandleVentureInitiated(msg.Data)
 		if err != nil {
 			if llm := a.llmStudio(); llm != nil {
