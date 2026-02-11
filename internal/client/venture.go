@@ -27,11 +27,16 @@ func (c *Client) GetVenture() (*Venture, error) {
 	if !resp.Ok {
 		return nil, fmt.Errorf("get venture failed: %s", resp.Error)
 	}
-	var venture Venture
-	if err := json.Unmarshal(resp.Result, &venture); err != nil {
+	var result struct {
+		Torch *Venture `json:"torch"`
+	}
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse venture: %w", err)
 	}
-	return &venture, nil
+	if result.Torch == nil || result.Torch.VentureID == "" {
+		return nil, fmt.Errorf("no active venture")
+	}
+	return result.Torch, nil
 }
 
 // GetVentureByID returns a specific venture by its ID.

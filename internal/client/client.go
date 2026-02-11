@@ -301,6 +301,10 @@ func (c *Client) get(path string) (*Response, error) {
 // parseResponse handles both wrapped {"ok": true, "result": {...}} and
 // flat {"ok": true, "field1": ..., "field2": ...} response formats.
 func parseResponse(body []byte) (*Response, error) {
+	if len(body) == 0 {
+		return &Response{Ok: false, Error: "empty response"}, nil
+	}
+
 	// First, decode into a map to check structure
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(body, &raw); err != nil {
