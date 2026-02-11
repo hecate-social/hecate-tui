@@ -45,6 +45,7 @@ type DaemonClient interface {
 	ArchiveVenture(ventureID, reason string) error
 	RefineVision(ventureID string, params map[string]interface{}) error
 	SubmitVision(ventureID, submittedBy string) error
+	GetVentureTasks(ventureID string) (*VentureTaskList, error)
 
 	// Departments
 	ListDepartments() ([]Department, error)

@@ -142,6 +142,52 @@ func (c *Client) RefineVision(ventureID string, params map[string]interface{}) e
 	return nil
 }
 
+// VentureTask represents a single task in the venture task list.
+type VentureTask struct {
+	Verb   string `json:"verb"`
+	Scope  string `json:"scope,omitempty"`
+	State  string `json:"state"`
+	Phase  string `json:"phase"`
+	AIRole string `json:"ai_role"`
+}
+
+// VentureDivisionTasks groups tasks for a single division.
+type VentureDivisionTasks struct {
+	ID    string        `json:"id"`
+	Name  string        `json:"name"`
+	Tasks []VentureTask `json:"tasks"`
+}
+
+// VentureTaskSummary is the venture metadata in a task list response.
+type VentureTaskSummary struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
+
+// VentureTaskList is the full response from the venture tasks endpoint.
+type VentureTaskList struct {
+	Venture   VentureTaskSummary     `json:"venture"`
+	Tasks     []VentureTask          `json:"tasks"`
+	Divisions []VentureDivisionTasks `json:"divisions"`
+}
+
+// GetVentureTasks returns the task list for a venture.
+func (c *Client) GetVentureTasks(ventureID string) (*VentureTaskList, error) {
+	resp, err := c.get("/api/ventures/" + ventureID + "/tasks")
+	if err != nil {
+		return nil, err
+	}
+	if !resp.Ok {
+		return nil, fmt.Errorf("get venture tasks failed: %s", resp.Error)
+	}
+	var taskList VentureTaskList
+	if err := json.Unmarshal(resp.Result, &taskList); err != nil {
+		return nil, fmt.Errorf("failed to parse venture tasks: %w", err)
+	}
+	return &taskList, nil
+}
+
 // SubmitVision submits the venture vision, completing the DnA phase.
 func (c *Client) SubmitVision(ventureID, submittedBy string) error {
 	body := map[string]interface{}{
