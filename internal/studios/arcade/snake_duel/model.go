@@ -157,7 +157,10 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		return nil
 
 	case pollTickMsg:
-		return m.pollStream()
+		if m.stream != nil {
+			return m.stream.PollCmd()
+		}
+		return nil
 	}
 
 	return nil

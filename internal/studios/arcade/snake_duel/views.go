@@ -52,6 +52,13 @@ func (m *Model) viewIdle() string {
 		hint + "\n\n" +
 		controls
 
+	if m.err != nil {
+		errMsg := lipgloss.NewStyle().
+			Foreground(colorSnake2Head).
+			Render("Error: " + m.err.Error())
+		content += "\n\n" + errMsg
+	}
+
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
 }
 
