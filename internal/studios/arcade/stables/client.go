@@ -27,6 +27,14 @@ type TrainingHaltedMsg struct{ StableID string }
 type TrainingHaltErrMsg struct{ Err error }
 type DuelStartedMsg struct{ MatchID string }
 type DuelStartErrMsg struct{ Err error }
+type HeroesListMsg struct{ Heroes []Hero }
+type HeroesListErrMsg struct{ Err error }
+type HeroDetailMsg struct{ Hero Hero }
+type HeroDetailErrMsg struct{ Err error }
+type HeroPromotedMsg struct{ Hero PromoteResponse }
+type HeroPromoteErrMsg struct{ Err error }
+type HeroDuelStartedMsg struct{ MatchID string }
+type HeroDuelStartErrMsg struct{ Err error }
 
 // Training SSE stream messages
 type TrainingUpdateMsg struct{ Progress TrainingProgress }
@@ -138,6 +146,71 @@ func StartChampionDuel(socketPath, baseURL, stableID string, opponentAF, tickMs 
 			return DuelStartErrMsg{Err: stableErr("daemon returned empty match_id")}
 		}
 		return DuelStartedMsg{MatchID: resp.MatchID}
+	}
+}
+
+// FetchHeroes retrieves all heroes.
+func FetchHeroes(socketPath, baseURL string) tea.Cmd {
+	return func() tea.Msg {
+		body, err := doGet(socketPath, baseURL, "/api/arcade/gladiators/heroes")
+		if err != nil {
+			return HeroesListErrMsg{Err: err}
+		}
+		var resp HeroesListResponse
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return HeroesListErrMsg{Err: err}
+		}
+		return HeroesListMsg{Heroes: resp.Heroes}
+	}
+}
+
+// FetchHero retrieves a single hero by ID.
+func FetchHero(socketPath, baseURL, heroID string) tea.Cmd {
+	return func() tea.Msg {
+		body, err := doGet(socketPath, baseURL, "/api/arcade/gladiators/heroes/"+heroID)
+		if err != nil {
+			return HeroDetailErrMsg{Err: err}
+		}
+		var resp HeroResponse
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return HeroDetailErrMsg{Err: err}
+		}
+		return HeroDetailMsg{Hero: resp.Hero}
+	}
+}
+
+// PromoteChampion promotes a stable's champion to a permanent hero.
+func PromoteChampion(socketPath, baseURL, stableID, name string) tea.Cmd {
+	return func() tea.Msg {
+		payload := map[string]string{"stable_id": stableID, "name": name}
+		body, err := doPost(socketPath, baseURL, "/api/arcade/gladiators/heroes", payload)
+		if err != nil {
+			return HeroPromoteErrMsg{Err: err}
+		}
+		var resp PromoteResponse
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return HeroPromoteErrMsg{Err: err}
+		}
+		return HeroPromotedMsg{Hero: resp}
+	}
+}
+
+// StartHeroDuel starts a duel between a hero and an AI opponent.
+func StartHeroDuel(socketPath, baseURL, heroID string, opponentAF, tickMs int) tea.Cmd {
+	return func() tea.Msg {
+		payload := map[string]int{"opponent_af": opponentAF, "tick_ms": tickMs}
+		body, err := doPost(socketPath, baseURL, "/api/arcade/gladiators/heroes/"+heroID, payload)
+		if err != nil {
+			return HeroDuelStartErrMsg{Err: err}
+		}
+		var resp DuelResponse
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return HeroDuelStartErrMsg{Err: err}
+		}
+		if resp.MatchID == "" {
+			return HeroDuelStartErrMsg{Err: stableErr("daemon returned empty match_id")}
+		}
+		return HeroDuelStartedMsg{MatchID: resp.MatchID}
 	}
 }
 

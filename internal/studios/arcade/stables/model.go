@@ -10,10 +10,14 @@ import (
 
 // phase describes which view the sub-app is showing.
 const (
-	phaseList      = "list"
-	phaseNewStable = "new_stable"
-	phaseDetail    = "detail"
-	phaseDuel      = "duel"
+	phaseList       = "list"
+	phaseNewStable  = "new_stable"
+	phaseDetail     = "detail"
+	phaseDuel       = "duel"
+	phaseHeroes     = "heroes"
+	phasePromote    = "promote"
+	phaseHeroDetail = "hero_detail"
+	phaseHeroDuel   = "hero_duel"
 )
 
 // Model is the Bubble Tea model for the Stables sub-app.
@@ -50,6 +54,19 @@ type Model struct {
 	duelStream  *snake_duel.MatchStream
 	duelState   snake_duel.GameState
 
+	// Fitness weight form state
+	formPreset      int        // index into preset names (0=balanced)
+	formShowWeights bool       // toggle advanced section
+	formWeights     [7]float64 // survival, food, win, draw, kill, proximity, circle
+	formWeightNames [7]string
+	formWeightFocus int // which weight field has focus in advanced mode
+
+	// Hero state
+	heroes       []Hero
+	heroIndex    int
+	selectedHero *Hero
+	promoteName  string // text input for hero name
+
 	// Navigation
 	wantsBack bool
 
@@ -63,7 +80,9 @@ func New(ctx *studio.Context) *Model {
 		ctx:   ctx,
 		phase: phaseList,
 		formFields: [4]int{50, 100, 50, 3},
-		formLabels: [4]string{"Population", "Max Generations", "Opponent AF", "Episodes/Eval"},
+		formLabels:      [4]string{"Population", "Max Generations", "Opponent AF", "Episodes/Eval"},
+		formWeights:     [7]float64{0.1, 50.0, 200.0, 50.0, 100.0, 0.5, -0.2},
+		formWeightNames: [7]string{"Survival", "Food", "Win Bonus", "Draw Bonus", "Kill Bonus", "Proximity", "Circle Penalty"},
 	}
 }
 
@@ -105,11 +124,19 @@ func (m *Model) Hints() string {
 			return "h:halt  r:refresh  esc:back"
 		}
 		if m.selectedStable.Status == "completed" {
-			return "d:duel  s:seed new  r:refresh  esc:back"
+			return "d:duel  P:promote  s:seed new  r:refresh  esc:back"
 		}
 		return "s:seed new  r:refresh  esc:back"
 	case phaseDuel:
 		return "esc:stop duel"
+	case phaseHeroes:
+		return "j/k:navigate  Enter:view  esc:back to stables"
+	case phaseHeroDetail:
+		return "d:duel  esc:back to heroes"
+	case phasePromote:
+		return "type name  Enter:confirm  esc:cancel"
+	case phaseHeroDuel:
+		return "esc:back to hero"
 	default:
 		return ""
 	}
@@ -239,6 +266,51 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		m.err = msg.Err
 		return nil
 
+	// Hero lifecycle
+	case HeroesListMsg:
+		m.heroes = msg.Heroes
+		m.err = nil
+		if m.heroIndex >= len(m.heroes) && len(m.heroes) > 0 {
+			m.heroIndex = len(m.heroes) - 1
+		}
+		return nil
+
+	case HeroesListErrMsg:
+		m.err = msg.Err
+		return nil
+
+	case HeroDetailMsg:
+		m.selectedHero = &msg.Hero
+		m.err = nil
+		return nil
+
+	case HeroDetailErrMsg:
+		m.err = msg.Err
+		return nil
+
+	case HeroPromotedMsg:
+		m.phase = phaseHeroes
+		m.promoteName = ""
+		m.err = nil
+		return FetchHeroes(m.ctx.Client.SocketPath(), m.ctx.Client.BaseURL())
+
+	case HeroPromoteErrMsg:
+		m.err = msg.Err
+		return nil
+
+	case HeroDuelStartedMsg:
+		m.duelMatchID = msg.MatchID
+		m.phase = phaseHeroDuel
+		m.duelStream = snake_duel.NewMatchStream(
+			m.ctx.Client.SocketPath(),
+			m.ctx.Client.BaseURL(),
+		)
+		return m.duelStream.Connect(m.duelMatchID)
+
+	case HeroDuelStartErrMsg:
+		m.err = msg.Err
+		return nil
+
 	// Duel stream messages (forwarded from snake_duel's MatchStream)
 	case snake_duel.MatchStateMsg:
 		m.duelState = msg.State
@@ -323,6 +395,27 @@ func (m *Model) createStable() tea.Cmd {
 		EpisodesPerEval: m.formFields[3],
 		SeedStableID:    m.formSeedID,
 	}
+
+	// Add training config with fitness weights if not balanced (default)
+	presetNames := []string{"balanced", "aggressive", "forager", "survivor", "assassin"}
+	if m.formPreset > 0 || m.formShowWeights {
+		tc := &TrainingConfig{}
+		if m.formPreset > 0 && m.formPreset < len(presetNames) {
+			tc.FitnessPreset = presetNames[m.formPreset]
+		} else if m.formShowWeights {
+			tc.FitnessWeights = &FitnessWeights{
+				SurvivalWeight:  m.formWeights[0],
+				FoodWeight:      m.formWeights[1],
+				WinBonus:        m.formWeights[2],
+				DrawBonus:       m.formWeights[3],
+				KillBonus:       m.formWeights[4],
+				ProximityWeight: m.formWeights[5],
+				CirclePenalty:   m.formWeights[6],
+			}
+		}
+		req.TrainingConfig = tc
+	}
+
 	return InitiateStable(m.ctx.Client.SocketPath(), m.ctx.Client.BaseURL(), req)
 }
 

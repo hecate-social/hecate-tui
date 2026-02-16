@@ -34,6 +34,14 @@ func (m *Model) view() string {
 		return m.viewDetail()
 	case phaseDuel:
 		return m.viewDuel()
+	case phaseHeroes:
+		return m.viewHeroes()
+	case phaseHeroDetail:
+		return m.viewHeroDetail()
+	case phasePromote:
+		return m.viewPromote()
+	case phaseHeroDuel:
+		return m.viewHeroDuel()
 	default:
 		return m.viewList()
 	}
@@ -69,7 +77,7 @@ func (m *Model) viewList() string {
 
 	hints := lipgloss.NewStyle().
 		Foreground(t.TextMuted).Italic(true).
-		Render("j/k:navigate  Enter:open  n:new  r:refresh  esc:back")
+		Render("j/k:navigate  Enter:open  n:new  H:heroes  r:refresh  esc:back")
 
 	parts := title + "\n" + subtitle + "\n\n" + content
 	if errStr != "" {
@@ -161,6 +169,23 @@ func (m *Model) viewNewStable() string {
 	}
 	form := strings.Join(fields, "\n")
 
+	// Preset selector
+	presetNames := []string{"Balanced", "Aggressive", "Forager", "Survivor", "Assassin"}
+	presetLine := lipgloss.NewStyle().Foreground(colorChampion).Bold(true).
+		Render("Preset: " + presetNames[m.formPreset])
+	presetHint := lipgloss.NewStyle().Foreground(t.TextMuted).
+		Render("  (p to cycle)")
+
+	// Budget bar
+	budgetLine := m.renderBudgetBar(t)
+
+	form += "\n\n" + presetLine + presetHint + "\n" + budgetLine
+
+	// Advanced weights (toggle with w)
+	if m.formShowWeights {
+		form += "\n\n" + m.renderWeightsSection(t)
+	}
+
 	errStr := m.renderError(t)
 
 	hints := lipgloss.NewStyle().
@@ -208,8 +233,19 @@ func (m *Model) viewDetail() string {
 			Render(fmt.Sprintf("Pop:%d  MaxGen:%d  AF:%d  Eps:%d",
 				s.PopulationSize, s.MaxGenerations, s.OpponentAF, s.EpisodesPerEval))
 
+	// Show fitness weights if custom
+	var weightsLine string
+	if s.FitnessWeights != nil {
+		weightsLine = lipgloss.NewStyle().Foreground(colorChampion).
+			Render("Custom Fitness Weights")
+	}
+
 	var sections []string
 	sections = append(sections, title, statusLine)
+
+	if weightsLine != "" {
+		sections = append(sections, weightsLine)
+	}
 
 	// Training progress (live SSE)
 	if m.lastProgress != nil && m.selectedStable.Status == "training" {
@@ -436,6 +472,286 @@ func (m *Model) renderDuelResult(t *theme.Theme) string {
 	default:
 		return lipgloss.NewStyle().Foreground(t.TextDim).Render("Game Over")
 	}
+}
+
+// renderBudgetBar shows the tuning cost budget usage.
+func (m *Model) renderBudgetBar(t *theme.Theme) string {
+	cost := m.computeTuningCost()
+	budget := 100.0
+	used := int(cost * 30 / budget)
+	if used > 30 {
+		used = 30
+	}
+	remaining := 30 - used
+
+	barColor := colorTraining
+	if cost > budget {
+		barColor = colorHalted
+	}
+
+	bar := lipgloss.NewStyle().Foreground(barColor).
+		Render(strings.Repeat("=", used))
+	bar += lipgloss.NewStyle().Foreground(t.Border).
+		Render(strings.Repeat("-", remaining))
+
+	label := lipgloss.NewStyle().Foreground(t.TextDim).
+		Render(fmt.Sprintf("Budget: [%s] %.0f/%.0f pts", bar, cost, budget))
+
+	if cost > budget {
+		label += lipgloss.NewStyle().Foreground(colorHalted).Bold(true).
+			Render("  OVER BUDGET!")
+	}
+
+	return label
+}
+
+// renderWeightsSection shows the advanced weights editor.
+func (m *Model) renderWeightsSection(t *theme.Theme) string {
+	title := lipgloss.NewStyle().Foreground(t.TextDim).Bold(true).
+		Render("Advanced Weights (w to hide)")
+
+	var fields []string
+	for i, name := range m.formWeightNames {
+		focused := m.formShowWeights && i == m.formWeightFocus
+		indicator := "  "
+		if focused {
+			indicator = "> "
+		}
+		labelStyle := lipgloss.NewStyle().Foreground(t.TextDim).Width(16)
+		valueStyle := lipgloss.NewStyle().Foreground(t.Text).Bold(true)
+		if focused {
+			labelStyle = labelStyle.Foreground(t.Primary)
+			valueStyle = valueStyle.Foreground(t.Primary)
+		}
+		fields = append(fields, indicator+labelStyle.Render(name+":")+
+			" "+valueStyle.Render(fmt.Sprintf("%.1f", m.formWeights[i])))
+	}
+
+	return title + "\n" + strings.Join(fields, "\n")
+}
+
+// computeTuningCost calculates the tuning cost for current form weights.
+func (m *Model) computeTuningCost() float64 {
+	defaults := [7]float64{0.1, 50.0, 200.0, 50.0, 100.0, 0.5, -0.2}
+	bounds := [7][2]float64{
+		{0.0, 1.0}, {0.0, 200.0}, {0.0, 500.0}, {0.0, 200.0},
+		{0.0, 300.0}, {0.0, 5.0}, {-2.0, 0.0},
+	}
+	impacts := [7]float64{1.0, 2.0, 3.0, 1.5, 2.5, 1.0, 0.5}
+
+	var total float64
+	for i := 0; i < 7; i++ {
+		rangeV := bounds[i][1] - bounds[i][0]
+		if rangeV == 0 {
+			continue
+		}
+		deviation := m.formWeights[i] - defaults[i]
+		if deviation < 0 {
+			deviation = -deviation
+		}
+		total += deviation / rangeV * impacts[i] * 10.0
+	}
+	return total
+}
+
+// viewHeroes renders the heroes list.
+func (m *Model) viewHeroes() string {
+	t := m.ctx.Theme
+
+	title := lipgloss.NewStyle().
+		Foreground(t.Primary).Bold(true).
+		Render("Heroes")
+
+	subtitle := lipgloss.NewStyle().
+		Foreground(t.TextDim).
+		Render("Promoted champions for permanent competition")
+
+	var content string
+	if len(m.heroes) == 0 {
+		content = lipgloss.NewStyle().
+			Foreground(t.TextMuted).Italic(true).
+			Render("No heroes yet. Promote a champion from a completed stable.")
+	} else {
+		headerStyle := lipgloss.NewStyle().Foreground(t.TextDim).Bold(true)
+		header := headerStyle.Render(fmt.Sprintf(
+			"  %-16s %8s %6s %4s %4s %4s",
+			"Name", "Fitness", "Gen", "W", "L", "D"))
+
+		var rows []string
+		rows = append(rows, header)
+		for i, h := range m.heroes {
+			selected := i == m.heroIndex
+			style := lipgloss.NewStyle().Foreground(t.Text)
+			indicator := " "
+			if selected {
+				style = style.Foreground(t.Primary).Bold(true)
+				indicator = ">"
+			}
+			name := h.Name
+			if len(name) > 16 {
+				name = name[:14] + ".."
+			}
+			row := fmt.Sprintf("%s %-16s %8.1f %6d %4d %4d %4d",
+				indicator, name, h.Fitness, h.Generation, h.Wins, h.Losses, h.Draws)
+			rows = append(rows, style.Render(row))
+		}
+		content = strings.Join(rows, "\n")
+	}
+
+	errStr := m.renderError(t)
+
+	hints := lipgloss.NewStyle().
+		Foreground(t.TextMuted).Italic(true).
+		Render("j/k:navigate  Enter:view  r:refresh  esc:back to stables")
+
+	parts := title + "\n" + subtitle + "\n\n" + content
+	if errStr != "" {
+		parts += "\n\n" + errStr
+	}
+	parts += "\n\n" + hints
+
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, parts)
+}
+
+// viewHeroDetail renders a single hero's details.
+func (m *Model) viewHeroDetail() string {
+	t := m.ctx.Theme
+
+	if m.selectedHero == nil {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center,
+			lipgloss.NewStyle().Foreground(t.TextDim).Italic(true).Render("Loading hero..."))
+	}
+
+	h := m.selectedHero
+
+	title := lipgloss.NewStyle().Foreground(colorChampion).Bold(true).
+		Render("Hero: " + h.Name)
+
+	fitness := lipgloss.NewStyle().Foreground(colorFitness).Bold(true).
+		Render(fmt.Sprintf("Fitness: %.2f", h.Fitness))
+
+	gen := lipgloss.NewStyle().Foreground(t.TextDim).
+		Render(fmt.Sprintf("Generation: %d  Origin: %s", h.Generation, truncateID(h.OriginStableID)))
+
+	record := lipgloss.NewStyle().Foreground(t.Text).
+		Render(fmt.Sprintf("W:%d  L:%d  D:%d", h.Wins, h.Losses, h.Draws))
+
+	cardStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(colorChampion).
+		Padding(0, 1).
+		Width(40)
+
+	card := cardStyle.Render(title + "\n" + fitness + "  " + gen + "\n" + record)
+
+	hints := lipgloss.NewStyle().Foreground(t.TextMuted).Italic(true).
+		Render("d:duel vs AI  esc:back to heroes")
+
+	errStr := m.renderError(t)
+	parts := card
+	if errStr != "" {
+		parts += "\n\n" + errStr
+	}
+	parts += "\n\n" + hints
+
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, parts)
+}
+
+// viewPromote renders the hero promotion form.
+func (m *Model) viewPromote() string {
+	t := m.ctx.Theme
+
+	title := lipgloss.NewStyle().Foreground(colorChampion).Bold(true).
+		Render("Promote Champion to Hero")
+
+	subtitle := lipgloss.NewStyle().Foreground(t.TextDim).
+		Render("Stable: " + truncateID(m.selectedStable.StableID))
+
+	nameLabel := lipgloss.NewStyle().Foreground(t.Primary).
+		Render("Hero Name: ")
+
+	nameVal := m.promoteName
+	if nameVal == "" {
+		nameVal = lipgloss.NewStyle().Foreground(t.TextMuted).Italic(true).Render("type a name...")
+	} else {
+		nameVal = lipgloss.NewStyle().Foreground(t.Text).Bold(true).Render(nameVal)
+	}
+
+	cursor := lipgloss.NewStyle().Foreground(t.Primary).Render("_")
+
+	errStr := m.renderError(t)
+
+	hints := lipgloss.NewStyle().Foreground(t.TextMuted).Italic(true).
+		Render("Enter:confirm  esc:cancel")
+
+	parts := title + "\n" + subtitle + "\n\n" + nameLabel + nameVal + cursor
+	if errStr != "" {
+		parts += "\n\n" + errStr
+	}
+	parts += "\n\n" + hints
+
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, parts)
+}
+
+// viewHeroDuel renders a hero duel using the same duel renderer.
+func (m *Model) viewHeroDuel() string {
+	t := m.ctx.Theme
+
+	heroName := ""
+	if m.selectedHero != nil {
+		heroName = m.selectedHero.Name
+	}
+
+	header := lipgloss.NewStyle().Foreground(t.Primary).Bold(true).
+		Render("Hero Duel")
+
+	heroInfo := lipgloss.NewStyle().Foreground(colorChampion).
+		Render("Hero: " + heroName)
+
+	sep := "  "
+
+	var statusStr string
+	switch m.duelState.Status {
+	case "finished":
+		statusStr = m.renderDuelResult(t)
+	case "":
+		statusStr = lipgloss.NewStyle().Foreground(t.TextDim).Italic(true).
+			Render("Starting duel...")
+	default:
+		statusStr = ""
+	}
+
+	grid := snake_duel.RenderGrid(m.duelState)
+
+	var scoreStr string
+	if m.duelState.Status != "" {
+		p1 := lipgloss.NewStyle().Foreground(lipgloss.Color("#60a5fa")).Bold(true).
+			Render(fmt.Sprintf("Hero:%d", m.duelState.Snake1.Score))
+		p2 := lipgloss.NewStyle().Foreground(lipgloss.Color("#f87171")).Bold(true).
+			Render(fmt.Sprintf("AI:%d", m.duelState.Snake2.Score))
+		tick := lipgloss.NewStyle().Foreground(t.TextMuted).
+			Render(fmt.Sprintf("T%d", m.duelState.Tick))
+		scoreStr = p1 + sep + p2 + sep + tick
+	}
+
+	hints := lipgloss.NewStyle().Foreground(t.TextMuted).Italic(true).
+		Render("esc:back to hero")
+	if m.duelState.Status == "finished" {
+		hints = lipgloss.NewStyle().Foreground(t.TextMuted).Italic(true).
+			Render("n:new duel  esc:back to hero")
+	}
+
+	parts := header + sep + heroInfo + "\n"
+	if scoreStr != "" {
+		parts += scoreStr + "\n"
+	}
+	parts += grid + "\n"
+	if statusStr != "" {
+		parts += statusStr + "\n"
+	}
+	parts += hints
+
+	return parts
 }
 
 // renderError renders an error message if present.

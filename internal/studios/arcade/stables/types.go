@@ -14,6 +14,7 @@ type Stable struct {
 	GenerationsCompleted int     `json:"generations_completed"`
 	StartedAt            int64   `json:"started_at"`
 	CompletedAt          *int64  `json:"completed_at"`
+	FitnessWeights       *FitnessWeights `json:"fitness_weights"`
 }
 
 // Champion is the best-performing network from a stable.
@@ -80,7 +81,8 @@ type InitiateStableRequest struct {
 	MaxGenerations  int    `json:"max_generations,omitempty"`
 	OpponentAF      int    `json:"opponent_af,omitempty"`
 	EpisodesPerEval int    `json:"episodes_per_eval,omitempty"`
-	SeedStableID    string `json:"seed_stable_id,omitempty"`
+	SeedStableID    string          `json:"seed_stable_id,omitempty"`
+	TrainingConfig  *TrainingConfig `json:"training_config,omitempty"`
 }
 
 // InitiateStableResponse is the POST response for creating a new stable.
@@ -98,4 +100,59 @@ type InitiateStableResponse struct {
 type DuelResponse struct {
 	OK      bool   `json:"ok"`
 	MatchID string `json:"match_id"`
+}
+
+// FitnessWeights holds per-stable fitness weight configuration.
+type FitnessWeights struct {
+	SurvivalWeight  float64 `json:"survival_weight"`
+	FoodWeight      float64 `json:"food_weight"`
+	WinBonus        float64 `json:"win_bonus"`
+	DrawBonus       float64 `json:"draw_bonus"`
+	KillBonus       float64 `json:"kill_bonus"`
+	ProximityWeight float64 `json:"proximity_weight"`
+	CirclePenalty   float64 `json:"circle_penalty"`
+}
+
+// Hero is a promoted champion for permanent PvP competition.
+type Hero struct {
+	HeroID         string  `json:"hero_id"`
+	Name           string  `json:"name"`
+	Fitness        float64 `json:"fitness"`
+	OriginStableID string  `json:"origin_stable_id"`
+	Generation     int     `json:"generation"`
+	Wins           int     `json:"wins"`
+	Losses         int     `json:"losses"`
+	Draws          int     `json:"draws"`
+	PromotedAt     int64   `json:"promoted_at"`
+}
+
+// HeroesListResponse wraps the GET /heroes response.
+type HeroesListResponse struct {
+	OK     bool   `json:"ok"`
+	Heroes []Hero `json:"heroes"`
+}
+
+// HeroResponse wraps a single hero GET response.
+type HeroResponse struct {
+	OK bool `json:"ok"`
+	Hero
+}
+
+// PromoteResponse wraps the POST /heroes promote response.
+type PromoteResponse struct {
+	OK             bool    `json:"ok"`
+	HeroID         string  `json:"hero_id"`
+	Name           string  `json:"name"`
+	Fitness        float64 `json:"fitness"`
+	Generation     int     `json:"generation"`
+	OriginStableID string  `json:"origin_stable_id"`
+	PromotedAt     int64   `json:"promoted_at"`
+}
+
+// TrainingConfig holds optional per-stable training overrides.
+type TrainingConfig struct {
+	MaxTicks       int             `json:"max_ticks,omitempty"`
+	GladiatorAF    int             `json:"gladiator_af,omitempty"`
+	FitnessWeights *FitnessWeights `json:"fitness_weights,omitempty"`
+	FitnessPreset  string          `json:"fitness_preset,omitempty"`
 }
