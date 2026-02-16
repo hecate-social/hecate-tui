@@ -19,7 +19,7 @@ Plus: **Identity** — Profile, pairing status, settings.
 ```
 [1] Social     - Browse agents, capabilities, local vs remote services
 [2] Discover   - Find gaps in the mesh, identify opportunities
-[3] Architect  - Cartwheel scaffolding for new services
+[3] Architect  - Division Architecture scaffolding for new services
 [4] Implement  - Guided coding with templates and AI assistance
 [5] Deploy     - Pre-flight checks, announce to mesh
 [6] Coach      - Agent training, doctrine enforcement, live monitoring
@@ -121,7 +121,7 @@ AI-assisted gap analysis — find opportunities for new services.
 ## 3. Architect View
 
 ### Purpose
-Generate Cartwheel Architecture scaffolding for the service.
+Generate Division Architecture Architecture scaffolding for the service.
 
 ### Context
 Receives service concept from Discover (or manual entry).
@@ -164,7 +164,7 @@ service_name/
 ### Actions
 - Generate scaffold (creates directory structure and boilerplate)
 - Edit structure (add/remove slices)
-- Explain pattern (AI explains Cartwheel concepts)
+- Explain pattern (AI explains Division Architecture concepts)
 
 ---
 
@@ -242,7 +242,7 @@ Progress bar showing internalization level.
 Per-doctrine status:
 - Vertical slicing — correct applications count
 - CMD/Event/Handler pattern — understanding level
-- Spoke supervisors — learned/needs reinforcement
+- Desk supervisors — learned/needs reinforcement
 - FACTS ≠ EVENTS — status
 - Horizontal temptation — violation count
 
@@ -351,7 +351,7 @@ Each view maintains its own state. Navigation preserves state within session.
 - Discover view — Gap analysis with AI
 
 ### Phase 3: Workflow
-- Architect view — Cartwheel scaffolding
+- Architect view — Division Architecture scaffolding
 - Implement view — Templates and guidance
 
 ### Phase 4: Operations
@@ -404,7 +404,7 @@ The services themselves are pure business logic.
 
 | Function | Implementation | LLM Required |
 |----------|----------------|--------------|
-| Cartwheel code scaffolding | Model generates slice code | **Yes** |
+| Division Architecture code scaffolding | Model generates slice code | **Yes** |
 | Documentation generation | Model writes docs | **Yes** |
 | Architecture guidance | Model explains concepts | **Yes** |
 | SVG diagram generation | Model creates visuals | **Yes** |
@@ -443,10 +443,10 @@ type ContentPattern struct {
 }
 ```
 
-**Built-in Cartwheel rules:**
+**Built-in Division Architecture rules:**
 
 ```go
-var CartwheelRules = []Rule{
+var DivisionArchitectureRules = []Rule{
     {
         ID:       "horizontal-services",
         Pattern:  PathPattern{Regex: regexp.MustCompile(`/services/`)},

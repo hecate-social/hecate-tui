@@ -36,8 +36,8 @@ func (a *App) renderHome() string {
 
 	cards := []card{
 		{"1", "🤖", "LLM", "Chat with AI", t.Primary},
-		{"2", "🔧", "Dev", "Ventures", t.Secondary},
-		{"3", "⚙️", "Ops", "Node Mgmt", t.Warning},
+		{"2", "🔧", "DevOps", "Ventures", t.Secondary},
+		{"3", "🌐", "Node", "Node Mgmt", t.Warning},
 		{"4", "💬", "Social", "Chat IRC", t.Success},
 		{"5", "🎮", "Arcade", "Games", t.Accent},
 	}

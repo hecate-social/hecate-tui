@@ -1,4 +1,4 @@
-package ops
+package node
 
 import (
 	"fmt"
@@ -14,6 +14,17 @@ import (
 func (s *Studio) View() string {
 	if s.width == 0 {
 		return ""
+	}
+
+	// Action overlay views take priority when active
+	if s.actionMode == actionViewForm && s.formReady && s.formView != nil {
+		return s.viewForm()
+	}
+	if s.actionMode == actionViewCategories {
+		return s.viewCategories()
+	}
+	if s.actionMode == actionViewActions {
+		return s.viewActions()
 	}
 
 	if s.loading {
@@ -518,6 +529,126 @@ func (s *Studio) viewHealthDetail() string {
 		valueStyle.Render(itoa(len(s.agents)))))
 
 	return b.String()
+}
+
+// viewCategories renders the category selection overlay.
+func (s *Studio) viewCategories() string {
+	t := s.ctx.Theme
+	var b strings.Builder
+
+	contentWidth := min(s.width, 50)
+
+	// Title
+	title := lipgloss.NewStyle().Foreground(t.Primary).Bold(true).
+		Render("Node Actions")
+	b.WriteString(title + "\n")
+
+	sep := lipgloss.NewStyle().Foreground(t.Border).
+		Render(strings.Repeat("\u2500", contentWidth))
+	b.WriteString(sep + "\n\n")
+
+	// Hint
+	hint := lipgloss.NewStyle().Foreground(t.TextMuted).Italic(true).
+		Render("Select a category:")
+	b.WriteString(hint + "\n\n")
+
+	// Category list
+	for i, cat := range s.categories {
+		selected := i == s.catCursor
+
+		cursor := "  "
+		if selected {
+			cursor = lipgloss.NewStyle().Foreground(t.Primary).Bold(true).Render("\u25b8 ")
+		}
+
+		nameStyle := lipgloss.NewStyle().Foreground(t.Text)
+		if selected {
+			nameStyle = nameStyle.Bold(true)
+		}
+
+		actionCount := len(cat.Actions)
+		countText := lipgloss.NewStyle().Foreground(t.TextDim).
+			Render("  " + pluralize(actionCount, "action", "actions"))
+
+		b.WriteString(fmt.Sprintf("%s%s %s%s\n",
+			cursor,
+			cat.Icon,
+			nameStyle.Render(cat.Name),
+			countText,
+		))
+	}
+
+	// Center the menu
+	content := b.String()
+	return lipgloss.Place(s.width, s.height, lipgloss.Center, lipgloss.Center, content)
+}
+
+// viewActions renders the action selection list for the current category.
+func (s *Studio) viewActions() string {
+	t := s.ctx.Theme
+	var b strings.Builder
+
+	if s.catCursor >= len(s.categories) {
+		return ""
+	}
+
+	cat := s.categories[s.catCursor]
+	contentWidth := min(s.width, 50)
+
+	// Breadcrumb: Node Actions > Category
+	breadcrumb := lipgloss.NewStyle().Foreground(t.Primary).Bold(true).
+		Render("Node Actions") +
+		lipgloss.NewStyle().Foreground(t.TextDim).Render(" \u276f ") +
+		lipgloss.NewStyle().Foreground(t.Accent).Bold(true).
+			Render(cat.Icon+" "+cat.Name)
+	b.WriteString(breadcrumb + "\n")
+
+	sep := lipgloss.NewStyle().Foreground(t.Border).
+		Render(strings.Repeat("\u2500", contentWidth))
+	b.WriteString(sep + "\n\n")
+
+	if len(cat.Actions) == 0 {
+		b.WriteString(lipgloss.NewStyle().Foreground(t.TextMuted).Italic(true).
+			Render("  No actions available") + "\n")
+		content := b.String()
+		return lipgloss.Place(s.width, s.height, lipgloss.Center, lipgloss.Center, content)
+	}
+
+	for i, action := range cat.Actions {
+		selected := i == s.actionCursor
+
+		cursor := "  "
+		if selected {
+			cursor = lipgloss.NewStyle().Foreground(t.Primary).Bold(true).Render("\u25b8 ")
+		}
+
+		nameStyle := lipgloss.NewStyle().Foreground(t.Text)
+		if selected {
+			nameStyle = nameStyle.Bold(true)
+		}
+
+		// Show whether the action needs a form or is confirm-only
+		suffix := ""
+		if action.FormSpec == nil {
+			suffix = lipgloss.NewStyle().Foreground(t.TextMuted).
+				Render("  (instant)")
+		}
+
+		b.WriteString(fmt.Sprintf("%s%s%s\n", cursor, nameStyle.Render(action.Name), suffix))
+	}
+
+	content := b.String()
+	return lipgloss.Place(s.width, s.height, lipgloss.Center, lipgloss.Center, content)
+}
+
+// viewForm renders the active form centered in the content area.
+func (s *Studio) viewForm() string {
+	if s.formView == nil {
+		return ""
+	}
+
+	formContent := s.formView.View()
+	return lipgloss.Place(s.width, s.height, lipgloss.Center, lipgloss.Center, formContent)
 }
 
 // renderBreadcrumb renders the sub-view breadcrumb header.

@@ -72,10 +72,11 @@ type Model struct {
 
 // Message represents a chat message (user, assistant, or system).
 type Message struct {
-	Role         string    // "user", "assistant", "system"
+	Role         string         // "user", "assistant", "system"
 	Content      string
-	ThinkContent string    // extracted <think>...</think> content, if any
-	Time         time.Time // when the message was created
+	ThinkContent string         // extracted <think>...</think> content, if any
+	ToolCalls    []llm.ToolCall // tool calls requested by assistant (for conversation history)
+	Time         time.Time      // when the message was created
 }
 
 // ExportMsg is a message suitable for export (no internal state).
@@ -342,6 +343,16 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		return m, nil
 
 	case toolUseCompleteMsg:
+		// Save the assistant's tool_call message to history so the LLM
+		// sees it when we send tool results back (required by Ollama/OpenAI).
+		streamedContent := m.streamBuf.String()
+		m.messages = append(m.messages, Message{
+			Role:      "assistant",
+			Content:   streamedContent,
+			ToolCalls: []llm.ToolCall{msg.call},
+			Time:      time.Now(),
+		})
+		m.streamBuf.Reset()
 		// Tool use is complete, check if it needs approval
 		return m, m.handleToolUseComplete(msg.call)
 

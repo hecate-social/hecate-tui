@@ -659,7 +659,8 @@ func (s *Studio) showForm(formType string) tea.Cmd {
 	switch formType {
 	case "venture_init":
 		cwd, _ := os.Getwd()
-		s.formView = ui.NewVentureForm(s.ctx.Theme, s.ctx.Styles, cwd)
+		spec := ui.VentureInitSpec(cwd)
+		s.formView = ui.BuildForm(spec, s.ctx.Theme, s.ctx.Styles)
 		formWidth := 60
 		if s.width > 0 && s.width < 70 {
 			formWidth = s.width - 4

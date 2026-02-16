@@ -15,9 +15,9 @@ import (
 	"github.com/hecate-social/hecate-tui/internal/statusbar"
 	"github.com/hecate-social/hecate-tui/internal/studio"
 	"github.com/hecate-social/hecate-tui/internal/studios/arcade"
-	"github.com/hecate-social/hecate-tui/internal/studios/dev"
+	"github.com/hecate-social/hecate-tui/internal/studios/devops"
 	llmstudio "github.com/hecate-social/hecate-tui/internal/studios/llm"
-	"github.com/hecate-social/hecate-tui/internal/studios/ops"
+	"github.com/hecate-social/hecate-tui/internal/studios/node"
 	"github.com/hecate-social/hecate-tui/internal/studios/social"
 	"github.com/hecate-social/hecate-tui/internal/theme"
 
@@ -124,8 +124,8 @@ func newApp(c *client.Client, cfg config.Config) *App {
 	// Create all studios
 	studios := []studio.Studio{
 		llmstudio.New(ctx),
-		dev.New(ctx),
-		ops.New(ctx),
+		devops.New(ctx),
+		node.New(ctx),
 		social.New(ctx),
 		arcade.New(ctx),
 	}

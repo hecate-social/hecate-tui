@@ -27,6 +27,10 @@ type FormModel struct {
 	width  int
 	formID string
 	title  string
+
+	// Generic form support (set by BuildForm, nil for legacy NewVentureForm)
+	spec      *FormSpec
+	valuePtrs map[string]*string // key → bound value pointer
 }
 
 // NewVentureForm creates a form for initiating a new venture.
@@ -152,10 +156,7 @@ func (m *FormModel) Update(msg tea.Msg) (*FormModel, tea.Cmd) {
 				}
 			}
 		}
-		values := make(map[string]string)
-		values["path"] = m.form.GetString("path")
-		values["name"] = m.form.GetString("name")
-		values["brief"] = m.form.GetString("brief")
+		values := m.extractValues()
 		return m, func() tea.Msg {
 			return FormResult{
 				Submitted: true,
@@ -166,6 +167,28 @@ func (m *FormModel) Update(msg tea.Msg) (*FormModel, tea.Cmd) {
 	}
 
 	return m, cmd
+}
+
+// extractValues collects form field values into a map.
+// Uses spec-based extraction if available, falls back to hardcoded keys.
+func (m *FormModel) extractValues() map[string]string {
+	values := make(map[string]string)
+
+	if m.spec != nil && m.valuePtrs != nil {
+		// Generic: iterate spec fields, read bound value pointers
+		for _, f := range m.spec.Fields {
+			if ptr, ok := m.valuePtrs[f.Key]; ok {
+				values[f.Key] = *ptr
+			}
+		}
+		return values
+	}
+
+	// Legacy fallback for NewVentureForm (hardcoded keys)
+	values["path"] = m.form.GetString("path")
+	values["name"] = m.form.GetString("name")
+	values["brief"] = m.form.GetString("brief")
+	return values
 }
 
 // View renders the form.

@@ -95,7 +95,7 @@ The Studio follows **four phases** that mirror the software development lifecycl
 | Phase | Code | Focus |
 |-------|------|-------|
 | **Analysis & Discovery** | AnD | Event Storming, DDD, domain modeling |
-| **Architecture & Planning** | AnP | Vertical slices, Cartwheel, Kanban |
+| **Architecture & Planning** | AnP | Vertical slices, Division Architecture, Kanban |
 | **Implementation & Testing** | InT | Code generation, doctrine, testing |
 | **Deployment & Operations** | DoO | Deploy, publish to mesh, monitor |
 
@@ -294,8 +294,8 @@ Each phase is detailed below.
 **AI Skills:** `~/.hecate/skills/AnP_SKILLS.md`
 
 **Capabilities:**
-- Design Cartwheel vertical slices
-- Define spoke/supervisor structure
+- Design Division Architecture vertical slices
+- Define desk/supervisor structure
 - Generate Kanban task board
 - Export tasks to external tools
 
@@ -338,7 +338,7 @@ Each phase is detailed below.
 - `Export` — Sync tasks to taskwarrior or GitHub Issues
 - `Diagram` — Generate architecture diagram (mermaid)
 
-**Cartwheel Patterns:**
+**Division Architecture Patterns:**
 - CMD slices (command → event → handler → aggregate)
 - QRY slices (queries on projections)
 - Projections (event → read model)
@@ -359,7 +359,7 @@ Each phase is detailed below.
 **AI Skills:** `~/.hecate/skills/InT_SKILLS.md`
 
 **Capabilities:**
-- Generate Cartwheel code from templates
+- Generate Division Architecture code from templates
 - Real-time doctrine violation detection
 - Test generation and execution
 - Integration with external editors
@@ -910,7 +910,7 @@ AI guidance for each phase lives in Skills files:
 | Skills File | Focus | Status |
 |-------------|-------|--------|
 | `AnD_SKILLS.md` | Event Storming, DDD, domain discovery | 📋 TODO |
-| `AnP_SKILLS.md` | Cartwheel Architecture, vertical slices, Kanban | 📋 TODO |
+| `AnP_SKILLS.md` | Division Architecture Architecture, vertical slices, Kanban | 📋 TODO |
 | `InT_SKILLS.md` | Code generation, doctrine enforcement, testing | 📋 TODO |
 | `DoO_SKILLS.md` | Deployment, mesh publishing, monitoring | 📋 TODO |
 

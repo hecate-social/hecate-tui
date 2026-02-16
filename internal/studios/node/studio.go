@@ -1,17 +1,22 @@
-// Package ops implements the DevOps Studio — node operations dashboard.
+// Package node implements the Node Studio — node operations dashboard.
 //
 // Shows a single-glance dashboard with node identity, health, LLM providers,
 // models, capabilities, and agents. Sub-views for models list, providers,
 // capabilities, and detailed health.
-package ops
+// Also provides command forms for node lifecycle operations (identity,
+// capabilities, mesh, subscriptions, security).
+package node
 
 import (
+	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/hecate-social/hecate-tui/internal/client"
 	"github.com/hecate-social/hecate-tui/internal/commands"
 	"github.com/hecate-social/hecate-tui/internal/llm"
 	"github.com/hecate-social/hecate-tui/internal/modes"
 	"github.com/hecate-social/hecate-tui/internal/studio"
+	"github.com/hecate-social/hecate-tui/internal/ui"
 )
 
 // opsView identifies which sub-view is active.
@@ -50,6 +55,19 @@ type Studio struct {
 	// List navigation (for sub-views with scrollable lists)
 	cursor       int
 	scrollOffset int
+
+	// Action overlay state
+	actionMode   actionView
+	categories   []Category
+	catCursor    int
+	actionCursor int
+	formView     *ui.FormModel
+	formReady    bool
+	activeAction *Action
+
+	// Flash message after action completes
+	flashMsg     string
+	flashSuccess bool
 }
 
 // New creates a new DevOps Studio.
@@ -57,13 +75,19 @@ func New(ctx *studio.Context) *Studio {
 	return &Studio{
 		ctx:        ctx,
 		activeView: viewDashboard,
+		categories: nodeCategories(),
 	}
 }
 
-func (s *Studio) Name() string      { return "DevOps" }
-func (s *Studio) ShortName() string { return "Ops" }
-func (s *Studio) Icon() string      { return "\u2699\ufe0f" }
-func (s *Studio) Mode() modes.Mode  { return modes.Normal }
+func (s *Studio) Name() string      { return "Node" }
+func (s *Studio) ShortName() string { return "Node" }
+func (s *Studio) Icon() string      { return "\U0001F310" }
+func (s *Studio) Mode() modes.Mode {
+	if s.actionMode == actionViewForm && s.formReady {
+		return modes.Form
+	}
+	return modes.Normal
+}
 func (s *Studio) Focused() bool     { return s.focused }
 
 func (s *Studio) SetFocused(focused bool) {
@@ -81,6 +105,21 @@ func (s *Studio) SetSize(width, height int) {
 }
 
 func (s *Studio) Hints() string {
+	if s.flashMsg != "" {
+		return s.flashMsg
+	}
+
+	// Action overlay hints
+	if s.actionMode == actionViewForm && s.formReady {
+		return "Tab:next  Shift+Tab:prev  Enter:submit  Esc:cancel"
+	}
+	if s.actionMode == actionViewCategories {
+		return "j/k:navigate  Enter:select  Esc:back"
+	}
+	if s.actionMode == actionViewActions {
+		return "j/k:navigate  Enter:select  Esc:back"
+	}
+
 	if s.loading {
 		return "Loading..."
 	}
@@ -89,15 +128,15 @@ func (s *Studio) Hints() string {
 	}
 	switch s.activeView {
 	case viewDashboard:
-		return "r:refresh  /models  /providers  /caps  /health"
+		return "a:actions  r:refresh  /models  /providers  /caps  /health"
 	case viewModels:
-		return "j/k:navigate  r:refresh  /back"
+		return "a:actions  j/k:navigate  r:refresh  /back"
 	case viewProviders:
-		return "j/k:navigate  r:refresh  /back"
+		return "a:actions  j/k:navigate  r:refresh  /back"
 	case viewCapabilities:
-		return "j/k:navigate  r:refresh  /back"
+		return "a:actions  j/k:navigate  r:refresh  /back"
 	case viewHealth:
-		return "r:refresh  /back"
+		return "a:actions  r:refresh  /back"
 	}
 	return ""
 }
@@ -161,11 +200,38 @@ func (s *Studio) Update(msg tea.Msg) (studio.Studio, tea.Cmd) {
 		s.scrollOffset = 0
 		return s, nil
 
+	case ui.FormResult:
+		return s, s.handleFormResult(msg)
+
+	case actionResultMsg:
+		s.actionMode = actionViewNone
+		s.formView = nil
+		s.formReady = false
+		s.activeAction = nil
+		s.flashSuccess = msg.success
+		s.flashMsg = msg.message
+		return s, s.clearFlashAfterDelay()
+
+	case clearFlashMsg:
+		s.flashMsg = ""
+		return s, nil
+
 	case tea.KeyMsg:
-		if s.loading {
+		if s.loading && s.actionMode == actionViewNone {
 			return s, nil
 		}
+		// Any key press clears flash message
+		if s.flashMsg != "" {
+			s.flashMsg = ""
+		}
 		return s, s.handleKey(msg)
+	}
+
+	// Forward messages to form when active
+	if s.actionMode == actionViewForm && s.formReady && s.formView != nil {
+		updated, cmd := s.formView.Update(msg)
+		s.formView = updated
+		return s, cmd
 	}
 
 	return s, nil
@@ -218,4 +284,34 @@ func itoa(n int) string {
 		s = "-" + s
 	}
 	return s
+}
+
+// handleFormResult processes a completed form (submit or cancel).
+func (s *Studio) handleFormResult(result ui.FormResult) tea.Cmd {
+	if !result.Submitted || s.activeAction == nil {
+		// Cancelled — go back to action list
+		s.actionMode = actionViewActions
+		s.formView = nil
+		s.formReady = false
+		return nil
+	}
+
+	// Submit — execute the action
+	action := *s.activeAction
+	values := result.Values
+	s.actionMode = actionViewNone
+	s.formView = nil
+	s.formReady = false
+	s.activeAction = nil
+	return s.executeAction(action, values)
+}
+
+// clearFlashMsg is a message type to clear flash text after a delay.
+type clearFlashMsg struct{}
+
+// clearFlashAfterDelay returns a Cmd that fires clearFlashMsg after 3 seconds.
+func (s *Studio) clearFlashAfterDelay() tea.Cmd {
+	return tea.Tick(3*time.Second, func(_ time.Time) tea.Msg {
+		return clearFlashMsg{}
+	})
 }

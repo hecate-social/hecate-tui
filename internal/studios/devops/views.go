@@ -1,4 +1,4 @@
-package dev
+package devops
 
 import (
 	"fmt"
@@ -14,6 +14,16 @@ func (s *Studio) View() string {
 		return ""
 	}
 
+	// Action overlay rendering — always available, even with no venture
+	switch s.actionMode {
+	case actionViewCategories:
+		return s.viewCategories()
+	case actionViewActions:
+		return s.viewActions()
+	case actionViewForm:
+		return s.viewForm()
+	}
+
 	if s.noVenture {
 		return s.viewNoVenture()
 	}
@@ -23,6 +33,7 @@ func (s *Studio) View() string {
 	if s.loadErr != nil {
 		return s.viewError()
 	}
+
 	return s.viewTaskList()
 }
 
@@ -30,7 +41,7 @@ func (s *Studio) viewNoVenture() string {
 	t := s.ctx.Theme
 	title := lipgloss.NewStyle().
 		Foreground(t.Primary).Bold(true).
-		Render("Development Studio")
+		Render("DevOps Studio")
 
 	msg := lipgloss.NewStyle().
 		Foreground(t.TextMuted).
@@ -38,7 +49,7 @@ func (s *Studio) viewNoVenture() string {
 
 	hint := lipgloss.NewStyle().
 		Foreground(t.TextDim).Italic(true).
-		Render("Use /venture init in the LLM Studio to get started.")
+		Render("Press 'a' to open actions and initiate a venture.")
 
 	content := title + "\n\n" + msg + "\n\n" + hint
 	return lipgloss.Place(s.width, s.height, lipgloss.Center, lipgloss.Center, content)
@@ -88,6 +99,16 @@ func (s *Studio) viewTaskList() string {
 	b.WriteString(sep)
 	b.WriteString("\n")
 
+	// Flash message (result of last action)
+	if s.flashMsg != "" {
+		flashStyle := lipgloss.NewStyle().Foreground(t.Success).Italic(true)
+		if !s.flashSuccess {
+			flashStyle = lipgloss.NewStyle().Foreground(t.Error).Italic(true)
+		}
+		b.WriteString(flashStyle.Render(s.flashMsg))
+		b.WriteString("\n")
+	}
+
 	// Task rows
 	visible := s.taskList.VisibleItems()
 	if len(visible) == 0 {
@@ -100,6 +121,9 @@ func (s *Studio) viewTaskList() string {
 
 	offset := s.taskList.ScrollOffset()
 	maxRows := s.height - 2 // subtract header lines
+	if s.flashMsg != "" {
+		maxRows-- // account for flash line
+	}
 	if maxRows < 1 {
 		maxRows = 1
 	}
@@ -114,6 +138,111 @@ func (s *Studio) viewTaskList() string {
 	}
 
 	return b.String()
+}
+
+// viewCategories renders the category selection list.
+func (s *Studio) viewCategories() string {
+	t := s.ctx.Theme
+	var b strings.Builder
+
+	title := lipgloss.NewStyle().
+		Foreground(t.Primary).Bold(true).
+		Render("Actions")
+	b.WriteString(title)
+	b.WriteString("\n")
+
+	sep := lipgloss.NewStyle().
+		Foreground(t.Border).
+		Render(strings.Repeat("\u2500", min(s.width, 40)))
+	b.WriteString(sep)
+	b.WriteString("\n\n")
+
+	for i, cat := range s.categories {
+		cursor := "  "
+		if i == s.catCursor {
+			cursor = lipgloss.NewStyle().Foreground(t.Primary).Bold(true).Render("\u25b8 ")
+		}
+
+		icon := lipgloss.NewStyle().Foreground(t.Accent).Render(cat.Icon)
+		name := cat.Name
+		count := lipgloss.NewStyle().Foreground(t.TextDim).Render(
+			fmt.Sprintf(" (%d)", len(cat.Actions)),
+		)
+
+		nameStyle := lipgloss.NewStyle().Foreground(t.Text)
+		if i == s.catCursor {
+			nameStyle = lipgloss.NewStyle().Foreground(t.Text).Bold(true)
+		}
+
+		b.WriteString(fmt.Sprintf("%s%s %s%s\n", cursor, icon, nameStyle.Render(name), count))
+	}
+
+	b.WriteString("\n")
+	hint := lipgloss.NewStyle().Foreground(t.TextDim).Italic(true).
+		Render("j/k to navigate, Enter to select, Esc to go back")
+	b.WriteString(hint)
+
+	return lipgloss.Place(s.width, s.height, lipgloss.Center, lipgloss.Center, b.String())
+}
+
+// viewActions renders the action list within the selected category.
+func (s *Studio) viewActions() string {
+	t := s.ctx.Theme
+	cat := s.categories[s.catCursor]
+	var b strings.Builder
+
+	// Category title as breadcrumb
+	breadcrumb := lipgloss.NewStyle().Foreground(t.TextDim).Render("Actions > ")
+	catName := lipgloss.NewStyle().Foreground(t.Primary).Bold(true).Render(cat.Name)
+	b.WriteString(breadcrumb + catName)
+	b.WriteString("\n")
+
+	sep := lipgloss.NewStyle().
+		Foreground(t.Border).
+		Render(strings.Repeat("\u2500", min(s.width, 40)))
+	b.WriteString(sep)
+	b.WriteString("\n\n")
+
+	for i, action := range cat.Actions {
+		cursor := "  "
+		if i == s.actionCursor {
+			cursor = lipgloss.NewStyle().Foreground(t.Primary).Bold(true).Render("\u25b8 ")
+		}
+
+		verb := lipgloss.NewStyle().Foreground(t.Accent).Render(action.Verb)
+
+		nameStyle := lipgloss.NewStyle().Foreground(t.Text)
+		if i == s.actionCursor {
+			nameStyle = lipgloss.NewStyle().Foreground(t.Text).Bold(true)
+		}
+
+		// Indicate confirm-only actions
+		badge := ""
+		if action.FormSpec == nil {
+			badge = lipgloss.NewStyle().Foreground(t.TextDim).Render(" [confirm]")
+		}
+
+		b.WriteString(fmt.Sprintf("%s%s  %s%s\n", cursor, verb, nameStyle.Render(action.Name), badge))
+	}
+
+	b.WriteString("\n")
+	hint := lipgloss.NewStyle().Foreground(t.TextDim).Italic(true).
+		Render("j/k to navigate, Enter to select, Esc to go back")
+	b.WriteString(hint)
+
+	return lipgloss.Place(s.width, s.height, lipgloss.Center, lipgloss.Center, b.String())
+}
+
+// viewForm renders the active form.
+func (s *Studio) viewForm() string {
+	if s.formView == nil {
+		return ""
+	}
+
+	formContent := s.formView.View()
+
+	// Center the form in the available space
+	return lipgloss.Place(s.width, s.height, lipgloss.Center, lipgloss.Center, formContent)
 }
 
 func (s *Studio) renderRow(item TaskItem, selected bool) string {

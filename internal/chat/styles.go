@@ -22,14 +22,14 @@ func WelcomeArt(t *theme.Theme) string {
 	body := lipgloss.NewStyle().Foreground(t.PrimaryLight)
 	eye := lipgloss.NewStyle().Foreground(t.EyeColor)
 	key := lipgloss.NewStyle().Foreground(t.KeyColor)
-	torch := lipgloss.NewStyle().Foreground(t.VentureColor)
+	venture := lipgloss.NewStyle().Foreground(t.VentureColor)
 	text := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
 
 	h := hood.Render
 	b := body.Render
 	e := eye.Render
 	k := key.Render
-	tt := torch.Render
+	tt := venture.Render
 	tx := text.Render
 
 	return h("╭─╮") + "           " + h("╭─╮") + "\n" +

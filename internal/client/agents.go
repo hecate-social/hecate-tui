@@ -8,7 +8,7 @@ import (
 // Agent represents an active agent in the swarm.
 type Agent struct {
 	AgentID       string `json:"agent_id"`
-	VentureID     string `json:"torch_id"`
+	VentureID     string `json:"venture_id"`
 	AgentType     string `json:"agent_type"`      // "specialist" or "generalist"
 	Role          string `json:"role"`            // "dna", "anp", "tni", "dno"
 	Status        int    `json:"status"`

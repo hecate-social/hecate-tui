@@ -50,7 +50,7 @@ apps/{context}/src/{command}/
 
 ```
 apps/{context}/src/{policy}/
-├── {policy}_sup.erl                 # Spoke supervisor
+├── {policy}_sup.erl                 # Desk supervisor
 └── {policy}.erl                     # Listener + dispatcher
 ```
 

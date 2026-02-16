@@ -2,12 +2,27 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/hecate-social/hecate-tui/internal/llm"
 )
+
+var debugLog *os.File
+
+func init() {
+	debugLog, _ = os.OpenFile("/tmp/hecate-tui-debug.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+}
+
+func debugf(format string, args ...any) {
+	if debugLog != nil {
+		fmt.Fprintf(debugLog, format+"\n", args...)
+		debugLog.Sync()
+	}
+}
 
 type streamState struct {
 	ctx         context.Context
@@ -26,6 +41,7 @@ func (m *Model) sendMessage() tea.Cmd {
 
 func (m *Model) sendMessageWithToolResults(toolResults []llm.ToolResult) tea.Cmd {
 	return func() tea.Msg {
+		debugf("sendMessageWithToolResults: toolResults=%d messages=%d", len(toolResults), len(m.messages))
 		if len(m.models) == 0 {
 			return streamErrorMsg{err: fmt.Errorf("no models available")}
 		}
@@ -48,10 +64,14 @@ func (m *Model) sendMessageWithToolResults(toolResults []llm.ToolResult) tea.Cmd
 			if msg.Role == "system" {
 				continue // Don't send system messages to LLM
 			}
-			llmMsgs = append(llmMsgs, llm.Message{
+			lm := llm.Message{
 				Role:    llm.Role(msg.Role),
 				Content: msg.Content,
-			})
+			}
+			if len(msg.ToolCalls) > 0 {
+				lm.ToolCalls = msg.ToolCalls
+			}
+			llmMsgs = append(llmMsgs, lm)
 		}
 
 		// Add tool results if any
@@ -121,31 +141,57 @@ func (m *Model) buildToolSchemas() []llm.ToolSchema {
 
 func pollStreamCmd() tea.Msg {
 	if activeStream == nil {
-		return streamDoneMsg{totalTokens: 0, duration: 0, reason: "activeStream was nil"}
+		debugf("pollStreamCmd: activeStream is nil")
+		// Return no-op instead of streamDoneMsg so stale poll ticks during
+		// tool execution don't kill the streaming state.
+		return continueStreamMsg{}
 	}
 
 	select {
 	case resp, ok := <-activeStream.respChan:
 		if !ok {
+			debugf("pollStreamCmd: respChan closed")
 			duration := time.Since(activeStream.start)
 			tokens := activeStream.totalTokens
+			// Check errChan for a buffered error before reporting "channel closed".
+			// This fixes a race where Go's select picks respChan closure over errChan.
+			select {
+			case err, eOk := <-activeStream.errChan:
+				if eOk && err != nil && err != context.Canceled {
+					activeStream = nil
+					return streamErrorMsg{err: err}
+				}
+			default:
+			}
 			activeStream = nil
-			return streamDoneMsg{totalTokens: tokens, duration: duration, reason: "channel closed"}
+			return streamDoneMsg{totalTokens: tokens, duration: duration, reason: "stream completed"}
 		}
+		// Debug: dump the raw response
+		raw, _ := json.Marshal(resp)
+		debugf("pollStreamCmd: got chunk: %s", string(raw))
+		debugf("pollStreamCmd: Message=%v ToolUse=%v Done=%v", resp.Message != nil, resp.ToolUse != nil, resp.Done)
+		if resp.Message != nil {
+			debugf("pollStreamCmd: Message.ToolCalls=%d Content=%q", len(resp.Message.ToolCalls), resp.Message.Content)
+		}
+
 		if resp.EvalCount > 0 {
 			activeStream.totalTokens = resp.EvalCount
 		}
 
-		// Check for tool use in the response
+		// Check for tool use in the response (Anthropic streaming format)
 		if resp.ToolUse != nil {
-			// Complete tool call received
+			debugf("pollStreamCmd: ToolUse detected (Anthropic)")
+			// Clear activeStream so stale poll ticks don't read remaining chunks
+			activeStream = nil
 			return toolUseCompleteMsg{call: *resp.ToolUse}
 		}
 
-		// Check for tool calls - Anthropic uses stop_reason="tool_use",
-		// but Ollama uses "stop" with tool_calls present
-		if resp.Done && resp.Message != nil && len(resp.Message.ToolCalls) > 0 {
-			// Return the first tool call (we'll handle multiple later)
+		// Check for tool calls in message (Ollama/OpenAI format).
+		// Ollama sends tool_calls in a done:false chunk, so check regardless of Done.
+		if resp.Message != nil && len(resp.Message.ToolCalls) > 0 {
+			debugf("pollStreamCmd: ToolCalls detected in Message: %+v", resp.Message.ToolCalls[0])
+			// Clear activeStream so stale poll ticks don't read remaining chunks
+			activeStream = nil
 			return toolUseCompleteMsg{call: resp.Message.ToolCalls[0]}
 		}
 
@@ -153,8 +199,10 @@ func pollStreamCmd() tea.Msg {
 			duration := time.Since(activeStream.start)
 			tokens := activeStream.totalTokens
 			activeStream = nil
+			debugf("pollStreamCmd: Done=true, tokens=%d duration=%v", tokens, duration)
 			return streamDoneMsg{totalTokens: tokens, duration: duration, reason: "resp.Done=true"}
 		}
+		debugf("pollStreamCmd: returning streamChunkMsg")
 		return streamChunkMsg{chunk: resp}
 
 	case err, ok := <-activeStream.errChan:
