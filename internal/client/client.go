@@ -76,6 +76,7 @@ type Response struct {
 // Health represents the health check response
 type Health struct {
 	Status        string `json:"status"`
+	Ready         bool   `json:"ready"`
 	UptimeSeconds int    `json:"uptime_seconds"`
 	Version       string `json:"version"`
 }

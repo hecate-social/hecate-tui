@@ -48,6 +48,8 @@ func (a *App) renderBrandRow() string {
 	switch a.daemonStatus {
 	case "healthy", "ok":
 		daemonSection += a.styles.StatusOK.Render("●") + a.styles.Subtle.Render(" daemon")
+	case "starting":
+		daemonSection += a.styles.StatusWarning.Render("●") + a.styles.Subtle.Render(" daemon starting")
 	case "degraded":
 		daemonSection += a.styles.StatusWarning.Render("●") + a.styles.Subtle.Render(" daemon")
 	default:

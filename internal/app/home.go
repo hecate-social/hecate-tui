@@ -78,6 +78,8 @@ func (a *App) renderHome() string {
 	switch a.daemonStatus {
 	case "healthy", "ok":
 		daemonLine = a.styles.StatusOK.Render("●") + a.styles.Subtle.Render(" daemon healthy")
+	case "starting":
+		daemonLine = a.styles.StatusWarning.Render("●") + a.styles.Subtle.Render(" daemon starting...")
 	case "degraded":
 		daemonLine = a.styles.StatusWarning.Render("●") + a.styles.Subtle.Render(" daemon degraded")
 	default:

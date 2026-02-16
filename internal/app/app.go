@@ -200,11 +200,21 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case healthMsg:
-		a.daemonStatus = msg.status
-		a.statusBar.DaemonStatus = msg.status
+		if msg.status == "error" {
+			a.daemonStatus = "error"
+		} else if !msg.ready {
+			a.daemonStatus = "starting"
+		} else {
+			a.daemonStatus = msg.status
+		}
+		a.statusBar.DaemonStatus = a.daemonStatus
 
 	case healthTickMsg:
-		cmds = append(cmds, a.checkHealth, a.scheduleHealthTick())
+		if a.daemonStatus == "error" || a.daemonStatus == "starting" {
+			cmds = append(cmds, a.checkHealth, a.scheduleHealthTickFast())
+		} else {
+			cmds = append(cmds, a.checkHealth, a.scheduleHealthTick())
+		}
 
 	case commands.SwitchThemeMsg:
 		a.switchTheme(msg.Theme)
@@ -517,17 +527,24 @@ func (a *App) scheduleHealthTick() tea.Cmd {
 	})
 }
 
+func (a *App) scheduleHealthTickFast() tea.Cmd {
+	return tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
+		return healthTickMsg{}
+	})
+}
+
 func (a *App) checkHealth() tea.Msg {
 	health, err := a.client.GetHealth()
 	if err != nil {
 		return healthMsg{status: "error"}
 	}
-	return healthMsg{status: health.Status}
+	return healthMsg{status: health.Status, ready: health.Ready}
 }
 
 // healthMsg carries daemon health check results.
 type healthMsg struct {
 	status string
+	ready  bool
 }
 
 // healthTickMsg triggers periodic health polling.
