@@ -90,9 +90,10 @@ func checkGeoRestriction() (bool, string, string) {
 // Priority:
 //  1. HECATE_SOCKET env var (explicit socket path)
 //  2. /run/hecate/daemon.sock (system-level, k8s deployment)
-//  3. ~/.config/hecate/connectors/tui.sock (user-level, local dev)
-//  4. HECATE_URL env var (TCP)
-//  5. http://localhost:4444 (TCP default - DEPRECATED)
+//  3. $HOME/.hecate/daemon.sock (local dev, multi-user safe)
+//  4. ~/.config/hecate/connectors/tui.sock (user-level, local dev)
+//  5. HECATE_URL env var (TCP)
+//  6. http://localhost:4444 (TCP default - DEPRECATED)
 //
 // Returns (socketPath, hecateURL) — one will be empty.
 func resolveConnection() (string, string) {
@@ -111,13 +112,21 @@ func resolveConnection() (string, string) {
 		return systemSocket, ""
 	}
 
-	// 3. User-level socket (local development)
+	// 3. User home socket ($HOME/.hecate/ — multi-user safe, no root needed)
+	if home := os.Getenv("HOME"); home != "" {
+		homeSocket := filepath.Join(home, ".hecate", "daemon.sock")
+		if fileExists(homeSocket) {
+			return homeSocket, ""
+		}
+	}
+
+	// 4. User config socket (~/.config/hecate/connectors/tui.sock)
 	userSocket := userSocketPath()
 	if userSocket != "" && fileExists(userSocket) {
 		return userSocket, ""
 	}
 
-	// 4. TCP from env or default (deprecated - socket preferred)
+	// 5. TCP from env or default (deprecated - socket preferred)
 	hecateURL := os.Getenv("HECATE_URL")
 	if hecateURL == "" {
 		hecateURL = "http://localhost:4444"
@@ -163,9 +172,10 @@ CONNECTION:
     The TUI connects to the daemon in this priority order:
     1. HECATE_SOCKET env var (explicit socket path)
     2. /run/hecate/daemon.sock (system socket, k8s deployment)
-    3. ~/.config/hecate/connectors/tui.sock (user socket, local dev)
-    4. HECATE_URL env var (TCP connection, deprecated)
-    5. http://localhost:4444 (TCP default, deprecated)
+    3. $HOME/.hecate/daemon.sock (local dev, multi-user safe)
+    4. ~/.config/hecate/connectors/tui.sock (user socket, local dev)
+    5. HECATE_URL env var (TCP connection, deprecated)
+    6. http://localhost:4444 (TCP default, deprecated)
 
 MODES:
     Normal           Default. Scroll chat, access commands.
