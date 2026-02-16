@@ -11,6 +11,7 @@ import (
 	"github.com/hecate-social/hecate-tui/internal/modes"
 	"github.com/hecate-social/hecate-tui/internal/studio"
 	"github.com/hecate-social/hecate-tui/internal/studios/arcade/snake_duel"
+	"github.com/hecate-social/hecate-tui/internal/studios/arcade/stables"
 )
 
 // arcadeApp describes a sub-app card on the home screen.
@@ -30,12 +31,13 @@ type Studio struct {
 	focused bool
 
 	// Home view state
-	activeApp string // "" = home, "snake_duel" = Snake Duel sub-app
+	activeApp string // "" = home, "snake_duel" = Snake Duel, "stables" = Stables
 	appIndex  int    // selected card on home screen
 	apps      []arcadeApp
 
-	// Snake Duel sub-app (nil until opened)
+	// Sub-apps (nil until opened)
 	snakeDuel *snake_duel.Model
+	stables   *stables.Model
 }
 
 // New creates a new Arcade Studio.
@@ -44,6 +46,7 @@ func New(ctx *studio.Context) *Studio {
 		ctx: ctx,
 		apps: []arcadeApp{
 			{id: "snake_duel", name: "Snake Duel", icon: "\U0001F40D", description: "Two AI snakes battle it out", active: true},
+			{id: "stables", name: "Stables", icon: "\U0001F3DF", description: "Train snake gladiators", active: true},
 			{id: "tetris", name: "Tetris", icon: "\U0001F9E9", description: "Classic block stacking", active: false},
 			{id: "pong", name: "Pong", icon: "\U0001F3D3", description: "Retro table tennis", active: false},
 			{id: "life", name: "Conway's Life", icon: "\U0001F9EC", description: "Cellular automaton", active: false},
@@ -66,6 +69,9 @@ func (s *Studio) SetSize(width, height int) {
 	if s.snakeDuel != nil {
 		s.snakeDuel.SetSize(width, height)
 	}
+	if s.stables != nil {
+		s.stables.SetSize(width, height)
+	}
 }
 
 func (s *Studio) Mode() modes.Mode {
@@ -76,12 +82,18 @@ func (s *Studio) Hints() string {
 	if s.activeApp == "snake_duel" && s.snakeDuel != nil {
 		return s.snakeDuel.Hints()
 	}
+	if s.activeApp == "stables" && s.stables != nil {
+		return s.stables.Hints()
+	}
 	return "\u2191\u2193\u2190\u2192:navigate  Enter:open"
 }
 
 func (s *Studio) StatusInfo() studio.StatusInfo {
 	if s.activeApp == "snake_duel" && s.snakeDuel != nil {
 		return s.snakeDuel.StatusInfo()
+	}
+	if s.activeApp == "stables" && s.stables != nil {
+		return s.stables.StatusInfo()
 	}
 	return studio.StatusInfo{}
 }
@@ -96,11 +108,20 @@ func (s *Studio) Update(msg tea.Msg) (studio.Studio, tea.Cmd) {
 	// Snake Duel sub-app active: delegate everything
 	if s.activeApp == "snake_duel" && s.snakeDuel != nil {
 		cmd := s.snakeDuel.Update(msg)
-
-		// Check if game requested going back to home
 		if s.snakeDuel.WantsBack() {
 			s.snakeDuel.ClearWantsBack()
 			s.closeSnakeDuel()
+			return s, nil
+		}
+		return s, cmd
+	}
+
+	// Stables sub-app active: delegate everything
+	if s.activeApp == "stables" && s.stables != nil {
+		cmd := s.stables.Update(msg)
+		if s.stables.WantsBack() {
+			s.stables.ClearWantsBack()
+			s.closeStables()
 			return s, nil
 		}
 		return s, cmd
@@ -124,6 +145,10 @@ func (s *Studio) View() string {
 		return s.snakeDuel.View()
 	}
 
+	if s.activeApp == "stables" && s.stables != nil {
+		return s.stables.View()
+	}
+
 	return s.viewHome()
 }
 
@@ -140,6 +165,23 @@ func (s *Studio) closeSnakeDuel() {
 	if s.snakeDuel != nil {
 		s.snakeDuel.Close()
 		s.snakeDuel = nil
+	}
+	s.activeApp = ""
+}
+
+// openStables launches the Stables sub-app.
+func (s *Studio) openStables() tea.Cmd {
+	s.activeApp = "stables"
+	s.stables = stables.New(s.ctx)
+	s.stables.SetSize(s.width, s.height)
+	return s.stables.Init()
+}
+
+// closeStables returns to the home screen.
+func (s *Studio) closeStables() {
+	if s.stables != nil {
+		s.stables.Close()
+		s.stables = nil
 	}
 	s.activeApp = ""
 }

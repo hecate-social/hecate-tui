@@ -17,6 +17,8 @@ func (s *Studio) handleHomeKey(msg tea.KeyMsg) tea.Cmd {
 			switch s.apps[s.appIndex].id {
 			case "snake_duel":
 				return s.openSnakeDuel()
+			case "stables":
+				return s.openStables()
 			}
 		}
 		return nil
