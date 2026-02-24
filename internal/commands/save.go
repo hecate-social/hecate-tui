@@ -36,7 +36,7 @@ func (c *SaveCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		// Build markdown content
 		var b strings.Builder
 		b.WriteString("# Hecate Chat Transcript\n")
-		b.WriteString(fmt.Sprintf("*Exported: %s*\n\n", time.Now().Format("2006-01-02 15:04:05")))
+		fmt.Fprintf(&b, "*Exported: %s*\n\n", time.Now().Format("2006-01-02 15:04:05"))
 		b.WriteString("---\n\n")
 
 		for _, msg := range messages {

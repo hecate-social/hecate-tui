@@ -267,7 +267,7 @@ func listDirectoryHandler(ctx context.Context, args json.RawMessage) (string, er
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Directory: %s\n\n", a.Path))
+	fmt.Fprintf(&sb, "Directory: %s\n\n", a.Path)
 
 	if a.Recursive {
 		_ = filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
@@ -294,7 +294,7 @@ func listDirectoryHandler(ctx context.Context, args json.RawMessage) (string, er
 			} else {
 				prefix = "[file] "
 			}
-			sb.WriteString(fmt.Sprintf("%s%s\n", prefix, rel))
+			fmt.Fprintf(&sb, "%s%s\n", prefix, rel)
 			return nil
 		})
 	} else {
@@ -323,10 +323,10 @@ func listDirectoryHandler(ctx context.Context, args json.RawMessage) (string, er
 
 		// List directories first
 		for _, d := range dirs {
-			sb.WriteString(fmt.Sprintf("[dir]  %s\n", d))
+			fmt.Fprintf(&sb, "[dir]  %s\n", d)
 		}
 		for _, f := range files {
-			sb.WriteString(fmt.Sprintf("[file] %s\n", f))
+			fmt.Fprintf(&sb, "[file] %s\n", f)
 		}
 	}
 
@@ -443,13 +443,13 @@ func globSearchHandler(ctx context.Context, args json.RawMessage) (string, error
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Found %d files matching '%s':\n\n", len(matches), a.Pattern))
+	fmt.Fprintf(&sb, "Found %d files matching '%s':\n\n", len(matches), a.Pattern)
 	for _, m := range matches {
 		sb.WriteString(m + "\n")
 	}
 
 	if len(matches) == limit {
-		sb.WriteString(fmt.Sprintf("\n(limited to %d results)", limit))
+		fmt.Fprintf(&sb, "\n(limited to %d results)", limit)
 	}
 
 	return sb.String(), nil

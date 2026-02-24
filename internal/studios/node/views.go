@@ -230,12 +230,12 @@ func (s *Studio) viewModels() string {
 
 	// Column headers
 	headerStyle := lipgloss.NewStyle().Foreground(t.TextMuted).Bold(true)
-	b.WriteString(fmt.Sprintf("  %s %s %s %s\n",
+	fmt.Fprintf(&b, "  %s %s %s %s\n",
 		headerStyle.Render(padRight("Model", 26)),
 		headerStyle.Render(padRight("Provider", 14)),
 		headerStyle.Render(padRight("Size", 10)),
 		headerStyle.Render("Params"),
-	))
+	)
 
 	colSep := lipgloss.NewStyle().Foreground(t.Border).
 		Render("  " + strings.Repeat("\u2500", min(s.width-4, 60)))
@@ -308,13 +308,13 @@ func (s *Studio) viewProviders() string {
 
 	// Column headers
 	headerStyle := lipgloss.NewStyle().Foreground(t.TextMuted).Bold(true)
-	b.WriteString(fmt.Sprintf("  %s %s %s %s %s\n",
+	fmt.Fprintf(&b, "  %s %s %s %s %s\n",
 		headerStyle.Render("  "),
 		headerStyle.Render(padRight("Name", 16)),
 		headerStyle.Render(padRight("Type", 12)),
 		headerStyle.Render(padRight("Status", 10)),
 		headerStyle.Render("URL"),
-	))
+	)
 
 	colSep := lipgloss.NewStyle().Foreground(t.Border).
 		Render("  " + strings.Repeat("\u2500", min(s.width-4, 60)))
@@ -399,11 +399,11 @@ func (s *Studio) viewCapabilities() string {
 
 	// Column headers
 	headerStyle := lipgloss.NewStyle().Foreground(t.TextMuted).Bold(true)
-	b.WriteString(fmt.Sprintf("  %s %s %s\n",
+	fmt.Fprintf(&b, "  %s %s %s\n",
 		headerStyle.Render(padRight("MRI", 36)),
 		headerStyle.Render(padRight("Description", 24)),
 		headerStyle.Render("Tags"),
-	))
+	)
 
 	colSep := lipgloss.NewStyle().Foreground(t.Border).
 		Render("  " + strings.Repeat("\u2500", min(s.width-4, 65)))
@@ -510,23 +510,23 @@ func (s *Studio) viewHealthDetail() string {
 				indicator = "\u25cb"
 				color = t.TextMuted
 			}
-			b.WriteString(fmt.Sprintf("    %s %s (%s)\n",
+			fmt.Fprintf(&b, "    %s %s (%s)\n",
 				lipgloss.NewStyle().Foreground(color).Render(indicator),
 				valueStyle.Render(name),
 				lipgloss.NewStyle().Foreground(t.TextDim).Render(p.Type),
-			))
+			)
 		}
 	}
 
 	// Summary counts
 	b.WriteString("\n")
 	b.WriteString("  " + sectionStyle.Render("Summary") + "\n")
-	b.WriteString(fmt.Sprintf("    Models:        %s\n",
-		valueStyle.Render(itoa(len(s.models)))))
-	b.WriteString(fmt.Sprintf("    Capabilities:  %s\n",
-		valueStyle.Render(itoa(len(s.capabilities)))))
-	b.WriteString(fmt.Sprintf("    Agents:        %s\n",
-		valueStyle.Render(itoa(len(s.agents)))))
+	fmt.Fprintf(&b, "    Models:        %s\n",
+		valueStyle.Render(itoa(len(s.models))))
+	fmt.Fprintf(&b, "    Capabilities:  %s\n",
+		valueStyle.Render(itoa(len(s.capabilities))))
+	fmt.Fprintf(&b, "    Agents:        %s\n",
+		valueStyle.Render(itoa(len(s.agents))))
 
 	return b.String()
 }
@@ -570,12 +570,12 @@ func (s *Studio) viewCategories() string {
 		countText := lipgloss.NewStyle().Foreground(t.TextDim).
 			Render("  " + pluralize(actionCount, "action", "actions"))
 
-		b.WriteString(fmt.Sprintf("%s%s %s%s\n",
+		fmt.Fprintf(&b, "%s%s %s%s\n",
 			cursor,
 			cat.Icon,
 			nameStyle.Render(cat.Name),
 			countText,
-		))
+		)
 	}
 
 	// Center the menu
@@ -634,7 +634,7 @@ func (s *Studio) viewActions() string {
 				Render("  (instant)")
 		}
 
-		b.WriteString(fmt.Sprintf("%s%s%s\n", cursor, nameStyle.Render(action.Name), suffix))
+		fmt.Fprintf(&b, "%s%s%s\n", cursor, nameStyle.Render(action.Name), suffix)
 	}
 
 	content := b.String()

@@ -174,7 +174,7 @@ func (s *Studio) viewCategories() string {
 			nameStyle = lipgloss.NewStyle().Foreground(t.Text).Bold(true)
 		}
 
-		b.WriteString(fmt.Sprintf("%s%s %s%s\n", cursor, icon, nameStyle.Render(name), count))
+		fmt.Fprintf(&b, "%s%s %s%s\n", cursor, icon, nameStyle.Render(name), count)
 	}
 
 	b.WriteString("\n")
@@ -222,7 +222,7 @@ func (s *Studio) viewActions() string {
 			badge = lipgloss.NewStyle().Foreground(t.TextDim).Render(" [confirm]")
 		}
 
-		b.WriteString(fmt.Sprintf("%s%s  %s%s\n", cursor, verb, nameStyle.Render(action.Name), badge))
+		fmt.Fprintf(&b, "%s%s  %s%s\n", cursor, verb, nameStyle.Render(action.Name), badge)
 	}
 
 	b.WriteString("\n")

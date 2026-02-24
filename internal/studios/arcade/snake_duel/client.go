@@ -182,7 +182,7 @@ func StartMatch(socketPath, baseURL string, af1, af2, tickMs int) tea.Cmd {
 		if err != nil {
 			return MatchStartFailedMsg{Err: err}
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		respBody, err := io.ReadAll(resp.Body)
 		if err != nil {

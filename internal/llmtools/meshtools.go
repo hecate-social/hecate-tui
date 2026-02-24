@@ -84,20 +84,20 @@ func meshSearchHandler(ctx context.Context, args json.RawMessage) (string, error
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Found %d capabilities matching '%s':\n\n", len(capabilities), a.Query))
+	fmt.Fprintf(&sb, "Found %d capabilities matching '%s':\n\n", len(capabilities), a.Query)
 
 	for i, cap := range capabilities {
-		sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, cap.MRI))
+		fmt.Fprintf(&sb, "%d. %s\n", i+1, cap.MRI)
 		if cap.Description != "" {
-			sb.WriteString(fmt.Sprintf("   Description: %s\n", cap.Description))
+			fmt.Fprintf(&sb, "   Description: %s\n", cap.Description)
 		}
 		if len(cap.Tags) > 0 {
-			sb.WriteString(fmt.Sprintf("   Tags: %s\n", strings.Join(cap.Tags, ", ")))
+			fmt.Fprintf(&sb, "   Tags: %s\n", strings.Join(cap.Tags, ", "))
 		}
 		if cap.DemoProcedure != "" {
-			sb.WriteString(fmt.Sprintf("   Demo: %s\n", cap.DemoProcedure))
+			fmt.Fprintf(&sb, "   Demo: %s\n", cap.DemoProcedure)
 		}
-		sb.WriteString(fmt.Sprintf("   Agent: %s\n", truncateID(cap.AgentIdentity)))
+		fmt.Fprintf(&sb, "   Agent: %s\n", truncateID(cap.AgentIdentity))
 		sb.WriteString("\n")
 	}
 
@@ -161,9 +161,9 @@ func meshCallHandler(ctx context.Context, args json.RawMessage) (string, error) 
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("RPC Call: %s\n", a.Procedure))
+	fmt.Fprintf(&sb, "RPC Call: %s\n", a.Procedure)
 	if result.Duration != "" {
-		sb.WriteString(fmt.Sprintf("Duration: %s\n", result.Duration))
+		fmt.Fprintf(&sb, "Duration: %s\n", result.Duration)
 	}
 	sb.WriteString("\nResult:\n")
 

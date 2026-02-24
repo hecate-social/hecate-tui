@@ -100,9 +100,9 @@ func runCommandHandler(ctx context.Context, args json.RawMessage) (string, error
 	duration := time.Since(startTime)
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("$ %s\n", a.Command))
-	sb.WriteString(fmt.Sprintf("Working directory: %s\n", workingDir))
-	sb.WriteString(fmt.Sprintf("Duration: %.2fs\n\n", duration.Seconds()))
+	fmt.Fprintf(&sb, "$ %s\n", a.Command)
+	fmt.Fprintf(&sb, "Working directory: %s\n", workingDir)
+	fmt.Fprintf(&sb, "Duration: %.2fs\n\n", duration.Seconds())
 
 	if stdout.Len() > 0 {
 		output := stdout.String()
@@ -131,9 +131,9 @@ func runCommandHandler(ctx context.Context, args json.RawMessage) (string, error
 
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
-			sb.WriteString(fmt.Sprintf("\nCommand timed out after %d seconds", timeout))
+			fmt.Fprintf(&sb, "\nCommand timed out after %d seconds", timeout)
 		} else {
-			sb.WriteString(fmt.Sprintf("\nExit error: %s", err.Error()))
+			fmt.Fprintf(&sb, "\nExit error: %s", err.Error())
 		}
 	} else {
 		sb.WriteString("\nExit code: 0")

@@ -75,13 +75,13 @@ func webSearchHandler(ctx context.Context, args json.RawMessage) (string, error)
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Search results for '%s':\n\n", a.Query))
+	fmt.Fprintf(&sb, "Search results for '%s':\n\n", a.Query)
 
 	for i, r := range results {
-		sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, r.Title))
-		sb.WriteString(fmt.Sprintf("   URL: %s\n", r.URL))
+		fmt.Fprintf(&sb, "%d. %s\n", i+1, r.Title)
+		fmt.Fprintf(&sb, "   URL: %s\n", r.URL)
 		if r.Snippet != "" {
-			sb.WriteString(fmt.Sprintf("   %s\n", r.Snippet))
+			fmt.Fprintf(&sb, "   %s\n", r.Snippet)
 		}
 		sb.WriteString("\n")
 	}
@@ -245,7 +245,7 @@ func webFetchHandler(ctx context.Context, args json.RawMessage) (string, error) 
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Content from: %s\n\n", a.URL))
+	fmt.Fprintf(&sb, "Content from: %s\n\n", a.URL)
 	sb.WriteString(content)
 
 	return sb.String(), nil
