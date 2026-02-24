@@ -85,14 +85,14 @@ func readFileHandler(ctx context.Context, args json.RawMessage) (string, error) 
 
 	// Format with line numbers
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("File: %s (%d lines total)\n", a.Path, len(lines)))
+	fmt.Fprintf(&sb, "File: %s (%d lines total)\n", a.Path, len(lines))
 	if start > 0 || end < len(lines) {
-		sb.WriteString(fmt.Sprintf("Showing lines %d-%d\n", start+1, end))
+		fmt.Fprintf(&sb, "Showing lines %d-%d\n", start+1, end)
 	}
 	sb.WriteString("\n")
 
 	for i := start; i < end; i++ {
-		sb.WriteString(fmt.Sprintf("%6d│ %s\n", i+1, lines[i]))
+		fmt.Fprintf(&sb, "%6d│ %s\n", i+1, lines[i])
 	}
 
 	return sb.String(), nil

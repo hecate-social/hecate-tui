@@ -108,7 +108,7 @@ func duckDuckGoSearch(ctx context.Context, query string, numResults int) ([]Sear
 	if err != nil {
 		return nil, fmt.Errorf("search request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("search returned status %d", resp.StatusCode)
@@ -275,7 +275,7 @@ func fetchAndExtractText(ctx context.Context, targetURL string, maxLength int) (
 	if err != nil {
 		return "", fmt.Errorf("fetch failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("fetch returned status %d", resp.StatusCode)

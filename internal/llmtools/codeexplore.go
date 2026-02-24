@@ -541,7 +541,7 @@ func isBinaryFile(path string) bool {
 	if err != nil {
 		return true
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Read first 512 bytes
 	buf := make([]byte, 512)
