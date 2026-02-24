@@ -419,9 +419,6 @@ type channelsFetchErrMsg struct{ err error }
 type channelOpenedMsg struct{ channel client.IrcChannel }
 type channelOpenErrMsg struct{ err error }
 
-// openChannelPromptMsg signals the user wants to open a new channel.
-type openChannelPromptMsg struct{}
-
 // Ensure formatDuration helper for view use
 func formatTimestamp(t time.Time) string {
 	if t.IsZero() {

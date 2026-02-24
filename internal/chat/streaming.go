@@ -19,8 +19,8 @@ func init() {
 
 func debugf(format string, args ...any) {
 	if debugLog != nil {
-		fmt.Fprintf(debugLog, format+"\n", args...)
-		debugLog.Sync()
+		_, _ = fmt.Fprintf(debugLog, format+"\n", args...)
+		_ = debugLog.Sync()
 	}
 }
 

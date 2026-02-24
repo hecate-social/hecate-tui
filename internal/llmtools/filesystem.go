@@ -270,7 +270,7 @@ func listDirectoryHandler(ctx context.Context, args json.RawMessage) (string, er
 	sb.WriteString(fmt.Sprintf("Directory: %s\n\n", a.Path))
 
 	if a.Recursive {
-		err = filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
+		_ = filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
 			if err != nil {
 				return nil // Skip errors
 			}
@@ -399,7 +399,7 @@ func globSearchHandler(ctx context.Context, args json.RawMessage) (string, error
 			searchPath = filepath.Join(basePath, prefix)
 		}
 
-		filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
+		_ = filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
 			if err != nil || info.IsDir() {
 				return nil
 			}

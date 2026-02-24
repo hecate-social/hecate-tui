@@ -16,7 +16,7 @@ func TestParsesSSEFact(t *testing.T) {
 		if !ok {
 			t.Fatal("ResponseWriter does not support Flusher")
 		}
-		fmt.Fprint(w, "data: {\"fact_type\":\"venture_setup_v1\",\"data\":{\"name\":\"test\"}}\n\n")
+		_, _ = fmt.Fprint(w, "data: {\"fact_type\":\"venture_setup_v1\",\"data\":{\"name\":\"test\"}}\n\n")
 		flusher.Flush()
 		// Keep connection open briefly so client can read
 		time.Sleep(200 * time.Millisecond)
@@ -47,10 +47,10 @@ func TestSkipsCommentsAndHeartbeats(t *testing.T) {
 		w.WriteHeader(200)
 		flusher := w.(http.Flusher)
 		// Send heartbeat comment first
-		fmt.Fprint(w, ": heartbeat\n\n")
+		_, _ = fmt.Fprint(w, ": heartbeat\n\n")
 		flusher.Flush()
 		// Then a real fact
-		fmt.Fprint(w, "data: {\"fact_type\":\"real_fact\",\"data\":{}}\n\n")
+		_, _ = fmt.Fprint(w, "data: {\"fact_type\":\"real_fact\",\"data\":{}}\n\n")
 		flusher.Flush()
 		time.Sleep(200 * time.Millisecond)
 	}))
@@ -76,9 +76,9 @@ func TestSkipsDONE(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(200)
 		flusher := w.(http.Flusher)
-		fmt.Fprint(w, "data: [DONE]\n\n")
+		_, _ = fmt.Fprint(w, "data: [DONE]\n\n")
 		flusher.Flush()
-		fmt.Fprint(w, "data: {\"fact_type\":\"after_done\",\"data\":{}}\n\n")
+		_, _ = fmt.Fprint(w, "data: {\"fact_type\":\"after_done\",\"data\":{}}\n\n")
 		flusher.Flush()
 		time.Sleep(200 * time.Millisecond)
 	}))
@@ -106,10 +106,10 @@ func TestSkipsMalformedJSON(t *testing.T) {
 		w.WriteHeader(200)
 		flusher := w.(http.Flusher)
 		// Malformed JSON — should be skipped, no panic
-		fmt.Fprint(w, "data: not-json\n\n")
+		_, _ = fmt.Fprint(w, "data: not-json\n\n")
 		flusher.Flush()
 		// Valid fact follows
-		fmt.Fprint(w, "data: {\"fact_type\":\"valid\",\"data\":{}}\n\n")
+		_, _ = fmt.Fprint(w, "data: {\"fact_type\":\"valid\",\"data\":{}}\n\n")
 		flusher.Flush()
 		time.Sleep(200 * time.Millisecond)
 	}))
@@ -147,7 +147,7 @@ func TestCloseDisconnects(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(200)
 		flusher := w.(http.Flusher)
-		fmt.Fprint(w, ": connected\n\n")
+		_, _ = fmt.Fprint(w, ": connected\n\n")
 		flusher.Flush()
 		// Block until client disconnects
 		<-r.Context().Done()

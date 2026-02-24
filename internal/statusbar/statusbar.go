@@ -166,23 +166,6 @@ func (m Model) modeStyle() lipgloss.Style {
 	}
 }
 
-// phaseStyle returns a style for ALC phase badges.
-func (m Model) phaseStyle(phase string) lipgloss.Style {
-	base := lipgloss.NewStyle().Padding(0, 1).Bold(true)
-	switch strings.ToLower(phase) {
-	case "dna":
-		return base.Foreground(lipgloss.Color("#7C3AED")) // Purple - Discovery
-	case "anp":
-		return base.Foreground(lipgloss.Color("#2563EB")) // Blue - Architecture
-	case "tni":
-		return base.Foreground(lipgloss.Color("#059669")) // Green - Testing
-	case "dno":
-		return base.Foreground(lipgloss.Color("#DC2626")) // Red - Deployment
-	default:
-		return base.Foreground(lipgloss.Color("#6B7280")) // Gray
-	}
-}
-
 // isPaidProvider returns true if the current model uses a commercial provider.
 func (m Model) isPaidProvider() bool {
 	switch m.ModelProvider {

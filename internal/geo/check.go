@@ -184,19 +184,23 @@ func GetPublicIP() (net.IP, error) {
 		if err != nil {
 			continue
 		}
-		defer resp.Body.Close()
 
-		if resp.StatusCode != 200 {
-			continue
-		}
+		ip := func() net.IP {
+			defer func() { _ = resp.Body.Close() }()
 
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			continue
-		}
+			if resp.StatusCode != 200 {
+				return nil
+			}
 
-		ipStr := strings.TrimSpace(string(body))
-		ip := net.ParseIP(ipStr)
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil
+			}
+
+			ipStr := strings.TrimSpace(string(body))
+			return net.ParseIP(ipStr)
+		}()
+
 		if ip != nil {
 			return ip, nil
 		}
@@ -362,7 +366,7 @@ func CheckWithDaemon(socketPath, httpURL string) (*CheckResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to check geo status: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

@@ -26,7 +26,7 @@ func TestListProviders(t *testing.T) {
 				}
 			}`),
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -72,7 +72,7 @@ func TestListProvidersError(t *testing.T) {
 			Ok:    false,
 			Error: "internal error",
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -96,7 +96,7 @@ func TestAddProvider(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to read request body: %v", err)
 		}
-		defer r.Body.Close()
+		defer func() { _ = r.Body.Close() }()
 
 		var reqBody map[string]string
 		if err := json.Unmarshal(body, &reqBody); err != nil {
@@ -117,7 +117,7 @@ func TestAddProvider(t *testing.T) {
 			Ok:     true,
 			Result: json.RawMessage(`{}`),
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -134,7 +134,7 @@ func TestAddProviderError(t *testing.T) {
 			Ok:    false,
 			Error: "invalid type",
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -158,7 +158,7 @@ func TestRemoveProvider(t *testing.T) {
 			Ok:     true,
 			Result: json.RawMessage(`{}`),
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -175,7 +175,7 @@ func TestRemoveProviderError(t *testing.T) {
 			Ok:    false,
 			Error: "cannot remove built-in provider: ollama",
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -204,7 +204,7 @@ func TestListModels(t *testing.T) {
 				]
 			}`),
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 

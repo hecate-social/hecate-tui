@@ -35,7 +35,7 @@ func TestGetHealth(t *testing.T) {
 				"version": "0.1.0"
 			}`),
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -62,7 +62,7 @@ func TestGetHealthError(t *testing.T) {
 			Ok:    false,
 			Error: "daemon_unavailable",
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -87,7 +87,7 @@ func TestGetIdentity(t *testing.T) {
 				"created_at": "2026-02-01T12:00:00Z"
 			}`),
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -122,7 +122,7 @@ func TestDiscoverCapabilities(t *testing.T) {
 				]
 			}`),
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -175,7 +175,7 @@ func TestListSubscriptions(t *testing.T) {
 				]
 			}`),
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 

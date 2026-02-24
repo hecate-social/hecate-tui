@@ -50,9 +50,7 @@ type Model struct {
 	err error
 
 	// Input visibility (controlled by mode)
-	inputVisible   bool
-	commandVisible bool
-	commandInput   string
+	inputVisible bool
 
 	// System prompt
 	systemPrompt string
@@ -424,22 +422,22 @@ func (m *Model) ToggleThinking() {
 
 // ScrollUp scrolls the viewport up by n lines.
 func (m *Model) ScrollUp(n int) {
-	m.viewport.LineUp(n)
+	m.viewport.ScrollUp(n)
 }
 
 // ScrollDown scrolls the viewport down by n lines.
 func (m *Model) ScrollDown(n int) {
-	m.viewport.LineDown(n)
+	m.viewport.ScrollDown(n)
 }
 
 // HalfPageUp scrolls up half a page.
 func (m *Model) HalfPageUp() {
-	m.viewport.HalfViewUp()
+	m.viewport.HalfPageUp()
 }
 
 // HalfPageDown scrolls down half a page.
 func (m *Model) HalfPageDown() {
-	m.viewport.HalfViewDown()
+	m.viewport.HalfPageDown()
 }
 
 // GotoTop jumps to the beginning of chat.

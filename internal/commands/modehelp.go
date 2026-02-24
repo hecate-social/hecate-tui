@@ -7,9 +7,7 @@ import (
 )
 
 // ModeHelpCmd shows contextual help for the current mode.
-type ModeHelpCmd struct {
-	registry *Registry
-}
+type ModeHelpCmd struct{}
 
 func (c *ModeHelpCmd) Name() string        { return "modehelp" }
 func (c *ModeHelpCmd) Aliases() []string   { return nil }

@@ -26,7 +26,7 @@ func (c *GeoCmd) Execute(args []string, ctx *Context) tea.Cmd {
 		// Try local check first
 		checker, localErr := geo.NewChecker()
 		if localErr == nil {
-			defer checker.Close()
+			defer func() { _ = checker.Close() }()
 			result, err := checker.CheckPublicIP()
 			if err == nil {
 				b.WriteString(formatLabel(s, "Local Check", 14))

@@ -62,7 +62,7 @@ func checkGeoRestriction() (bool, string, string) {
 	// Try local database check first
 	checker, err := geo.NewChecker()
 	if err == nil {
-		defer checker.Close()
+		defer func() { _ = checker.Close() }()
 		result, err := checker.CheckPublicIP()
 		if err == nil && !result.Allowed {
 			return true, result.CountryCode, result.CountryName

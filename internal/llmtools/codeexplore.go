@@ -160,7 +160,7 @@ func grepManual(ctx context.Context, a grepSearchArgs, searchPath string, limit 
 		if err != nil {
 			return nil
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		rel, _ := filepath.Rel(searchPath, path)
 		scanner := bufio.NewScanner(file)
@@ -192,7 +192,7 @@ func grepManual(ctx context.Context, a grepSearchArgs, searchPath string, limit 
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Found %d matches for '%s':\n\n", len(matches), a.Pattern))
+	fmt.Fprintf(&sb, "Found %d matches for '%s':\n\n", len(matches), a.Pattern)
 	for _, m := range matches {
 		sb.WriteString(m + "\n")
 	}
@@ -316,7 +316,7 @@ func symbolSearchHandler(ctx context.Context, args json.RawMessage) (string, err
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Found %d definitions for '%s':\n\n", len(unique), a.Symbol))
+	fmt.Fprintf(&sb, "Found %d definitions for '%s':\n\n", len(unique), a.Symbol)
 	for _, m := range unique {
 		sb.WriteString(m + "\n")
 	}
@@ -521,14 +521,14 @@ func codeContextHandler(ctx context.Context, args json.RawMessage) (string, erro
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("File: %s (lines %d-%d)\n\n", a.Path, start+1, end))
+	fmt.Fprintf(&sb, "File: %s (lines %d-%d)\n\n", a.Path, start+1, end)
 
 	for i := start; i < end; i++ {
 		marker := " "
 		if i+1 == a.Line {
 			marker = ">" // Mark the target line
 		}
-		sb.WriteString(fmt.Sprintf("%s%5d│ %s\n", marker, i+1, lines[i]))
+		fmt.Fprintf(&sb, "%s%5d│ %s\n", marker, i+1, lines[i])
 	}
 
 	return sb.String(), nil

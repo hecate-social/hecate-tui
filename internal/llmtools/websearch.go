@@ -394,7 +394,7 @@ func decodeHTMLEntities(text string) string {
 	numericPattern := regexp.MustCompile(`&#(\d+);`)
 	text = numericPattern.ReplaceAllStringFunc(text, func(match string) string {
 		var num int
-		fmt.Sscanf(match, "&#%d;", &num)
+		_, _ = fmt.Sscanf(match, "&#%d;", &num)
 		if num > 0 && num < 0x10FFFF {
 			return string(rune(num))
 		}

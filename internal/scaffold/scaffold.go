@@ -407,7 +407,7 @@ func RetryCloneAgents(root string) error {
 	agentsDir := filepath.Join(root, ".hecate", "agents")
 
 	// Remove partial clone if exists
-	os.RemoveAll(agentsDir)
+	_ = os.RemoveAll(agentsDir)
 
 	return cloneAgents(agentsDir)
 }

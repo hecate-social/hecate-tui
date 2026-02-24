@@ -95,7 +95,7 @@ func (c *Client) ChatStream(ctx context.Context, req llm.ChatRequest) (<-chan ll
 			errChan <- fmt.Errorf("request failed: %w", err)
 			return
 		}
-		defer httpResp.Body.Close()
+		defer func() { _ = httpResp.Body.Close() }()
 
 		if httpResp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(httpResp.Body)

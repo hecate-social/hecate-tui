@@ -268,9 +268,10 @@ func (s *Studio) renderRow(item TaskItem, selected bool) string {
 	// Label
 	label := item.Label
 	labelStyle := lipgloss.NewStyle().Foreground(t.Text)
-	if item.State == "blocked" {
+	switch item.State {
+	case "blocked":
 		labelStyle = lipgloss.NewStyle().Foreground(t.TextMuted)
-	} else if item.State == "done" {
+	case "done":
 		labelStyle = lipgloss.NewStyle().Foreground(t.TextDim)
 	}
 

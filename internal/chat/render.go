@@ -49,29 +49,6 @@ func (m Model) ViewError() string {
 	return ""
 }
 
-func (m Model) renderStreaming() string {
-	frame := ThinkingFrames[m.thinkingFrame]
-	sparkle := Sparkles[m.thinkingFrame%len(Sparkles)]
-
-	streamStyle := lipgloss.NewStyle().Foreground(m.theme.StreamingColor).Bold(true)
-	subtleStyle := lipgloss.NewStyle().Foreground(m.theme.TextMuted)
-
-	// Model name
-	modelPart := ""
-	if name := m.ActiveModelName(); name != "" {
-		modelPart = subtleStyle.Render(" via " + name)
-	}
-
-	// Elapsed time
-	elapsed := time.Since(m.streamStart)
-	elapsedPart := subtleStyle.Render(fmt.Sprintf("  %0.1fs", elapsed.Seconds()))
-
-	// Cancel hint
-	cancelHint := subtleStyle.Render("  (Esc to cancel)")
-
-	return streamStyle.Render("  "+sparkle+" "+frame+" "+sparkle) + modelPart + elapsedPart + cancelHint
-}
-
 func (m Model) renderStats() string {
 	durationPart := lipgloss.NewStyle().Foreground(m.theme.TextMuted).
 		Render(fmt.Sprintf("  %0.1fs", m.lastDuration.Seconds()))

@@ -174,7 +174,7 @@ func (d *Detector) readGitRemote(path string) string {
 	if err != nil {
 		return ""
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	scanner := bufio.NewScanner(file)
 	inRemoteOrigin := false
@@ -202,7 +202,7 @@ func (d *Detector) readHecateMd(path string) (title, phase string) {
 	if err != nil {
 		return "", ""
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {

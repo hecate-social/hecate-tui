@@ -214,19 +214,6 @@ func (c *VentureCmd) showCurrentVenture(ctx *Context) tea.Cmd {
 	}
 }
 
-func (c *VentureCmd) showVentureByID(ventureID string, ctx *Context) tea.Cmd {
-	return func() tea.Msg {
-		s := ctx.Styles
-
-		venture, err := ctx.Client.GetVentureByID(ventureID)
-		if err != nil {
-			return InjectSystemMsg{Content: s.Error.Render("Failed to get venture: " + err.Error())}
-		}
-
-		return InjectSystemMsg{Content: c.renderVentureCard(venture, ctx)}
-	}
-}
-
 func (c *VentureCmd) listVentures(ctx *Context, includeArchived bool) tea.Cmd {
 	return func() tea.Msg {
 		s := ctx.Styles

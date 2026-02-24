@@ -122,12 +122,9 @@ func TestPollStreamCmd_NilActiveStream(t *testing.T) {
 	activeStream = nil
 
 	msg := pollStreamCmd()
-	done, ok := msg.(streamDoneMsg)
+	_, ok := msg.(continueStreamMsg)
 	if !ok {
-		t.Fatalf("pollStreamCmd() with nil activeStream = %T, want streamDoneMsg", msg)
-	}
-	if done.reason != "activeStream was nil" {
-		t.Errorf("reason = %q, want %q", done.reason, "activeStream was nil")
+		t.Fatalf("pollStreamCmd() with nil activeStream = %T, want continueStreamMsg", msg)
 	}
 }
 

@@ -282,12 +282,13 @@ func processItalic(text string, style lipgloss.Style) string {
 func leadingSpaces(s string) int {
 	count := 0
 	for _, ch := range s {
-		if ch == ' ' {
+		switch ch {
+		case ' ':
 			count++
-		} else if ch == '\t' {
+		case '\t':
 			count += 4
-		} else {
-			break
+		default:
+			return count
 		}
 	}
 	return count
@@ -316,33 +317,3 @@ func parseNumberedList(s string) (string, string) {
 	return num, content
 }
 
-// wrapText wraps text to the specified width, breaking at word boundaries.
-func wrapText(text string, width int) string {
-	if width <= 0 {
-		width = 80
-	}
-	if len(text) <= width {
-		return text
-	}
-
-	var result strings.Builder
-	var lineLen int
-
-	words := strings.Fields(text)
-	for i, word := range words {
-		wordLen := len(word)
-
-		if lineLen+wordLen > width && lineLen > 0 {
-			result.WriteString("\n")
-			lineLen = 0
-		} else if i > 0 && lineLen > 0 {
-			result.WriteString(" ")
-			lineLen++
-		}
-
-		result.WriteString(word)
-		lineLen += wordLen
-	}
-
-	return result.String()
-}
