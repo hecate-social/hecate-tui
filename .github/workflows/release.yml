@@ -122,7 +122,7 @@ jobs:
 
             **Recommended: Use the installer**
             ```bash
-            curl -fsSL https://raw.githubusercontent.com/hecate-social/hecate-node/main/install.sh | bash
+            curl -fsSL https://raw.githubusercontent.com/hecate-social/hecate-install/main/install.sh | bash
             ```
 
             **Manual - Linux (amd64):**

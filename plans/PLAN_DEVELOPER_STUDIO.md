@@ -943,7 +943,7 @@ Worked examples demonstrating correct approach.
 ```
 
 Skills files are:
-- Shipped with hecate-node installer
+- Shipped with hecate-install installer
 - User-customizable
 - Loaded as context when Chat is invoked in that phase
 - Version-controlled in `hecate-social/hecate-skills` repo (future)
